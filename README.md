@@ -1,8 +1,8 @@
 # Karyo DE
 
 Karyo DE is the Qt 6 desktop for Karyo Linux. This repository currently contains
-its first independently buildable component, the UI foundation. The shell,
-applications and selectable Wayland session are subsequent migration steps.
+the independently buildable UI foundation and desktop-entry/icon integration.
+The shell, applications and selectable Wayland session are subsequent steps.
 
 The foundation provides the existing light/dark palettes, accent choices,
 IBM Plex font preferences and painting helpers. It reads the existing
@@ -12,7 +12,7 @@ does not install a display manager, session, fonts, browser defaults or services
 ## Build and test
 
 On Debian 13, build dependencies are CMake 3.21+, Ninja, a C++17 compiler,
-`qt6-base-dev` and `qt6-base-dev-tools`. Install dependencies explicitly in
+`qt6-base-dev`, `qt6-base-dev-tools` and `qt6-svg-dev`. Install dependencies explicitly in
 a development environment, or use the Karyo Builder container recipe.
 
 ```sh
@@ -23,7 +23,9 @@ cmake --install build --prefix /usr --component development
 ```
 
 Installed consumers use `find_package(KaryoUiFoundation 0.1 CONFIG REQUIRED)`
-and link `Karyo::UiFoundation`. Public headers use `karyo/ui/*.h` and the
+and link `Karyo::UiFoundation`. For desktop entries and icons, find
+`KaryoDesktopIntegration` and link `Karyo::DesktopIntegration`.
+Its install component is `desktop-development`. Public headers use `karyo/ui/*.h` and the
 `Karyo::Ui` namespace. Existing user settings retain the prototype's
 `openkaryon/desktop.conf` location. No ABI stability is promised before the
 first DE release.
@@ -31,7 +33,8 @@ A downstream build smoke check is in `tests/consumer`.
 
 The implementation is adapted from the Karyo desktop prototype. See
 [provenance](docs/PROVENANCE.md) and the [migration map](docs/MIGRATION.md).
-Own code is GPL-3.0-or-later. Qt and subsequently introduced resources retain
+Own code is GPL-3.0-or-later. The embedded Lucide resources retain their
+[upstream license](resources/lucide/LICENSE). Qt and other dependencies retain
 their upstream licenses. IBM Plex is referenced by family name, not bundled.
 
 ## Next milestone
