@@ -43,3 +43,8 @@ add_library(karyo-shell-services STATIC
     ${shell_dir}/polkit/authdialog.cpp ${shell_dir}/polkit/authdialog.h
     ${shell_dir}/polkit/polkitagent.cpp ${shell_dir}/polkit/polkitagent.h)
 target_link_libraries(karyo-shell-services PUBLIC karyo-shell-core PolkitQt6-1::Agent)
+
+add_library(karyo-shell-start STATIC
+    ${shell_dir}/start/appindex.cpp ${shell_dir}/start/appindex.h
+    ${shell_dir}/start/symbols.cpp ${shell_dir}/start/symbols.h)
+target_link_libraries(karyo-shell-start PUBLIC karyo-shell-core)
