@@ -1,0 +1,60 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -eu
+data_dir='@CMAKE_INSTALL_FULL_DATADIR@/karyo/session'
+case "${1:-}" in
+    --check) check_only=1 ;;
+    '') check_only=0 ;;
+    *) echo "Usage: karyo-session [--check]" >&2; exit 2 ;;
+esac
+if [ "$#" -gt 1 ]; then
+    echo "Usage: karyo-session [--check]" >&2
+    exit 2
+fi
+missing=0
+for program in labwc karyo-shell karyo-lock; do
+    if ! command -v "$program" >/dev/null 2>&1; then
+        echo "karyo-session: required program unavailable: $program" >&2
+        missing=1
+    fi
+done
+if [ ! -r "$data_dir/labwc/rc.xml" ] || [ ! -x "$data_dir/labwc/autostart" ] ||
+    [ ! -r "$data_dir/keyboard" ] || [ ! -r "$data_dir/renderer" ]; then
+    echo "karyo-session: session configuration is unavailable: $data_dir" >&2
+    missing=1
+fi
+[ "$missing" = 0 ] || exit 1
+if [ "$check_only" = 1 ]; then
+    echo "Karyo session programs and configuration are available."
+    exit 0
+fi
+if [ -z "${XDG_RUNTIME_DIR:-}" ] || [ ! -d "$XDG_RUNTIME_DIR" ]; then
+    echo "karyo-session: start from a login session with XDG_RUNTIME_DIR" >&2
+    exit 1
+fi
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    if ! command -v dbus-run-session >/dev/null 2>&1; then
+        echo "karyo-session: dbus-run-session is required without a session bus" >&2
+        exit 1
+    fi
+    exec dbus-run-session -- "$0"
+fi
+. "$data_dir/keyboard"
+. "$data_dir/renderer"
+profile="${XDG_CONFIG_HOME:-$HOME/.config}/karyo/session.env"
+if [ ! -r "$profile" ]; then
+    profile="${XDG_CONFIG_HOME:-$HOME/.config}/openkaryon/session.env"
+fi
+if [ -r "$profile" ]; then
+    set -a
+    . "$profile"
+    set +a
+fi
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=karyo
+export XDG_CURRENT_DESKTOP=Karyo
+export QT_QPA_PLATFORM='wayland;xcb'
+export QT_STYLE_OVERRIDE=Karyo
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/karyo"
+mkdir -p "$state_dir"
+exec labwc -C "$data_dir/labwc" >>"$state_dir/session.log" 2>&1

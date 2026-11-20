@@ -67,4 +67,7 @@ option(KARYO_BUILD_DESKTOP_INTEGRATION "Build desktop entry and icon integration
 if(KARYO_BUILD_DESKTOP_INTEGRATION)
     include(cmake/DesktopIntegration.cmake)
     include(cmake/Widgets.cmake)
+    include(cmake/Style.cmake)
 endif()
+
+include(cmake/Session.cmake)

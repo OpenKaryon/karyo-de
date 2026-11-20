@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+include(CMakeFindDependencyMacro)
+find_dependency(KaryoWidgets @PROJECT_VERSION@ CONFIG)
+include("${CMAKE_CURRENT_LIST_DIR}/KaryoStyleTargets.cmake")
+check_required_components(KaryoStyle)

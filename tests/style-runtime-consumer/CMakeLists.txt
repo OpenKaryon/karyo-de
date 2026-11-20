@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.21)
+project(KaryoRuntimeStyleConsumer LANGUAGES CXX)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets)
+add_executable(style-runtime-consumer main.cpp)
+target_link_libraries(style-runtime-consumer PRIVATE Qt6::Widgets)

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Karyo
+Comment=Karyo Wayland session
+Exec=karyo-session
+TryExec=karyo-shell
+Type=Application
+DesktopNames=Karyo

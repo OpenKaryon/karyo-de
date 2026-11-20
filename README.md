@@ -3,7 +3,8 @@
 Karyo DE is the Qt 6 desktop for Karyo Linux. This repository currently contains
 the independently buildable UI foundation, desktop-entry/icon integration
 and common widgets.
-The shell, applications and selectable Wayland session are subsequent steps.
+The Qt style/plugin is also extracted. A preparatory session launcher/configuration
+is available; the shell and PAM/Wayland lock still need migration.
 
 The foundation provides the existing light/dark palettes, accent choices,
 IBM Plex font preferences and painting helpers. It reads the existing
@@ -34,6 +35,10 @@ password and menu controls use `KaryoWidgets` / `Karyo::Widgets` and the
 first DE release.
 A downstream build smoke check is in `tests/consumer`.
 
+The style development target is `Karyo::Style`; the independent runtime plugin
+can be selected with `QT_STYLE_OVERRIDE=Karyo`. See [style](docs/STYLE.md)
+and [session preparation](docs/SESSION.md) for installation boundaries.
+
 The implementation is adapted from the Karyo desktop prototype. See
 [provenance](docs/PROVENANCE.md) and the [migration map](docs/MIGRATION.md).
 Own code is GPL-3.0-or-later. The embedded Lucide resources retain their
@@ -42,6 +47,6 @@ their upstream licenses. IBM Plex is referenced by family name, not bundled.
 
 ## Next milestone
 
-Extend the shared library in reviewed increments, then package a selectable
-session on clean Debian. Verify install, upgrade, removal and coexistence with
-an existing desktop before describing the standalone DE as complete.
+Migrate the shell with its file-operation/catalog dependencies, separate PAM lock
+from the optional greeter, then validate a complete selectable session on clean
+Debian. Verify login/lock, upgrade, removal and existing-desktop coexistence.
