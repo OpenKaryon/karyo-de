@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "integrations.h"
 #include "startmenu.h"
 
 #include "layersurface.h"
@@ -414,13 +415,9 @@ QWidget *StartMenu::buildFooter()
         close();
     });
     auto *settings = button(QStringLiteral("settings"), tr("Settings"));
+    settings->setEnabled(!Integrations::settingsProgram(false).isEmpty());
     connect(settings, &QAbstractButton::clicked, this, [this] {
-        for (const QString &id : {QStringLiteral("openkaryon-settings.desktop"), QStringLiteral("lxqt-config.desktop")}) {
-            if (const auto entry = DesktopEntry::find(id)) {
-                entry->launch();
-                break;
-            }
-        }
+        Integrations::openSettings();
         close();
     });
     auto *power = button(QStringLiteral("power"), tr("Power"));
