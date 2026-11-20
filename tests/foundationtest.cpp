@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include <openkaryon/ui/paint.h>
-#include <openkaryon/ui/theme.h>
+#include <karyo/ui/paint.h>
+#include <karyo/ui/theme.h>
 #include <QImage>
 #include <QPainter>
 #include <QSettings>
@@ -8,7 +8,7 @@
 #include <QStandardPaths>
 #include <QtTest>
 
-using namespace OpenKaryon::Ui;
+using namespace Karyo::Ui;
 
 class FoundationTest : public QObject
 {

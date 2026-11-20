@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "openkaryon/ui/paint.h"
+#include "karyo/ui/paint.h"
 
-#include "openkaryon/ui/theme.h"
+#include "karyo/ui/theme.h"
 
 #include <QHash>
 #include <QImage>
@@ -9,7 +9,7 @@
 
 #include <cmath>
 
-namespace OpenKaryon::Ui {
+namespace Karyo::Ui {
 
 namespace {
 
@@ -169,4 +169,4 @@ void drawKaryoMark(QPainter &painter, const QRectF &rect)
     painter.restore();
 }
 
-} // namespace OpenKaryon::Ui
+} // namespace Karyo::Ui

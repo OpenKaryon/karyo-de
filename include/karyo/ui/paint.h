@@ -6,7 +6,7 @@
 #include <QPainter>
 #include <QRectF>
 
-namespace OpenKaryon::Ui {
+namespace Karyo::Ui {
 
 // border-radius: 999px.
 void fillPill(QPainter &painter, const QRectF &rect, const QColor &color);
@@ -23,4 +23,4 @@ QMarginsF largeShadowMargins();
 // The Karyo mark: accent circle, neutral-100 nucleus and a sage dot (logo placeholder).
 void drawKaryoMark(QPainter &painter, const QRectF &rect);
 
-} // namespace OpenKaryon::Ui
+} // namespace Karyo::Ui

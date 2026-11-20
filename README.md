@@ -23,9 +23,10 @@ cmake --install build --prefix /usr --component development
 ```
 
 Installed consumers use `find_package(KaryoUiFoundation 0.1 CONFIG REQUIRED)`
-and link `Karyo::UiFoundation`. The existing `openkaryon/ui/*.h` headers,
-`OpenKaryon::Ui` namespace and settings location remain compatible with the
-prototype. No ABI stability is promised before the first DE release.
+and link `Karyo::UiFoundation`. Public headers use `karyo/ui/*.h` and the
+`Karyo::Ui` namespace. Existing user settings retain the prototype's
+`openkaryon/desktop.conf` location. No ABI stability is promised before the
+first DE release.
 A downstream build smoke check is in `tests/consumer`.
 
 The implementation is adapted from the Karyo desktop prototype. See
