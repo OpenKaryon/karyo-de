@@ -20,3 +20,17 @@ target_link_libraries(karyo-shell-core PUBLIC Karyo::Style Qt6::DBus Qt6::Waylan
 qt6_generate_wayland_protocol_client_sources(karyo-shell-core FILES
     ${PROJECT_SOURCE_DIR}/shell/protocols/openkaryon-keyboard-layout-v1.xml
     ${PROJECT_SOURCE_DIR}/shell/protocols/wlr-foreign-toplevel-management-unstable-v1.xml)
+
+add_library(karyo-shell-tray STATIC
+    ${shell_dir}/tray/dbusmenu.cpp ${shell_dir}/tray/dbusmenu.h
+    ${shell_dir}/tray/statusnotifierwatcher.cpp ${shell_dir}/tray/statusnotifierwatcher.h
+    ${shell_dir}/tray/trayhost.cpp ${shell_dir}/tray/trayhost.h
+    ${shell_dir}/tray/trayitem.cpp ${shell_dir}/tray/trayitem.h
+    ${shell_dir}/trayflyout.cpp ${shell_dir}/trayflyout.h)
+target_link_libraries(karyo-shell-tray PUBLIC karyo-shell-core)
+if(BUILD_TESTING)
+    add_executable(karyo-tray-test tests/traymenutest.cpp)
+    target_link_libraries(karyo-tray-test PRIVATE karyo-shell-tray)
+    add_test(NAME tray-context-menu COMMAND dbus-run-session -- $<TARGET_FILE:karyo-tray-test>)
+    set_tests_properties(tray-context-menu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
