@@ -41,6 +41,7 @@ protected:
 
 private:
     void tick();
+    void placeUserBlock();
     void showPowerMenu();
     void closeChoices();
 
