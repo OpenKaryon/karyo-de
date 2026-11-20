@@ -15,6 +15,22 @@ class DesktopEntryTest : public QObject
     Q_OBJECT
     QTemporaryDir m_data;
 private Q_SLOTS:
+    void publicAndLegacyApplicationsKeepVisualRoles()
+    {
+        for (const QString &name : {"files", "terminal", "editor", "photos", "player",
+                                   "snip", "reader", "calculator", "clock", "appcenter",
+                                   "monitor", "settings"}) {
+            DesktopEntry entry;
+            entry.id = QStringLiteral("karyo-%1.desktop").arg(name);
+            const auto current = AppStyle::forEntry(entry);
+            QVERIFY2(!current.glyph.isEmpty(), qPrintable(entry.id));
+            entry.id = QStringLiteral("openkaryon-%1.desktop").arg(name);
+            const auto legacy = AppStyle::forEntry(entry);
+            QCOMPARE(legacy.glyph, current.glyph);
+            QCOMPARE(legacy.tile, current.tile);
+            QCOMPARE(legacy.ink, current.ink);
+        }
+    }
 #ifdef KARYO_PROCESS_FIXTURE
     void launchKeepsLiveCaller_data()
     {
