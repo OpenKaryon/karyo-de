@@ -11,6 +11,9 @@ fi
     while [ "$quick" -lt 5 ]; do
         started=$(date +%s)
         karyo-shell
+        if [ -n "${LABWC_PID:-}" ] && ! kill -0 "$LABWC_PID" 2>/dev/null; then
+            exit 0
+        fi
         if [ $(($(date +%s) - started)) -lt 10 ]; then
             quick=$((quick + 1))
         else

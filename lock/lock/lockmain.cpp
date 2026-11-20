@@ -76,7 +76,11 @@ int runLock()
         message << locked;
         bus.call(message, QDBus::Block, 1000);
     };
-    QObject::connect(lock, &SessionLock::Lock::locked, qApp, [setLockedHint] { setLockedHint(true); });
+    QObject::connect(lock, &SessionLock::Lock::locked, qApp, [setLockedHint] {
+        setLockedHint(true);
+        std::fputs("KARYO_LOCKED\n", stdout);
+        std::fflush(stdout);
+    });
     QObject::connect(lock, &SessionLock::Lock::finished, qApp, [] { QCoreApplication::exit(1); });
     for (SignInView *view : std::as_const(views)) {
         lock->attach(view->windowHandle());
