@@ -1,10 +1,9 @@
 # Karyo DE
 
-Karyo DE is the Qt 6 desktop for Karyo Linux. This repository currently contains
-the independently buildable UI foundation, desktop-entry/icon integration
-and common widgets.
-The Qt style/plugin is also extracted. A preparatory session launcher/configuration
-is available; the shell and PAM/Wayland lock still need migration.
+Karyo DE is a Qt 6 desktop that can run independently on Debian 13 alongside
+an existing desktop. This repository contains the UI SDK, Qt style, Wayland
+shell, session launcher and PAM/Wayland lock. Karyo Linux consumes the same
+components and supplies its own OS policies separately.
 
 The foundation provides the existing light/dark palettes, accent choices,
 IBM Plex font preferences and painting helpers. It reads the existing
@@ -14,8 +13,11 @@ does not install a display manager, session, fonts, browser defaults or services
 ## Build and test
 
 On Debian 13, build dependencies are CMake 3.21+, Ninja, a C++17 compiler,
-`qt6-base-dev`, `qt6-base-dev-tools` and `qt6-svg-dev`. Install dependencies explicitly in
-a development environment, or use the Karyo Builder container recipe.
+`qt6-base-dev`, `qt6-base-dev-tools`, `qt6-svg-dev`, `qt6-wayland-dev`,
+`qt6-wayland-private-dev`, `qt6-base-private-dev`, `qt6-l10n-tools`,
+`libpam0g-dev`, `liblayershellqtinterface-dev` and `libpolkit-qt6-1-dev`.
+Use Karyo Builder's Debian container for the recorded environment.
+To build only the UI SDK, set `-DKARYO_BUILD_SESSION=OFF`.
 
 ```sh
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -37,7 +39,7 @@ A downstream build smoke check is in `tests/consumer`.
 
 The style development target is `Karyo::Style`; the independent runtime plugin
 can be selected with `QT_STYLE_OVERRIDE=Karyo`. See [style](docs/STYLE.md)
-and [session preparation](docs/SESSION.md) for installation boundaries.
+and [session](docs/SESSION.md) for installation boundaries.
 
 The implementation is adapted from the Karyo desktop prototype. See
 [provenance](docs/PROVENANCE.md) and the [migration map](docs/MIGRATION.md).
@@ -47,9 +49,9 @@ their upstream licenses. IBM Plex is referenced by family name, not bundled.
 
 ## Next milestone
 
-Migrate the shell with its file-operation/catalog dependencies, separate PAM lock
-from the optional greeter, then validate a complete selectable session on clean
-Debian. Verify login/lock, upgrade, removal and existing-desktop coexistence.
+The independent session passes a real headless labwc/PAM scenario. Complete
+actual display-manager login/coexistence and hardware suspend, GPU and
+multiple-output acceptance before declaring the DE release-ready.
 
 ## Standalone session
 
