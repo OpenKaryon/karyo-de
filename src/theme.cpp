@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-#include "openkaryon/ui/theme.h"
+#include "karyo/ui/theme.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -10,7 +10,7 @@
 #include <QStandardPaths>
 #include <QTimer>
 
-namespace OpenKaryon::Ui {
+namespace Karyo::Ui {
 
 namespace {
 
@@ -167,17 +167,17 @@ Theme Theme::make(ColorScheme scheme)
         t.hover = alpha(t.text, 7);
         t.press = alpha(t.text, 13);
         t.sel = alpha(t.accent, 16);
-        t.selInk = ::OpenKaryon::Ui::accent(800);
+        t.selInk = ::Karyo::Ui::accent(800);
         t.muted = alpha(t.text, 64);
-        t.ink1 = ::OpenKaryon::Ui::accent(700);
+        t.ink1 = ::Karyo::Ui::accent(700);
         t.ink2 = sage(700);
         t.tint1 = alpha(t.accent, 14);
         t.tint2 = alpha(t.accent2, 20);
-        t.blobA = ::OpenKaryon::Ui::accent(300);
+        t.blobA = ::Karyo::Ui::accent(300);
         t.blobB = sage(300);
-        t.blobC = ::OpenKaryon::Ui::accent(200);
+        t.blobC = ::Karyo::Ui::accent(200);
         t.blobD = sage(200);
-        t.blobE = ::OpenKaryon::Ui::accent(500);
+        t.blobE = ::Karyo::Ui::accent(500);
     } else {
         t.bg = mix(neutral(900), black, 62);
         t.text = neutral(200);
@@ -191,17 +191,17 @@ Theme Theme::make(ColorScheme scheme)
         t.hover = alpha(neutral(200), 8);
         t.press = alpha(neutral(200), 14);
         t.sel = alpha(t.accent, 24);
-        t.selInk = ::OpenKaryon::Ui::accent(300);
+        t.selInk = ::Karyo::Ui::accent(300);
         t.muted = alpha(neutral(200), 64);
-        t.ink1 = ::OpenKaryon::Ui::accent(400);
+        t.ink1 = ::Karyo::Ui::accent(400);
         t.ink2 = sage(400);
         t.tint1 = alpha(t.accent, 22);
         t.tint2 = alpha(t.accent2, 26);
-        t.blobA = ::OpenKaryon::Ui::accent(800);
+        t.blobA = ::Karyo::Ui::accent(800);
         t.blobB = sage(800);
-        t.blobC = ::OpenKaryon::Ui::accent(900);
+        t.blobC = ::Karyo::Ui::accent(900);
         t.blobD = sage(900);
-        t.blobE = ::OpenKaryon::Ui::accent(600);
+        t.blobE = ::Karyo::Ui::accent(600);
     }
     t.term = mix(neutral(900), black, 82);
     t.term2 = neutral(900);
@@ -343,4 +343,4 @@ ThemeNotifier *ThemeNotifier::instance()
     return &notifier;
 }
 
-} // namespace OpenKaryon::Ui
+} // namespace Karyo::Ui

@@ -6,7 +6,8 @@ from the Karyo desktop prototype at revision
 `distro/desktop/shared/libopenkaryon-ui/`.
 
 The public component retains existing color calculations, accent choices,
-settings keys, font fallbacks, drawing behavior and C++ entry points.
+settings keys, font fallbacks and drawing behavior. Public headers and the
+C++ namespace are renamed to `karyo/ui` and `Karyo::Ui`.
 The new build boundary exposes an installed CMake target and static development
 package, independent of the original monorepository build and OS defaults.
 Tests cover the retained behavior and an independent installed consumer.

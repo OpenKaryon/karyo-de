@@ -2,7 +2,7 @@
 
 The first migrated component is the shared theme/paint foundation. It is
 independently buildable and installable as development files, with an exported
-CMake target and the original C++ namespace/settings keys.
+CMake target, the `Karyo::Ui` namespace and compatible user settings keys.
 
 Prototype source is reviewed for API compatibility, dependencies, system
 effects, provenance and regression behavior before migration. Working code is

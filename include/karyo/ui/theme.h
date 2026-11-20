@@ -8,7 +8,7 @@
 #include <QList>
 #include <QObject>
 
-namespace OpenKaryon::Ui {
+namespace Karyo::Ui {
 
 enum class ColorScheme { Light, Dark };
 
@@ -100,4 +100,4 @@ Q_SIGNALS:
     void configurationChanged(const QString &name);
 };
 
-} // namespace OpenKaryon::Ui
+} // namespace Karyo::Ui

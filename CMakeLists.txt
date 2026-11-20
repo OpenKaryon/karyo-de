@@ -11,8 +11,8 @@ include(CMakePackageConfigHelpers)
 
 find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets)
 add_library(karyo-ui-foundation STATIC
-    include/openkaryon/ui/theme.h
-    include/openkaryon/ui/paint.h
+    include/karyo/ui/theme.h
+    include/karyo/ui/paint.h
     src/theme.cpp
     src/paint.cpp
 )
@@ -42,7 +42,8 @@ write_basic_package_version_file(
 )
 install(TARGETS karyo-ui-foundation EXPORT KaryoUiFoundationTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT development)
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT development)
+install(FILES include/karyo/ui/theme.h include/karyo/ui/paint.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/karyo/ui COMPONENT development)
 install(EXPORT KaryoUiFoundationTargets
     FILE KaryoUiFoundationTargets.cmake NAMESPACE Karyo::
     DESTINATION "${config_dir}" COMPONENT development)
