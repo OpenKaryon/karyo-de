@@ -10,9 +10,11 @@ reused and adapted or rewritten where needed, following CONTRIBUTING.md.
 The first component's precise origin is recorded in PROVENANCE.md.
 
 Theme/paint, desktop entries/icons, common widgets and the Qt style are now
-separate exported components. The session launcher/configuration is prepared.
-Migrate the shell and separate lock/session packaging from the optional greeter
-and distribution defaults next.
+separate exported components. The shell, PAM/Wayland lock and session entry
+now build independently. File-operation/type primitives and Wi-Fi behavior
+belong to the shell boundary; the optional app catalog is XDG data. The
+optional greeter, system integrations and distribution defaults remain separate.
+See SESSION.md for verified behavior and remaining acceptance.
 The complete source-to-product inventory is maintained in Karyo Builder's
 `docs/MIGRATION.md`.
 
