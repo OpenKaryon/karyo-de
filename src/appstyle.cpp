@@ -31,7 +31,7 @@ const QList<Role> &roles()
          {QStringLiteral("FileManager")}, "folder", nullptr, Ui::accent(300), Ui::accent(800)},
         {{QStringLiteral("firefox-esr"), QStringLiteral("firefox")},
          {QStringLiteral("WebBrowser")}, "globe", nullptr, Ui::sage(300), Ui::sage(800)},
-        {{QStringLiteral("qterminal"), QStringLiteral("foot"), QStringLiteral("openkaryon-terminal")},
+        {{QStringLiteral("karyo-terminal"), QStringLiteral("qterminal"), QStringLiteral("foot"), QStringLiteral("openkaryon-terminal")},
          {QStringLiteral("TerminalEmulator")}, "terminal", nullptr, Ui::neutral(800), Ui::sage(200)},
         {{QStringLiteral("featherpad"), QStringLiteral("openkaryon-editor")},
          {QStringLiteral("TextEditor")}, "file-pen-line", nullptr, Ui::accent(200), Ui::accent(700)},

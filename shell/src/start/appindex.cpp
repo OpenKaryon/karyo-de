@@ -28,6 +28,7 @@ namespace {
 // Start's pinned grid in KaryonStart.dc.html; apps that are not installed are skipped.
 const QStringList DefaultPinned = {
     QStringLiteral("openkaryon-files.desktop"),     QStringLiteral("chromium.desktop"),
+    QStringLiteral("karyo-terminal.desktop"),
     QStringLiteral("openkaryon-terminal.desktop"),  QStringLiteral("openkaryon-editor.desktop"),
     QStringLiteral("openkaryon-appcenter.desktop"), QStringLiteral("openkaryon-monitor.desktop"),
     QStringLiteral("openkaryon-settings.desktop"),  QStringLiteral("rstudio.desktop"),

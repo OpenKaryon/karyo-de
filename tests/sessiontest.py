@@ -65,6 +65,16 @@ exit 7
         self.assertEqual(lines[4], str(self.root / "share/karyo/session/labwc"))
         self.assertEqual(self.env["XDG_CURRENT_DESKTOP"], "ExistingDesktop")
 
+    def test_terminal_preference_is_scoped_and_respects_explicit_choice(self):
+        self.program("karyo-terminal", "#!/bin/sh\nexit 0\n")
+        self.program("labwc", '#!/bin/sh\nprintf "%s" "$TERMINAL" > "$PROBE"\n')
+        self.env.pop("TERMINAL", None)
+        self.assertEqual(self.run_launcher().returncode, 0)
+        self.assertEqual((self.root / "probe").read_text(), "karyo-terminal")
+        self.env["TERMINAL"] = "existing-terminal"
+        self.assertEqual(self.run_launcher().returncode, 0)
+        self.assertEqual((self.root / "probe").read_text(), "existing-terminal")
+
     def test_preflight_requires_configuration_helpers(self):
         (self.root / "share/karyo/session/keyboard").unlink()
         result = self.run_launcher("--check")

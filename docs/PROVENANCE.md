@@ -55,3 +55,12 @@ Wayland protocol copyright notices remain in the XML files and are installed
 with their corresponding runtime package. ext-session-lock-v1 retains Isaac
 Freund's MIT notice; foreign-toplevel retains Ilia Bozhinov's notice. The custom
 keyboard protocol retains the OpenKaryon Developers MIT attribution.
+
+## Independent applications
+
+Terminal sources and Russian translations are adapted from
+`distro/desktop/apps/terminal` at donor revision
+`26bad17cef413d26c36c117f2f1123dca4edded7`. They use public Karyo headers/targets,
+an independent runtime component and application ID. QTermWidget remains an
+external distribution library; no shell profile or SSH configuration is shipped.
+Ctrl+click HTTP(S) links, PTY execution, tabs and clipboard behavior are retained.

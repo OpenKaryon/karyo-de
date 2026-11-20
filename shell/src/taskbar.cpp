@@ -59,7 +59,7 @@ constexpr int SidePadding = 12;
 // Matches the dock of KaryonShell.dc.html; missing apps are skipped.
 const QStringList DefaultPinned = {
     QStringLiteral("openkaryon-files.desktop"),   QStringLiteral("chromium.desktop"),
-    QStringLiteral("openkaryon-terminal.desktop"), QStringLiteral("openkaryon-editor.desktop"),
+    QStringLiteral("karyo-terminal.desktop"), QStringLiteral("openkaryon-terminal.desktop"), QStringLiteral("openkaryon-editor.desktop"),
     QStringLiteral("rstudio.desktop"),            QStringLiteral("openkaryon-appcenter.desktop"),
     QStringLiteral("openkaryon-monitor.desktop"), QStringLiteral("openkaryon-settings.desktop"),
 };

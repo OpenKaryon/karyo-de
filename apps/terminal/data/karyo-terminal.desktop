@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Terminal
+Name[ru]=Терминал
+GenericName=Terminal emulator
+GenericName[ru]=Эмулятор терминала
+Comment=Use the command line
+Comment[ru]=Работа в командной строке
+Exec=karyo-terminal
+Icon=utilities-terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+Keywords=shell;prompt;command;commandline;bash;ssh;
+Keywords[ru]=оболочка;командная строка;консоль;bash;ssh;
+StartupWMClass=karyo-terminal

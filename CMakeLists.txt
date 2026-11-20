@@ -78,3 +78,12 @@ include(cmake/Session.cmake)
 include(cmake/Lock.cmake)
 
 include(cmake/Shell.cmake)
+
+option(KARYO_BUILD_APPS "Build the independently packaged desktop applications" ${KARYO_BUILD_DESKTOP_INTEGRATION})
+if(KARYO_BUILD_APPS)
+    if(NOT KARYO_BUILD_DESKTOP_INTEGRATION)
+        message(FATAL_ERROR "Karyo applications require desktop integration and widgets")
+    endif()
+    include(cmake/Translations.cmake)
+    add_subdirectory(apps/terminal)
+endif()
