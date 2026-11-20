@@ -39,6 +39,7 @@ still needs acceptance in a systemd/logind machine.
 
 The shell contains wallpaper/desktop file operations, taskbar, Start search,
 status-notifier tray, notifications, quick settings and a session polkit agent.
+Freedesktop autostart entries run once per compositor session through dex.
 An existing notification daemon or polkit agent remains authoritative if it
 already owns the standard service. Settings, audio, Bluetooth, power and network
 controls use available host services instead of installing private OS helpers.
