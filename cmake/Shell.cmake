@@ -34,3 +34,12 @@ if(BUILD_TESTING)
     add_test(NAME tray-context-menu COMMAND dbus-run-session -- $<TARGET_FILE:karyo-tray-test>)
     set_tests_properties(tray-context-menu PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+add_library(karyo-shell-services STATIC
+    ${shell_dir}/notify/notificationbanner.cpp ${shell_dir}/notify/notificationbanner.h
+    ${shell_dir}/notify/notificationcard.cpp ${shell_dir}/notify/notificationcard.h
+    ${shell_dir}/notify/notificationcenter.cpp ${shell_dir}/notify/notificationcenter.h
+    ${shell_dir}/notify/notificationserver.cpp ${shell_dir}/notify/notificationserver.h
+    ${shell_dir}/polkit/authdialog.cpp ${shell_dir}/polkit/authdialog.h
+    ${shell_dir}/polkit/polkitagent.cpp ${shell_dir}/polkit/polkitagent.h)
+target_link_libraries(karyo-shell-services PUBLIC karyo-shell-core PolkitQt6-1::Agent)
