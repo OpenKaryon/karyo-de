@@ -1,0 +1,31 @@
+[Desktop Entry]
+Type=Application
+Name=Calculator
+Name[ru]=Калькулятор
+GenericName=Calculator with lab conversions
+GenericName[ru]=Калькулятор с лабораторными пересчётами
+Comment=Standard and scientific calculations, molarity, dilutions and DNA concentrations
+Comment[ru]=Обычные и научные расчёты, молярность, разведения и концентрации ДНК
+Exec=karyo-calculator
+Icon=accessories-calculator
+Terminal=false
+Categories=Utility;Calculator;Science;
+Keywords=calculator;math;molarity;dilution;concentration;dna;rna;nanodrop;
+Keywords[ru]=калькулятор;математика;молярность;разведение;концентрация;днк;рнк;
+StartupWMClass=karyo-calculator
+Actions=molarity;dilution;nucleic;
+
+[Desktop Action molarity]
+Name=Molarity
+Name[ru]=Молярность
+Exec=karyo-calculator --mode molarity
+
+[Desktop Action dilution]
+Name=Dilution
+Name[ru]=Разведение
+Exec=karyo-calculator --mode dilution
+
+[Desktop Action nucleic]
+Name=Nucleic acids
+Name[ru]=Нуклеиновые кислоты
+Exec=karyo-calculator --mode nucleic

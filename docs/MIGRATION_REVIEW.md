@@ -18,7 +18,8 @@ and verified; this checklist must not be read as a completion claim.
 | Camera | Migrated with independent runtime and public UI. No-device controls/close pass on both bases (14/14 total tests); physical photo/video/audio acceptance pending. |
 | Photos | Migrated with atomic rotation publication and FileManager1. PNG pixels and failed-write preservation pass on both bases (15/15 total). GUI/package checks follow. |
 | Player, PDF Reader | Pending. Preserve multimedia, format handling and DBus integrations. |
-| Calculator, Clock, Editor, Monitor | Pending. Preserve donor engine/timer/buffer tests and native process/system behavior. |
+| Calculator | Core engine and complete UI migrated with shared history and existing scientific/lab modes. Native regressions pass on both bases (17/17 total); GUI package checks follow. |
+| Clock, Editor, Monitor | Pending. Preserve donor timer/buffer tests and native process/system behavior. |
 | Files | Pending. Preserve FileManager1, existing-window/tab routing, selection, rename, removable disks, folder-size cache and archive handoff. |
 | Archive | Pending. Preserve protected archives, password retry/cancel, atomic publication and actual compression/encryption behavior. |
 | Snipping | Pending. Preserve shortcuts, capture, editable annotations, inline text, blur, crop confirmation and clipboard. |

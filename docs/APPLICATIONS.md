@@ -58,3 +58,16 @@ Rotation publishes through QSaveFile instead of overwriting the original while
 encoding. Tests verify a PNG's actual rotated dimensions/pixels and byte-identical
 original contents after a failed unsupported-format write. All fifteen current
 CTest targets pass on both native bases.
+
+## Calculator
+
+karyo-calculator (short command: calculator) uses the retained Qt Core expression
+and unit engine with standard/scientific views, a shared history and the existing
+molarity/dilution/nucleic-acid conversion pages. The --mode routes and desktop
+actions remain available. Explicit legacy user settings retain the selected mode
+and angle choice; no old executable name or external scientific runtime is needed.
+
+The engine regression checks expressions, errors and unit/formula behavior. A
+separate widget test types expressions through the display, evaluates percentages,
+rejects division by zero, shares history between modes and clears it, using an
+isolated configuration directory. All seventeen current tests pass on both bases.

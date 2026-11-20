@@ -74,3 +74,12 @@ Photos comes from `distro/desktop/apps/photos` at the same application donor
 revision. The migrated viewer uses atomic QSaveFile publication for rotated
 images and standard FileManager1 selection with a default-folder fallback;
 it retains the existing per-user Photos/background settings keys.
+
+Calculator expression parsing and laboratory unit/formula primitives, with their
+existing regression program, come from `distro/desktop/apps/calculator` at the
+same application donor revision. They form a Qt Core-only internal target before
+the GUI is migrated. No external scientific SDK or personal data is embedded.
+
+Calculator UI, mode routes, desktop actions and Russian catalog are now adapted
+from that same donor component. The Qt Core engine remains an internal library;
+GUI packaging and native tests are independent from the shell/session.
