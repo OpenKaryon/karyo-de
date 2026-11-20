@@ -52,3 +52,11 @@ if(BUILD_TESTING)
     add_test(NAME desktop-entry-icons COMMAND karyo-desktop-entry-test)
     set_tests_properties(desktop-entry-icons PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+if(BUILD_TESTING AND UNIX)
+    add_executable(karyo-process-fixture tests/processfixture.cpp)
+    target_link_libraries(karyo-process-fixture PRIVATE Karyo::DesktopIntegration)
+    target_compile_definitions(karyo-desktop-entry-test PRIVATE
+        KARYO_PROCESS_FIXTURE="$<TARGET_FILE:karyo-process-fixture>")
+    add_dependencies(karyo-desktop-entry-test karyo-process-fixture)
+endif()
