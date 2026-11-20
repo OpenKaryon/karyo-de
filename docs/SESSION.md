@@ -1,43 +1,80 @@
-# Standalone session preparation
+# Standalone Karyo session
 
-The launcher and labwc configuration establish the standalone session boundary.
-The public shell and lock executables are subsequent migration work. This
-preparation does not yet establish a complete selectable desktop on Debian.
+The public shell and PAM/Wayland lock now run independently of the prototype.
+`karyo-session` starts labwc, with the shell on its background and panel layers.
+`karyo-shell --start` toggles Start through the session bus. `karyo-lock` uses
+ext-session-lock-v1; it does not emulate a lock with an ordinary fullscreen
+window. PAM checks the signed-in user using /etc/pam.d/karyo-lock.
 
-The preparatory package is karyo-session-entry. A future complete DE metapackage
-will also require the migrated shell and lock executables.
+## Package boundaries
 
-The launcher contract requires `labwc`, `karyo-shell` and `karyo-lock`.
-`karyo-session --check` reports missing programs before starting the compositor.
-The Wayland session entry uses TryExec=karyo-shell so an unfinished desktop
-does not appear as an available session. The install component is
-`session-runtime`; it includes only the launcher, session entry, configuration
-and documentation.
+Builder provides karyo-shell, karyo-lock, karyo-session-entry and the
+karyo-session bundle. Install the bundle to obtain the complete session.
+The entry package remains a small launcher/configuration component and keeps
+its original name for development compatibility. The Qt style has its own
+runtime package; SDKs are not required to run the desktop.
 
-The launcher sets Karyo's desktop identity and Qt style for its own session,
-preserves other environment choices, and uses a session bus or dbus-run-session.
-It writes a per-user state log and returns the compositor's exit status.
-The keyboard/renderer helpers retain the prototype's configured layouts,
-Alt+Shift fallback and safe rendering behavior. Explicit WLR_RENDERER choices
-are preserved. User environment settings prefer karyo/session.env and retain
-the previous openkaryon/session.env path as a fallback.
-The login manager, host OS identity, browser defaults and existing session
-entries are outside this package's ownership. No maintainer scripts modify them.
+The Wayland entry is /usr/share/wayland-sessions/karyo.desktop. Its
+TryExec=karyo-shell hides it when the shell is absent. The launcher checks
+labwc, karyo-shell, karyo-lock and its configuration before starting.
+Select Karyo in an existing display manager, or run karyo-session from a
+normal logind login on a dedicated VT with XDG_RUNTIME_DIR available.
+The optional greetd greeter is not installed and the login manager is not
+replaced. The launcher returns the compositor's exit status.
 
-The compositor autostart updates the activation environment after Wayland is
-ready and retains the prototype's bounded shell restart behavior.
-The installed style plugin supplies Qt controls; platform themes/portals remain
-separate. Native window rules recognize both Karyo and prototype application IDs.
+The default portal choice is installed as a Karyo-specific data file,
+karyo-portals.conf: GTK handles ordinary dialogs and wlr handles screen
+capture/casting. Other desktops retain their own portal selection, and user
+configuration takes precedence. Format reference:
+https://flatpak.github.io/xdg-desktop-portal/docs/portals.conf.html
 
-## Remaining session gates
+The lock package owns only its PAM policy; Debian conffile metadata preserves
+administrator edits on upgrade. It is an ordinary unprivileged application,
+using PAM's distribution-provided password helper. No setuid executable or
+global authentication bypass is introduced by Karyo. Logind sleep delay is
+held until the compositor confirms the managed lock; real suspend/resume
+still needs acceptance in a systemd/logind machine.
 
-Migrate shell/notification/tray/polkit and their file-operation/catalog
-dependencies, plus the PAM/Wayland lock. Separate the optional greetd frontend
-from the required lock. Review compatible labwc/wlroots versions and the portal
-provider. Package optional desktop isolation, VMware and compatibility runtimes
-independently.
+## Retained behavior and optional integrations
 
-Only after those components exist should clean Debian login, lock/suspend,
-session selection, coexistence, upgrade and removal be accepted. Current tests
-use isolated command fixtures to validate the launcher contract and return
-status. They make no claim of a complete desktop login or hardware validation.
+The shell contains wallpaper/desktop file operations, taskbar, Start search,
+status-notifier tray, notifications, quick settings and a session polkit agent.
+An existing notification daemon or polkit agent remains authoritative if it
+already owns the standard service. Settings, audio, Bluetooth, power and network
+controls use available host services instead of installing private OS helpers.
+Settings buttons are disabled when no compatible settings application exists.
+
+Per-user openkaryon/desktop.conf and shell.conf remain compatible with the
+prototype. User environment prefers karyo/session.env, with the old
+openkaryon/session.env as a fallback. Renderer and keyboard helpers preserve
+system settings, explicit WLR_RENDERER and the multiple-layout Alt+Shift
+fallback. The public desktop identity and Qt style apply only to this session.
+
+The command-line app catalog is optional XDG data at karyo/catalog.json; no
+App Center source or private catalog is embedded. Isolated user desktops are
+an optional external integration; their panel control is hidden without its
+helper. VMware, VPN namespaces, compatibility runtimes and OS/browser/boot
+policies remain separate products.
+
+The existing custom keyboard-layout wire protocol remains compatible with the
+patched compositor. With stock labwc, the indicator can observe physical
+layout changes but its cycle button is disabled when that extension is absent.
+Packaging the reviewed compositor extension is a later compatibility task.
+
+## Validation and remaining acceptance
+
+Ten CTest targets cover foundation, icons, widgets, style, launcher, PAM
+policy, tray, Start filters and shell-service policies. Independent installed
+SDK consumers continue to verify the UI component boundary.
+
+`tests/wayland-session-smoke.sh` exercises an actual headless labwc session
+under an unprivileged disposable fixture account: startup, Start, confirmed
+Wayland lock, a wrong password, a correct PAM password and clean logout.
+It expects KARYO_TEST_PASSWORD, XDG_RUNTIME_DIR and KARYO_TEST_ARTIFACTS.
+Use only disposable accounts, never a real user's password. The test is
+separate from CTest because it requires installed packages and a PAM fixture.
+
+Clean package installation/removal checks preserve /etc/os-release, another
+session entry and display-manager configuration. A complete display-manager
+login cycle, hardware suspend/resume, multiple physical outputs and GPU paths
+remain VM/hardware acceptance gates. Headless results do not establish them.

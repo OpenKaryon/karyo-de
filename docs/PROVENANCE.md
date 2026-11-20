@@ -37,3 +37,21 @@ backend preflight checks, scoped session identity, relocatable configured
 installation paths and a separate preparatory package. The complete shell,
 PAM lock, optional greeter and privileged system integrations are not included
 in this preparation. See SESSION.md for the remaining acceptance gates.
+
+## Public shell and lock
+
+The reviewed shell sources and Russian catalog come from distro/desktop/shell
+at the same donor revision. Desktop file operations/type tiles come from
+apps/files, and Wi-Fi activation comes from the shared UI library. The optional
+catalog is read through XDG data lookup instead of importing App Center data.
+The lock and sign-in view come from distro/desktop/signin, excluding greetd.
+
+PAM account failures are rejected; credentials remain outside logs. The public
+session uses its own binaries and bus name, excludes private greeter publishing
+and compositor rewrite helpers, and retains legacy per-user settings and wire
+protocols for compatibility. Optional system integrations remain separate.
+
+Wayland protocol copyright notices remain in the XML files and are installed
+with their corresponding runtime package. ext-session-lock-v1 retains Isaac
+Freund's MIT notice; foreign-toplevel retains Ilia Bozhinov's notice. The custom
+keyboard protocol retains the OpenKaryon Developers MIT attribution.
