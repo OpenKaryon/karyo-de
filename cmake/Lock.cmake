@@ -3,6 +3,10 @@ if(NOT KARYO_BUILD_SESSION)
     return()
 endif()
 find_package(Qt6 6.4 REQUIRED COMPONENTS DBus Network WaylandClient)
+# Qt 6.10 exports private modules through their own CMake packages.
+if(NOT TARGET Qt6::WaylandClientPrivate)
+    find_package(Qt6 REQUIRED COMPONENTS WaylandClientPrivate)
+endif()
 include(${CMAKE_CURRENT_LIST_DIR}/Translations.cmake)
 find_library(PAM_LIBRARY pam REQUIRED)
 qt_add_executable(karyo-lock
