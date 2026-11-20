@@ -71,3 +71,16 @@ The engine regression checks expressions, errors and unit/formula behavior. A
 separate widget test types expressions through the display, evaluates percentages,
 rejects division by zero, shares history between modes and clears it, using an
 isolated configuration directory. All seventeen current tests pass on both bases.
+
+## Clock
+
+karyo-clock (short command: clock) retains named timers, pause/reset/extra time,
+stopwatch/laps, persistence of wall-clock deadlines and freedesktop notifications.
+The legacy clock-timers.json location remains readable, so elapsed timers are
+reconciled when the application is opened again. Alarm playback uses available
+audio tools with an application-beep fallback and introduces no system daemon.
+
+The retained deterministic test advances a supplied clock, persists timers,
+reopens them after elapsed time and verifies completion occurs once. Both native
+bases pass all eighteen current tests. Actual audio playback remains a device/
+service acceptance scenario, not a property established by the fake-clock test.

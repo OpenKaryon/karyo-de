@@ -83,3 +83,8 @@ the GUI is migrated. No external scientific SDK or personal data is embedded.
 Calculator UI, mode routes, desktop actions and Russian catalog are now adapted
 from that same donor component. The Qt Core engine remains an internal library;
 GUI packaging and native tests are independent from the shell/session.
+
+Clock sources, Russian catalog and deterministic persisted-timer regression are
+adapted from `distro/desktop/apps/clock` at the same application donor revision.
+The existing per-user timer file remains compatible. Notifications and optional
+alarm playback use available freedesktop/audio services, not a private daemon.

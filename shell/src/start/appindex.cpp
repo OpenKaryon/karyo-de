@@ -36,7 +36,7 @@ const QStringList DefaultPinned = {
     QStringLiteral("libreoffice-writer.desktop"),   QStringLiteral("libreoffice-calc.desktop"),
     QStringLiteral("karyo-photos.desktop"), QStringLiteral("openkaryon-photos.desktop"),    QStringLiteral("openkaryon-player.desktop"),
     QStringLiteral("openkaryon-reader.desktop"),
-    QStringLiteral("karyo-calculator.desktop"), QStringLiteral("openkaryon-calculator.desktop"), QStringLiteral("openkaryon-clock.desktop"),
+    QStringLiteral("karyo-calculator.desktop"), QStringLiteral("openkaryon-calculator.desktop"), QStringLiteral("karyo-clock.desktop"), QStringLiteral("openkaryon-clock.desktop"),
     QStringLiteral("zotero.desktop"),
     QStringLiteral("org.inkscape.Inkscape.desktop"), QStringLiteral("thunderbird.desktop"),
     QStringLiteral("openkaryon-archive.desktop"),

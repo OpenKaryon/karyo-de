@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=Clock
+Name[ru]=Часы
+GenericName=Lab timers and stopwatch
+GenericName[ru]=Лабораторные таймеры и секундомер
+Comment=Several named timers at once, for the centrifuge, a gel or an incubation, and a stopwatch with laps
+Comment[ru]=Несколько именных таймеров сразу — для центрифуги, геля или инкубации — и секундомер с кругами
+Exec=karyo-clock
+Icon=alarm-clock
+Terminal=false
+Categories=Utility;Clock;Science;
+Keywords=timer;stopwatch;clock;alarm;centrifuge;incubation;gel;
+Keywords[ru]=таймер;секундомер;часы;будильник;центрифуга;инкубация;гель;
+StartupWMClass=karyo-clock
+Actions=stopwatch;
+
+[Desktop Action stopwatch]
+Name=Stopwatch
+Name[ru]=Секундомер
+Exec=karyo-clock --stopwatch
