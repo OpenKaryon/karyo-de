@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Camera
+Name[ru]=Камера
+Comment=Take photos and record video with sound
+Comment[ru]=Съёмка фотографий и видео со звуком
+Exec=karyo-camera
+Icon=camera-photo
+Terminal=false
+Categories=AudioVideo;Video;Recorder;
+Keywords=camera;webcam;photo;video;microphone;
+Keywords[ru]=камера;веб-камера;фото;видео;микрофон;
+StartupWMClass=karyo-camera

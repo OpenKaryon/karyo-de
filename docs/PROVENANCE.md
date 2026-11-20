@@ -64,3 +64,8 @@ Terminal sources and Russian translations are adapted from
 an independent runtime component and application ID. QTermWidget remains an
 external distribution library; no shell profile or SSH configuration is shipped.
 Ctrl+click HTTP(S) links, PTY execution, tabs and clipboard behavior are retained.
+
+Camera is adapted from `distro/desktop/apps/camera` at the same application
+donor revision. Qt Multimedia remains external. The migrated application keeps
+standard user Pictures/Videos locations, explicit recording finalization and
+microphone selection; it ships no captured media or device configuration.

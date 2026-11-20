@@ -15,7 +15,7 @@ and verified; this checklist must not be read as a completion claim.
 | Debian/Ubuntu native package stage | Added Ubuntu 26.04 build environment and exact base identity validation. Both native fixture packages built successfully; host tests 11/11. |
 | Qt compatibility | Explicit private Wayland import for Qt 6.10; Debian Qt 6.8 path retained. |
 | Terminal | Public UI targets and independent runtime component migrated. PTY execution and Ctrl+link regression pass on both bases; package/GUI acceptance follows. |
-| Camera | Donor reviewed; migration pending. Preserve photos, video+microphone and safe recorder finalization. |
+| Camera | Migrated with independent runtime and public UI. No-device controls/close pass on both bases (14/14 total tests); physical photo/video/audio acceptance pending. |
 | Photos, Player, PDF Reader | Pending. Preserve local browsing/format handling, multimedia and DBus integrations. |
 | Calculator, Clock, Editor, Monitor | Pending. Preserve donor engine/timer/buffer tests and native process/system behavior. |
 | Files | Pending. Preserve FileManager1, existing-window/tab routing, selection, rename, removable disks, folder-size cache and archive handoff. |

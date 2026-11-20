@@ -31,3 +31,15 @@ must not open a browser, while Ctrl+HTTP(S) does. Debian 13/Qt 6.8 and Ubuntu
 
 Physical keyboard/browser integration remains part of VM acceptance; the
 synthetic modifier test is not a claim about host hypervisor key interception.
+
+## Camera
+
+karyo-camera (short command: camera) keeps the Qt Multimedia capture session,
+JPEG photos and negotiated video/audio encoding, default camera/microphone hotplug
+and standard Pictures/Videos paths. Closing while recording waits for finalization;
+errors remain visible and do not report an empty output as a successful recording.
+The standalone camera-runtime component has no hardware/provisioning scripts.
+
+The no-device fixture verifies the unavailable-camera message, disabled capture
+controls and normal close on both native bases. Physical photo/video/audio capture
+is still a hardware acceptance step; no real device is claimed by this fixture.
