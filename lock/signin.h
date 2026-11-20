@@ -15,7 +15,7 @@ class SignInText
 
 namespace SignIn {
 
-// The first GECOS field: "Example User,,," -> "Example User"; empty
+// The first GECOS field: "Display Name,,," -> "Display Name"; empty
 // when it only repeats the login.
 QString fullName(const passwd *pw);
 
