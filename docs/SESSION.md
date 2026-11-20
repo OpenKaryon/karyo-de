@@ -32,8 +32,10 @@ The lock package owns only its PAM policy; Debian conffile metadata preserves
 administrator edits on upgrade. It is an ordinary unprivileged application,
 using PAM's distribution-provided password helper. No setuid executable or
 global authentication bypass is introduced by Karyo. Logind sleep delay is
-held until the compositor confirms the managed lock; real suspend/resume
-still needs acceptance in a systemd/logind machine.
+held until the compositor confirms the managed lock. A clean Debian VM has
+now exercised actual logind suspend/resume, retaining the lock and application
+processes after a virtual hardware-key wake. Physical devices remain a separate
+acceptance gate.
 
 ## Retained behavior and optional integrations
 
@@ -77,7 +79,20 @@ the ScreenCast portal interface before the lock scenario.
 Use only disposable accounts, never a real user's password. The test is
 separate from CTest because it requires installed packages and a PAM fixture.
 
-Clean package installation/removal checks preserve /etc/os-release, another
-session entry and display-manager configuration. A complete display-manager
-login cycle, hardware suspend/resume, multiple physical outputs and GPU paths
-remain VM/hardware acceptance gates. Headless results do not establish them.
+A fresh Debian 13 VMware guest additionally passed real LightDM login/logout
+and a second Karyo login alongside Xfce. The graphical checks exercised actual
+PAM lock/rejection/unlock, logind s2idle/resume, Start-launched polkit authorization,
+Qt tray activation/context menus, FileChooser responses and a live 1280x800
+Chromium/PipeWire monitor stream. This found a generic desktop-launch bug:
+startDetached orphaned pkexec, which refused a dead parent. Launches now keep a
+live direct caller while allowing ordinary apps to outlive their launcher.
+
+Installing/upgrading/removing the bundle preserved /etc/os-release, LightDM and
+Xfce's session entry. Existing application PIDs survived install/upgrade; Xfce
+remained usable and logged in again after removal. The local lock PAM file
+survived a changed-default upgrade. VM artifacts and fixture provenance are
+recorded in Karyo Builder's docs/VALIDATION-DEBIAN-VM.md.
+
+The VM used software rendering and one virtual monitor. Physical suspend/wake
+devices, multiple physical outputs and accelerated GPU paths remain hardware
+acceptance gates; the VM result does not establish them.
