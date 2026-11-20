@@ -73,3 +73,5 @@ endif()
 include(cmake/Session.cmake)
 
 include(cmake/Lock.cmake)
+
+include(cmake/Shell.cmake)

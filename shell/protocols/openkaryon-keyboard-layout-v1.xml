@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="openkaryon_keyboard_layout_v1">
+  <copyright>Copyright 2026 OpenKaryon Developers. SPDX-License-Identifier: MIT</copyright>
+  <interface name="openkaryon_keyboard_layout_v1" version="1">
+    <description summary="cycle the compositor's keyboard layout">
+      A desktop panel can request the next layout without synthesizing keys or
+      changing focus. The compositor updates its physical keyboard group, so
+      normal keyboard input and per-window layout restoration stay consistent.
+      Requests are ignored while the session is locked. Sandboxed clients must
+      not be offered this interface. This private protocol may change in future
+      versions; incompatible changes require a new interface name or version.
+    </description>
+    <request name="destroy" type="destructor"/>
+    <request name="cycle">
+      <arg name="seat" type="object" interface="wl_seat"/>
+    </request>
+  </interface>
+</protocol>
