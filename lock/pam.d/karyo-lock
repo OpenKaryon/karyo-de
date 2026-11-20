@@ -1,0 +1,3 @@
+# PAM checks only the signed-in user; no greetd or login-manager ownership.
+@include common-auth
+@include common-account
