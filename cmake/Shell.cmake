@@ -65,3 +65,17 @@ add_library(karyo-shell-quick STATIC
     ${shell_dir}/quick/quicksettings.cpp ${shell_dir}/quick/quicksettings.h
     ${shell_dir}/quick/systemcontrols.cpp ${shell_dir}/quick/systemcontrols.h)
 target_link_libraries(karyo-shell-quick PUBLIC karyo-shell-core karyo-shell-start karyo-shell-services)
+
+add_library(karyo-shell-desktop STATIC
+    ${shell_dir}/desktopicons.cpp ${shell_dir}/desktopicons.h
+    ${shell_dir}/wallpaper.cpp ${shell_dir}/wallpaper.h)
+target_link_libraries(karyo-shell-desktop PUBLIC karyo-shell-core)
+
+qt_add_executable(karyo-shell
+    ${shell_dir}/main.cpp ${shell_dir}/taskbar.cpp ${shell_dir}/taskbar.h
+    ${shell_dir}/shellservice.cpp ${shell_dir}/shellservice.h)
+target_link_libraries(karyo-shell PRIVATE karyo-shell-core karyo-shell-start
+    karyo-shell-tray karyo-shell-services karyo-shell-quick karyo-shell-desktop)
+install(TARGETS karyo-shell RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT shell-runtime)
+install(FILES LICENSE docs/PROVENANCE.md
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-shell COMPONENT shell-runtime)
