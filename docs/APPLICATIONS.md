@@ -43,3 +43,18 @@ The standalone camera-runtime component has no hardware/provisioning scripts.
 The no-device fixture verifies the unavailable-camera message, disabled capture
 controls and normal close on both native bases. Physical photo/video/audio capture
 is still a hardware acceptance step; no real device is claimed by this fixture.
+
+## Photos
+
+karyo-photos (short command: viewer) retains the gallery, bounded asynchronous
+thumbnail cache, filmstrip, zoom/pan, animations, rotation, clipboard and desktop
+background selection. Image formats follow the installed Qt image plugins. The
+photos-runtime component owns its launchers without replacing global MIME choices.
+
+Showing a file uses freedesktop FileManager1.ShowItems, allowing an installed
+file manager to select the original. If none handles the request, the default
+folder application opens its parent; no prototype executable is required.
+Rotation publishes through QSaveFile instead of overwriting the original while
+encoding. Tests verify a PNG's actual rotated dimensions/pixels and byte-identical
+original contents after a failed unsupported-format write. All fifteen current
+CTest targets pass on both native bases.

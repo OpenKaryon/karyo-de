@@ -69,3 +69,8 @@ Camera is adapted from `distro/desktop/apps/camera` at the same application
 donor revision. Qt Multimedia remains external. The migrated application keeps
 standard user Pictures/Videos locations, explicit recording finalization and
 microphone selection; it ships no captured media or device configuration.
+
+Photos comes from `distro/desktop/apps/photos` at the same application donor
+revision. The migrated viewer uses atomic QSaveFile publication for rotated
+images and standard FileManager1 selection with a default-folder fallback;
+it retains the existing per-user Photos/background settings keys.

@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Photos
+Name[ru]=Фотографии
+GenericName=Image viewer
+GenericName[ru]=Просмотр изображений
+Comment=Look through your pictures, figures and scans
+Comment[ru]=Просмотр фотографий, рисунков и сканов
+Exec=karyo-photos %f
+Icon=image-viewer
+Terminal=false
+Categories=Graphics;Viewer;Photography;
+MimeType=image/jpeg;image/png;image/gif;image/webp;image/bmp;image/tiff;image/svg+xml;image/x-portable-pixmap;image/vnd.microsoft.icon;
+Keywords=photo;picture;image;viewer;gallery;figure;
+Keywords[ru]=фото;фотография;картинка;изображение;галерея;рисунок;
+StartupWMClass=karyo-photos
