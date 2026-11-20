@@ -48,3 +48,6 @@ add_library(karyo-shell-start STATIC
     ${shell_dir}/start/appindex.cpp ${shell_dir}/start/appindex.h
     ${shell_dir}/start/symbols.cpp ${shell_dir}/start/symbols.h)
 target_link_libraries(karyo-shell-start PUBLIC karyo-shell-core)
+
+target_sources(karyo-shell-start PRIVATE
+    ${shell_dir}/start/startwidgets.cpp ${shell_dir}/start/startwidgets.h)
