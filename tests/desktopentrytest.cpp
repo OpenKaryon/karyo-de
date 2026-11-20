@@ -6,6 +6,7 @@
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QProcess>
 #include <QTemporaryDir>
 #include <QtTest>
 
@@ -14,6 +15,46 @@ class DesktopEntryTest : public QObject
     Q_OBJECT
     QTemporaryDir m_data;
 private Q_SLOTS:
+#ifdef KARYO_PROCESS_FIXTURE
+    void launchKeepsLiveCaller_data()
+    {
+        QTest::addColumn<bool>("withFile");
+        QTest::newRow("plain") << false;
+        QTest::newRow("with-file") << true;
+    }
+    void launchKeepsLiveCaller()
+    {
+        QFETCH(bool, withFile);
+        const QString path = m_data.filePath(withFile ? "parent with file.txt" : "parent plain.txt");
+        DesktopEntry entry;
+        entry.exec = QStringLiteral("\"%1\" %2").arg(QString::fromUtf8(KARYO_PROCESS_FIXTURE),
+                       withFile ? QStringLiteral("%f") : QStringLiteral("\"%1\"").arg(path));
+        qint64 pid = 0;
+        QVERIFY(withFile ? entry.launchWith({path}, &pid) : entry.launch());
+        if (withFile)
+            QVERIFY(pid > 0);
+        QTRY_VERIFY(QFile::exists(path));
+        QFile result(path);
+        QVERIFY(result.open(QIODevice::ReadOnly));
+        QCOMPARE(result.readAll().toLongLong(), QCoreApplication::applicationPid());
+    }
+    void launchedApplicationSurvivesCallerExit()
+    {
+        const QString path = m_data.filePath("survived.txt");
+        QCOMPARE(QProcess::execute(QString::fromUtf8(KARYO_PROCESS_FIXTURE),
+                                  {QStringLiteral("--spawn-and-exit"), path}), 0);
+        QTRY_VERIFY(QFile::exists(path));
+        QFile result(path);
+        QVERIFY(result.open(QIODevice::ReadOnly));
+        QCOMPARE(result.readAll(), QByteArray("survived"));
+    }
+    void missingLaunchFails()
+    {
+        DesktopEntry entry;
+        entry.exec = QStringLiteral("/no/such/karyo-fixture-program");
+        QVERIFY(!entry.launch());
+    }
+#endif
     void initTestCase()
     {
         QVERIFY(m_data.isValid());

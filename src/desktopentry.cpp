@@ -2,6 +2,7 @@
 #include "karyo/ui/desktopentry.h"
 
 #include <QDateTime>
+#include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
@@ -14,6 +15,40 @@
 #include <utility>
 
 namespace {
+
+// Keep the caller alive as the direct parent: authorization brokers validate it.
+// The observer owns itself until process exit. It is deliberately not parented
+// to qApp, so shutting down the launcher does not kill ordinary applications.
+bool startApplication(const QString &program, const QStringList &args, qint64 *pid = nullptr)
+{
+    if (pid)
+        *pid = 0;
+    if (!QCoreApplication::instance())
+        return QProcess::startDetached(program, args, QDir::homePath(), pid);
+    auto *process = new QProcess;
+    process->setProgram(program);
+    process->setArguments(args);
+    process->setWorkingDirectory(QDir::homePath());
+    process->setProcessChannelMode(QProcess::ForwardedChannels);
+    QObject::connect(process, &QProcess::finished, process, &QObject::deleteLater);
+    QObject::connect(process, &QProcess::errorOccurred, process, [process](QProcess::ProcessError error) {
+        if (error == QProcess::FailedToStart)
+            process->deleteLater();
+    });
+    qint64 launchedPid = 0;
+    const auto started = QObject::connect(process, &QProcess::started, process,
+                                         [&] { launchedPid = process->processId(); });
+    process->start();
+    const bool running = process->waitForStarted();
+    QObject::disconnect(started);
+    if (!running) {
+        process->deleteLater();
+        return false;
+    }
+    if (pid)
+        *pid = launchedPid;
+    return true;
+}
 
 QString unescape(const QString &value)
 {
@@ -316,7 +351,7 @@ bool DesktopEntry::launch() const
         cmd.prepend(term);
     }
     const QString program = cmd.takeFirst();
-    return QProcess::startDetached(program, cmd, QDir::homePath());
+    return startApplication(program, cmd);
 }
 
 bool DesktopEntry::launchWith(const QStringList &paths, qint64 *pid) const
@@ -347,7 +382,7 @@ bool DesktopEntry::launchWith(const QStringList &paths, qint64 *pid) const
         out = QStringList{qEnvironmentVariable("TERMINAL", QStringLiteral("x-terminal-emulator")),
                           QStringLiteral("-e")} + out;
     const QString program = out.takeFirst();
-    return QProcess::startDetached(program, out, QDir::homePath(), pid);
+    return startApplication(program, out, pid);
 }
 
 namespace {
