@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "integrations.h"
 #include "quicksettings.h"
 
 #include "networkstatus.h"
@@ -477,7 +478,7 @@ QuickSettings::QuickSettings(NetworkStatus *network, NotificationServer *notific
     m_overview = new QWidget(m_card);
     pages->addWidget(m_overview);
     m_networkPage = new NetworkPage(m_network, [this] { showNetwork(false); }, [this] {
-        QProcess::startDetached(QStringLiteral("openkaryon-settings"), {QStringLiteral("network")});
+        Integrations::openSettings(true);
         close();
     }, [this] { fitHeight(); }, m_card);
     m_networkPage->hide();
@@ -557,8 +558,9 @@ QuickSettings::QuickSettings(NetworkStatus *network, NotificationServer *notific
     settings->setFocusPolicy(Qt::NoFocus);
     settings->setGlyphColor(t.text);
     settings->setHint(tr("All settings"));
+    settings->setEnabled(!Integrations::settingsProgram(false).isEmpty());
     connect(settings, &QAbstractButton::clicked, this, [this] {
-        launchFirst({QStringLiteral("openkaryon-settings.desktop"), QStringLiteral("lxqt-config.desktop")});
+        Integrations::openSettings();
         close();
     });
     footer->addWidget(settings);

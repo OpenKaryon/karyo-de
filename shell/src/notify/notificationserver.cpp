@@ -26,7 +26,9 @@ QImage imageFromHint(const QVariant &value)
     arg.beginStructure();
     arg >> width >> height >> rowstride >> hasAlpha >> bitsPerSample >> channels >> pixels;
     arg.endStructure();
-    if (width <= 0 || height <= 0 || bitsPerSample != 8 || pixels.size() < rowstride * height)
+    if (width <= 0 || height <= 0 || bitsPerSample != 8 || qint64(pixels.size()) < qint64(rowstride) * height || width > 16384 || height > 16384
+        || rowstride <= 0 || qint64(rowstride) < qint64(width) * channels
+        || (hasAlpha ? channels != 4 : channels != 3))
         return {};
     const QImage::Format format = hasAlpha && channels == 4 ? QImage::Format_RGBA8888 : QImage::Format_RGB888;
     if (!hasAlpha && channels != 3)

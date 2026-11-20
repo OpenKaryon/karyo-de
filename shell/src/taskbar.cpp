@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+#include "integrations.h"
 #include "taskbar.h"
 
 #include <karyo/ui/appstyle.h>
@@ -149,7 +150,7 @@ Taskbar::Taskbar(QScreen *screen, ToplevelManager *toplevels, TrayHost *tray,
         Ui::styleMenu(menu);
         connect(menu, &QMenu::aboutToHide, menu, &QObject::deleteLater);
         menu->addAction(tr("Network settings"), this, [] {
-            QProcess::startDetached(QStringLiteral("openkaryon-settings"), {QStringLiteral("network")});
+            Integrations::openSettings(true);
         });
         menu->popup(m_quick->mapToGlobal(pos));
     });

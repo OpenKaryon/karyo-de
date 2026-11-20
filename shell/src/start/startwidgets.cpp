@@ -1126,7 +1126,12 @@ namespace {
 
 QString terminalProgram()
 {
-    const QString own = QStandardPaths::findExecutable(QStringLiteral("openkaryon-terminal"));
+    const QString configured = qEnvironmentVariable("TERMINAL");
+    if (!configured.isEmpty() && !QStandardPaths::findExecutable(configured).isEmpty())
+        return configured;
+    QString own = QStandardPaths::findExecutable(QStringLiteral("karyo-terminal"));
+    if (own.isEmpty())
+        own = QStandardPaths::findExecutable(QStringLiteral("openkaryon-terminal"));
     return own.isEmpty() ? QStringLiteral("x-terminal-emulator") : own;
 }
 

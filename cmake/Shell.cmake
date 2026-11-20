@@ -85,3 +85,10 @@ install(FILES shell/protocols/openkaryon-keyboard-layout-v1.xml
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-shell/protocols COMPONENT shell-runtime)
 
 karyo_add_translation(karyo-shell "${PROJECT_SOURCE_DIR}/shell/translations/karyo-shell_ru.ts")
+
+if(BUILD_TESTING)
+    add_executable(karyo-shell-services-test tests/shellservicetest.cpp)
+    target_link_libraries(karyo-shell-services-test PRIVATE karyo-shell-services Qt6::Test)
+    add_test(NAME shell-services-policy COMMAND karyo-shell-services-test)
+    set_tests_properties(shell-services-policy PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
