@@ -49,3 +49,7 @@ if(BUILD_TESTING)
     add_test(NAME lock-error-layout COMMAND karyo-signin-view-test)
     set_tests_properties(lock-error-layout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+# Qt 6.10's portal registry resolves service identities through desktop files.
+install(FILES lock/data/karyo-lock.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT lock-runtime)

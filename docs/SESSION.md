@@ -96,3 +96,10 @@ recorded in Karyo Builder's docs/VALIDATION-DEBIAN-VM.md.
 The VM used software rendering and one virtual monitor. Physical suspend/wake
 devices, multiple physical outputs and accelerated GPU paths remain hardware
 acceptance gates; the VM result does not establish them.
+
+
+Shell and lock runtime components include hidden desktop descriptors for their
+public application IDs. Qt 6.10's portal registry requires these to resolve the
+calling process. NoDisplay keeps service processes out of the normal app list;
+this is not an autostart registration. Ubuntu VM validation confirms the IDs
+resolve through GIO and the missing-AppInfo portal registration error disappears.

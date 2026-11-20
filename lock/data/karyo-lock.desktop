@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Karyo Lock
+Exec=karyo-lock
+TryExec=karyo-lock
+Icon=system-lock-screen
+NoDisplay=true
+Terminal=false

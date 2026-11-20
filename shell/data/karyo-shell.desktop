@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Karyo Shell
+Exec=karyo-shell
+TryExec=karyo-shell
+Icon=start-here
+NoDisplay=true
+Terminal=false

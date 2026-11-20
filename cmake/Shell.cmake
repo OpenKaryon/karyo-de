@@ -92,3 +92,7 @@ if(BUILD_TESTING)
     add_test(NAME shell-services-policy COMMAND karyo-shell-services-test)
     set_tests_properties(shell-services-policy PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+# Qt 6.10's portal registry resolves service identities through desktop files.
+install(FILES shell/data/karyo-shell.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT shell-runtime)
