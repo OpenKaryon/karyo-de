@@ -31,3 +31,6 @@ if(BUILD_TESTING)
     target_link_libraries(karyo-pam-test PRIVATE Qt6::Test)
     add_test(NAME lock-pam-policy COMMAND karyo-pam-test)
 endif()
+
+install(FILES lock/protocols/ext-session-lock-v1.xml
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-lock/protocols COMPONENT lock-runtime)

@@ -79,3 +79,7 @@ target_link_libraries(karyo-shell PRIVATE karyo-shell-core karyo-shell-start
 install(TARGETS karyo-shell RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT shell-runtime)
 install(FILES LICENSE docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-shell COMPONENT shell-runtime)
+
+install(FILES shell/protocols/openkaryon-keyboard-layout-v1.xml
+    shell/protocols/wlr-foreign-toplevel-management-unstable-v1.xml
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-shell/protocols COMPONENT shell-runtime)
