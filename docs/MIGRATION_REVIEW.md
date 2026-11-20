@@ -20,7 +20,8 @@ and verified; this checklist must not be read as a completion claim.
 | Player, PDF Reader | Pending. Preserve multimedia, format handling and DBus integrations. |
 | Calculator | Core engine and complete UI migrated with shared history and existing scientific/lab modes. Native regressions pass on both bases (17/17 total); GUI package checks follow. |
 | Clock | Migrated timers/stopwatch, persisted deadlines and notifications. Fake-clock/restart regression passes on both bases (18/18 total); audio/GUI checks follow. |
-| Editor, Monitor | Pending. Preserve donor buffer tests and native process/system behavior. |
+| Editor buffers | Undo/cache core migrated; reproduced and fixed lossy Latin-1 save, explicit UTF-8 conversion tested. Editing/syntax controls and universal Markdown/CSV/VCF/FASTA coverage also pass on both bases (20/20 tests). Window/IPC follows. |
+| Monitor | Pending. Preserve native process/system behavior. |
 | Files | Pending. Preserve FileManager1, existing-window/tab routing, selection, rename, removable disks, folder-size cache and archive handoff. |
 | Archive | Pending. Preserve protected archives, password retry/cancel, atomic publication and actual compression/encryption behavior. |
 | Snipping | Pending. Preserve shortcuts, capture, editable annotations, inline text, blur, crop confirmation and clipboard. |

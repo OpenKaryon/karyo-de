@@ -88,3 +88,13 @@ Clock sources, Russian catalog and deterministic persisted-timer regression are
 adapted from `distro/desktop/apps/clock` at the same application donor revision.
 The existing per-user timer file remains compatible. Notifications and optional
 alarm playback use available freedesktop/audio services, not a private daemon.
+
+Editor buffers and recovery/history tests are adapted from
+`distro/desktop/apps/editor` at the same application donor revision. Saving
+unrepresentable Unicode into a loaded Latin-1 file now fails before publication;
+explicit UTF-8 conversion retains old/new text. Atomic writes check full length.
+The original undo/cache format is retained; the window/UI follows separately.
+
+Editor syntax detection/highlighting and the custom code-editing surface now
+use public Karyo widgets. Existing Markdown, CSV/VCF, FASTA and programming
+language support is retained without preset-dependent filtering.
