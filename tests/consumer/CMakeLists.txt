@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.21)
+project(KaryoFoundationConsumer LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(KaryoUiFoundation 0.1 CONFIG REQUIRED)
+add_executable(foundation-consumer main.cpp)
+target_link_libraries(foundation-consumer PRIVATE Karyo::UiFoundation)
