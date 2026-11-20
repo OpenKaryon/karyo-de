@@ -51,3 +51,17 @@ target_link_libraries(karyo-shell-start PUBLIC karyo-shell-core)
 
 target_sources(karyo-shell-start PRIVATE
     ${shell_dir}/start/startwidgets.cpp ${shell_dir}/start/startwidgets.h)
+
+target_sources(karyo-shell-start PRIVATE
+    ${shell_dir}/start/startmenu.cpp ${shell_dir}/start/startmenu.h)
+if(BUILD_TESTING)
+    add_executable(karyo-start-test tests/startfiltertest.cpp)
+    target_link_libraries(karyo-start-test PRIVATE karyo-shell-start Qt6::Test)
+    add_test(NAME start-search-filters COMMAND karyo-start-test)
+    set_tests_properties(start-search-filters PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
+
+add_library(karyo-shell-quick STATIC
+    ${shell_dir}/quick/quicksettings.cpp ${shell_dir}/quick/quicksettings.h
+    ${shell_dir}/quick/systemcontrols.cpp ${shell_dir}/quick/systemcontrols.h)
+target_link_libraries(karyo-shell-quick PUBLIC karyo-shell-core karyo-shell-start karyo-shell-services)
