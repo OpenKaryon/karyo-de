@@ -219,6 +219,7 @@ void SignInView::showMessage(const QString &text)
         return;
     m_message->setText(text);
     m_message->setVisible(!text.isEmpty());
+    placeUserBlock();
 }
 
 void SignInView::showChoices(QWidget *anchor, const QList<QPair<QString, QString>> &choices,
@@ -307,13 +308,21 @@ void SignInView::tick()
     }
 }
 
+void SignInView::placeUserBlock()
+{
+    if (!m_userBlock)
+        return;
+    m_userBlock->adjustSize();
+    const qreal scale = height() / 1080.0;
+    const int bottom = height() - qRound(90 * scale);
+    const int top = qMin(qRound(700 * scale), bottom - m_userBlock->height());
+    m_userBlock->move(qRound(160 * scale), qMax(0, top));
+}
+
 void SignInView::resizeEvent(QResizeEvent *)
 {
+    placeUserBlock();
     const qreal s = height() / 1080.0;
-    if (m_userBlock) {
-        m_userBlock->adjustSize();
-        m_userBlock->move(qRound(160 * s), qRound(700 * s));
-    }
     if (m_power)
         m_power->move(width() - qRound(41 * s) - m_power->width(), height() - qRound(37 * s) - m_power->height() + 5);
 }

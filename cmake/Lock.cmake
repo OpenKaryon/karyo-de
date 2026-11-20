@@ -37,3 +37,11 @@ install(FILES lock/protocols/ext-session-lock-v1.xml
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-lock/protocols COMPONENT lock-runtime)
 
 karyo_add_translation(karyo-lock "${PROJECT_SOURCE_DIR}/lock/translations/karyo-lock_ru.ts")
+
+if(BUILD_TESTING)
+    add_executable(karyo-signin-view-test tests/signinviewtest.cpp lock/signinview.cpp lock/signinview.h)
+    target_include_directories(karyo-signin-view-test PRIVATE lock)
+    target_link_libraries(karyo-signin-view-test PRIVATE Karyo::Widgets Qt6::Test)
+    add_test(NAME lock-error-layout COMMAND karyo-signin-view-test)
+    set_tests_properties(lock-error-layout PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endif()
