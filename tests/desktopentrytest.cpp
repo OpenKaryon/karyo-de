@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#include <karyo/ui/appstyle.h>
+#include <karyo/ui/desktopentry.h>
+#include <karyo/ui/icons.h>
+
+#include <QDir>
+#include <QFile>
+#include <QImage>
+#include <QTemporaryDir>
+#include <QtTest>
+
+class DesktopEntryTest : public QObject
+{
+    Q_OBJECT
+    QTemporaryDir m_data;
+private Q_SLOTS:
+    void initTestCase()
+    {
+        QVERIFY(m_data.isValid());
+        qputenv("XDG_DATA_HOME", m_data.path().toUtf8());
+        qputenv("XDG_CONFIG_HOME", m_data.filePath(QStringLiteral("config")).toUtf8());
+        qputenv("XDG_CONFIG_DIRS", m_data.filePath(QStringLiteral("system-config")).toUtf8());
+        qputenv("XDG_DATA_DIRS", m_data.filePath(QStringLiteral("system")).toUtf8());
+        QVERIFY(QDir().mkpath(m_data.filePath(QStringLiteral("applications"))));
+        QImage icon(24, 24, QImage::Format_ARGB32);
+        icon.fill(QColor("#285fc5"));
+        QVERIFY(icon.save(m_data.filePath(QStringLiteral("chatgpt.png"))));
+        auto entry = [this](const QString &id, const QString &fields) {
+            QFile file(m_data.filePath(QStringLiteral("applications/") + id));
+            if (!file.open(QIODevice::WriteOnly)) return false;
+            const QByteArray data = (QStringLiteral("[Desktop Entry]\nType=Application\n") + fields).toUtf8();
+            return file.write(data) == data.size();
+        };
+        QVERIFY(entry(QStringLiteral("chatgpt.desktop"),
+                      QStringLiteral("Name=ChatGPT\nExec=chatgpt %U\nIcon=%1\n").arg(m_data.filePath(QStringLiteral("chatgpt.png")))));
+        QVERIFY(entry(QStringLiteral("work-chat.desktop"),
+                      QStringLiteral("Name=Work chat\nExec=work-chat\nStartupWMClass=chatgpt (/tmp/work-profile)\n")));
+        QVERIFY(entry(QStringLiteral("org.example.wrapped.desktop"),
+                      QStringLiteral("Name=Wrapped app\nExec=/opt/tools/npm-widget %U\nIcon=%1\n").arg(m_data.filePath(QStringLiteral("chatgpt.png")))));
+        QVERIFY(entry(QStringLiteral("com.Mattermost.Desktop.desktop"),
+                      QStringLiteral("Name=Mattermost\nExec=/opt/Mattermost/com.Mattermost.Desktop %U\n"
+                                     "StartupWMClass=com.Mattermost.Desktop\nIcon=%1\n")
+                          .arg(m_data.filePath(QStringLiteral("chatgpt.png")))));
+        QVERIFY(entry(QStringLiteral("net.Example.Editor.desktop"),
+                      QStringLiteral("Name=Editor\nExec=example-editor\n")));
+        QVERIFY(entry(QStringLiteral("org.Example.Editor.desktop"),
+                      QStringLiteral("Name=Other editor\nExec=other-editor\n")));
+        QVERIFY(entry(QStringLiteral("net.Example.Player.desktop"),
+                      QStringLiteral("Name=Player\nExec=example-player\n")));
+        QVERIFY(entry(QStringLiteral("text-reader.desktop"),
+                      QStringLiteral("Name=Text reader\nExec=text-reader\nMimeType=text/plain;\n")));
+        QVERIFY(entry(QStringLiteral("player.desktop"),
+                      QStringLiteral("Name=Profile player\nExec=profile-player\nStartupWMClass=Example.Player\n")));
+    }
+
+    void mimeDefaultsFollowCurrentDesktops()
+    {
+        const QString config = m_data.filePath(QStringLiteral("config"));
+        QVERIFY(QDir().mkpath(config));
+        auto defaults = [&config](const QString &desktop, const QByteArray &id) {
+            QFile file(config + QLatin1Char('/') + desktop + QStringLiteral("-mimeapps.list"));
+            if (!file.open(QIODevice::WriteOnly))
+                return false;
+            return file.write("[Default Applications]\ntext/plain=" + id + ";\n") > 0;
+        };
+        QVERIFY(defaults(QStringLiteral("other"), "work-chat.desktop"));
+        QVERIFY(defaults(QStringLiteral("lxqt"), "chatgpt.desktop"));
+        qputenv("XDG_CURRENT_DESKTOP", "Karyo:Other");
+        const auto selected = DesktopEntry::defaultFor(QStringLiteral("text/plain"));
+        QVERIFY(selected);
+        QCOMPARE(selected->id, QStringLiteral("work-chat.desktop"));
+        qputenv("XDG_CURRENT_DESKTOP", "Karyo");
+        const auto generic = DesktopEntry::defaultFor(QStringLiteral("text/plain"));
+        QVERIFY(generic);
+        QCOMPARE(generic->id, QStringLiteral("text-reader.desktop"));
+    }
+
+    void embeddedIcons()
+    {
+        QVERIFY(Karyo::Ui::hasIcon(QStringLiteral("folder")));
+        QVERIFY(!Karyo::Ui::hasIcon(QStringLiteral("missing-icon")));
+        const QPixmap icon = Karyo::Ui::icon(QStringLiteral("folder"), 24, Qt::red, 2);
+        QCOMPARE(icon.size(), QSize(48, 48));
+        QCOMPARE(icon.devicePixelRatio(), 2.0);
+        const QImage image = icon.toImage();
+        bool visible = false;
+        for (int y = 0; y < image.height(); ++y) {
+            for (int x = 0; x < image.width(); ++x) {
+                const QColor pixel = image.pixelColor(x, y);
+                if (pixel.alpha() > 200) {
+                    QCOMPARE(pixel.red(), 255);
+                    QCOMPARE(pixel.green(), 0);
+                    visible = true;
+                }
+            }
+        }
+        QVERIFY(visible);
+    }
+
+    void matching_data()
+    {
+        QTest::addColumn<QString>("appId");
+        QTest::addColumn<bool>("matches");
+        QTest::newRow("plain") << QStringLiteral("chatgpt") << true;
+        QTest::newRow("case") << QStringLiteral("ChatGPT") << true;
+        QTest::newRow("profile") << QStringLiteral("chatgpt (/home/user/.config/Codex)") << true;
+        QTest::newRow("other-user") << QStringLiteral("chatgpt (/home/alex/profiles/one)") << true;
+        QTest::newRow("spaces-parentheses") << QStringLiteral("chatgpt (/home/alex/Profile (Work))") << true;
+        QTest::newRow("desktop-profile") << QStringLiteral("chatgpt.desktop (/tmp/profile)") << true;
+        QTest::newRow("namespace-profile") << QStringLiteral("org.example.chatgpt (/tmp/profile)") << true;
+        QTest::newRow("label") << QStringLiteral("chatgpt (Work)") << false;
+        QTest::newRow("relative") << QStringLiteral("chatgpt (profiles/Work)") << false;
+        QTest::newRow("missing-close") << QStringLiteral("chatgpt (/tmp/profile") << false;
+        QTest::newRow("trailing-text") << QStringLiteral("chatgpt (/tmp/profile) extra") << false;
+        QTest::newRow("other-application") << QStringLiteral("chatgpt-helper (/tmp/profile)") << false;
+        QTest::newRow("empty") << QStringLiteral("") << false;
+    }
+
+    void matching()
+    {
+        QFETCH(QString, appId);
+        QFETCH(bool, matches);
+        const auto entry = DesktopEntry::find(QStringLiteral("chatgpt.desktop"));
+        QVERIFY(entry);
+        QCOMPARE(entry->matchesAppId(appId), matches);
+    }
+
+    void profileResolvesDesktopIcon()
+    {
+        const auto entry = DesktopEntry::forAppId(QStringLiteral("chatgpt (/home/user/.config/Codex)"));
+        QVERIFY(entry);
+        QCOMPARE(entry->id, QStringLiteral("chatgpt.desktop"));
+        const AppStyle style = AppStyle::forEntry(*entry);
+        QVERIFY(!style.themeIcon.isNull());
+        QVERIFY(style.monogram.isEmpty());
+        const QImage pixels = style.themeIcon.pixmap(24, 24).toImage();
+        QCOMPARE(pixels.pixelColor(12, 12), QColor("#285fc5"));
+    }
+
+    void exactProfileClassHasPriority()
+    {
+        const auto entry = DesktopEntry::forAppId(QStringLiteral("chatgpt (/tmp/work-profile)"));
+        QVERIFY(entry);
+        QCOMPARE(entry->id, QStringLiteral("work-chat.desktop"));
+    }
+
+    void executableAndStartupClassStillMatch()
+    {
+        const auto wrapped = DesktopEntry::forAppId(QStringLiteral("npm-widget (/tmp/profile with spaces)"));
+        QVERIFY(wrapped);
+        QCOMPARE(wrapped->id, QStringLiteral("org.example.wrapped.desktop"));
+        DesktopEntry entry;
+        entry.id = QStringLiteral("legacy.desktop");
+        entry.startupWmClass = QStringLiteral("LegacyClass");
+        QVERIFY(entry.matchesAppId(QStringLiteral("LegacyClass")));
+        QVERIFY(entry.matchesAppId(QStringLiteral("LegacyClass (/tmp/profile)")));
+    }
+
+    void matchesQualifiedDesktopIdByUniqueSuffix()
+    {
+        const auto entry = DesktopEntry::forAppId(QStringLiteral("Mattermost.Desktop"));
+        QVERIFY(entry);
+        QCOMPARE(entry->id, QStringLiteral("com.Mattermost.Desktop.desktop"));
+        QVERIFY(!AppStyle::forEntry(*entry).themeIcon.pixmap(24, 24).isNull());
+        const auto lower = DesktopEntry::forAppId(QStringLiteral("mattermost.desktop"));
+        QVERIFY(lower);
+        QCOMPARE(lower->id, entry->id);
+        QVERIFY(!DesktopEntry::forAppId(QStringLiteral("most.Desktop")));
+        QVERIFY(!DesktopEntry::forAppId(QStringLiteral("Example.Editor")));
+
+        const auto player = DesktopEntry::forAppId(QStringLiteral("Example.Player"));
+        QVERIFY(player);
+        QCOMPARE(player->id, QStringLiteral("player.desktop"));
+    }
+};
+
+QTEST_MAIN(DesktopEntryTest)
+#include "desktopentrytest.moc"

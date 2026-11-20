@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.21)
+project(KaryoDesktopConsumer LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(KaryoDesktopIntegration 0.1 CONFIG REQUIRED)
+add_executable(desktop-consumer main.cpp)
+target_link_libraries(desktop-consumer PRIVATE Karyo::DesktopIntegration)

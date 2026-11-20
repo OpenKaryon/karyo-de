@@ -62,3 +62,8 @@ if(BUILD_TESTING)
     add_test(NAME ui-foundation COMMAND karyo-ui-foundation-test)
     set_tests_properties(ui-foundation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 endif()
+
+option(KARYO_BUILD_DESKTOP_INTEGRATION "Build desktop entry and icon integration" ON)
+if(KARYO_BUILD_DESKTOP_INTEGRATION)
+    include(cmake/DesktopIntegration.cmake)
+endif()
