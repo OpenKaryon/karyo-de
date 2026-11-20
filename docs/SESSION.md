@@ -72,6 +72,8 @@ SDK consumers continue to verify the UI component boundary.
 under an unprivileged disposable fixture account: startup, Start, confirmed
 Wayland lock, a wrong password, a correct PAM password and clean logout.
 It expects KARYO_TEST_PASSWORD, XDG_RUNTIME_DIR and KARYO_TEST_ARTIFACTS.
+KARYO_TEST_PIPEWIRE=1 additionally starts the fixture PipeWire daemon and checks
+the ScreenCast portal interface before the lock scenario.
 Use only disposable accounts, never a real user's password. The test is
 separate from CTest because it requires installed packages and a PAM fixture.
 
