@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.21)
+project(KaryoStyleConsumer LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(KaryoStyle 0.1 CONFIG REQUIRED)
+add_executable(style-consumer main.cpp)
+target_link_libraries(style-consumer PRIVATE Karyo::Style)

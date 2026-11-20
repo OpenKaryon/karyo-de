@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#!/bin/sh
+# Source from the session/greeter before loading the user's session.env.
+# Older installed systems may have multiple layouts but no XKBOPTIONS line.
+# Give those a switch shortcut; an explicit system/user choice remains intact.
+if [ -r /etc/default/keyboard ]; then
+    . /etc/default/keyboard
+    export XKB_DEFAULT_LAYOUT="${XKBLAYOUT:-us}"
+    export XKB_DEFAULT_VARIANT="${XKBVARIANT:-}"
+    if [ "${XKBOPTIONS+x}" = x ]; then
+        export XKB_DEFAULT_OPTIONS="$XKBOPTIONS"
+    else
+        case "$XKB_DEFAULT_LAYOUT" in
+            *,*) export XKB_DEFAULT_OPTIONS=grp:alt_shift_toggle ;;
+            *) export XKB_DEFAULT_OPTIONS= ;;
+        esac
+    fi
+fi

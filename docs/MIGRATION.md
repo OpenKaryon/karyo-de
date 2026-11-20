@@ -9,8 +9,10 @@ effects, provenance and regression behavior before migration. Working code is
 reused and adapted or rewritten where needed, following CONTRIBUTING.md.
 The first component's precise origin is recorded in PROVENANCE.md.
 
-Shared widgets/icons/platform integration follow in separate changes. Then
-separate lock/session packaging from greeter and distribution defaults.
+Theme/paint, desktop entries/icons, common widgets and the Qt style are now
+separate exported components. The session launcher/configuration is prepared.
+Migrate the shell and separate lock/session packaging from the optional greeter
+and distribution defaults next.
 The complete source-to-product inventory is maintained in Karyo Builder's
 `docs/MIGRATION.md`.
 

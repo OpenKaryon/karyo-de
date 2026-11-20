@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Sourced by the Karyo session: wlroots renders in software
+# (pixman) where its GPU path is known to fail or to be slower than the CPU.
+# openkaryon.renderer=gles2 on the kernel command line keeps the GPU.
+
+karyo_software_render() {
+    for parameter in $(cat /proc/cmdline); do
+        case "$parameter" in
+            # The boot menu's "safe graphics", or asked for by hand.
+            nomodeset|karyo.renderer=pixman|openkaryon.renderer=pixman) return 0 ;;
+            karyo.renderer=gles2|openkaryon.renderer=gles2) return 1 ;;
+        esac
+    done
+    # Virtual GPUs render more reliably, and with less memory, in software.
+    if command -v systemd-detect-virt >/dev/null 2>&1 && systemd-detect-virt --quiet --vm; then
+        return 0
+    fi
+    # Intel graphics before Sandy Bridge (i830 to GMA 4500, Pineview,
+    # Ironlake): their GLES2 is fragile and slower than two CPU cores.
+    for device in /sys/class/drm/card[0-9]*/device; do
+        case "$device" in */card*-*/device) continue ;; esac  # connectors
+        [ "$(cat "$device/vendor" 2>/dev/null)" = 0x8086 ] || continue
+        id=$(($(cat "$device/device" 2>/dev/null || echo 0xffff)))
+        if [ "$id" -le $((0x0046)) ] \
+            || { [ "$id" -ge $((0x2500)) ] && [ "$id" -le $((0x2fff)) ]; } \
+            || { [ "$id" -ge $((0x3500)) ] && [ "$id" -le $((0x35ff)) ]; } \
+            || { [ "$id" -ge $((0xa000)) ] && [ "$id" -le $((0xa0ff)) ]; }; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+if [ -z "${WLR_RENDERER:-}" ] && karyo_software_render; then
+    export WLR_RENDERER=pixman
+fi
