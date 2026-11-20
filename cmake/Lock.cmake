@@ -3,6 +3,7 @@ if(NOT KARYO_BUILD_SESSION)
     return()
 endif()
 find_package(Qt6 6.4 REQUIRED COMPONENTS DBus Network WaylandClient)
+include(${CMAKE_CURRENT_LIST_DIR}/Translations.cmake)
 find_library(PAM_LIBRARY pam REQUIRED)
 qt_add_executable(karyo-lock
     ${PROJECT_SOURCE_DIR}/lock/main.cpp
@@ -34,3 +35,5 @@ endif()
 
 install(FILES lock/protocols/ext-session-lock-v1.xml
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-lock/protocols COMPONENT lock-runtime)
+
+karyo_add_translation(karyo-lock "${PROJECT_SOURCE_DIR}/lock/translations/karyo-lock_ru.ts")

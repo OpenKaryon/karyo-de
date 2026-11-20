@@ -4,6 +4,9 @@
 #include <karyo/ui/theme.h>
 #include <QApplication>
 #include <QLockFile>
+#include <QLibraryInfo>
+#include <QLocale>
+#include <QTranslator>
 #include <QStandardPaths>
 #include <cstdio>
 
@@ -24,5 +27,12 @@ int main(int argc, char **argv)
         return 1;
     Karyo::Ui::applyStyle();
     Karyo::Ui::Theme::followConfiguration();
+    QTranslator qtTranslator;
+    if (qtTranslator.load(QLocale(), QStringLiteral("qtbase"), QStringLiteral("_"),
+                          QLibraryInfo::path(QLibraryInfo::TranslationsPath)))
+        QApplication::installTranslator(&qtTranslator);
+    QTranslator translator;
+    if (translator.load(QLocale(), QStringLiteral("karyo-lock"), QStringLiteral("_"), QStringLiteral(":/i18n")))
+        QApplication::installTranslator(&translator);
     return runLock();
 }

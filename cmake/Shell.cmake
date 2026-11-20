@@ -83,3 +83,5 @@ install(FILES LICENSE docs/PROVENANCE.md
 install(FILES shell/protocols/openkaryon-keyboard-layout-v1.xml
     shell/protocols/wlr-foreign-toplevel-management-unstable-v1.xml
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-shell/protocols COMPONENT shell-runtime)
+
+karyo_add_translation(karyo-shell "${PROJECT_SOURCE_DIR}/shell/translations/karyo-shell_ru.ts")
