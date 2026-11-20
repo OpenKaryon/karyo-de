@@ -83,6 +83,8 @@ exit 7
 
     def test_shell_restart_limit(self):
         self.env["SHELL_PROBE"] = str(self.root / "shell-runs")
+        self.env["AUTOSTART_PROBE"] = str(self.root / "autostart-runs")
+        self.program("dex", '#!/bin/sh\nprintf "%s\\n" "$*" >> "$AUTOSTART_PROBE"\n')
         self.program("karyo-shell", '#!/bin/sh\nprintf "run\\n" >> "$SHELL_PROBE"\nexit 1\n')
         self.program("sleep", "#!/bin/sh\nexit 0\n")
         self.program("date", "#!/bin/sh\necho 100\n")
@@ -93,6 +95,8 @@ exit 7
         self.assertEqual(result.returncode, 0)
         self.assertEqual((self.root / "shell-runs").read_text().splitlines(), ["run"] * 5)
         self.assertEqual((self.root / "probe").read_text().splitlines()[-1], "--exit")
+        self.assertEqual((self.root / "autostart-runs").read_text().splitlines(),
+                         ["--autostart --environment Karyo"])
 
     def test_private_bus_fallback_and_argument_validation(self):
         self.program("dbus-run-session", """#!/bin/sh

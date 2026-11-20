@@ -6,6 +6,10 @@ if command -v dbus-update-activation-environment >/dev/null 2>&1; then
         XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP \
         QT_QPA_PLATFORM QT_STYLE_OVERRIDE >/dev/null 2>&1 || true
 fi
+# Respect freedesktop autostart filtering once per compositor session.
+if command -v dex >/dev/null 2>&1; then
+    dex --autostart --environment Karyo &
+fi
 (
     quick=0
     while [ "$quick" -lt 5 ]; do
