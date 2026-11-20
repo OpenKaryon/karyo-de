@@ -1,7 +1,8 @@
 # Karyo DE
 
 Karyo DE is the Qt 6 desktop for Karyo Linux. This repository currently contains
-the independently buildable UI foundation and desktop-entry/icon integration.
+the independently buildable UI foundation, desktop-entry/icon integration
+and common widgets.
 The shell, applications and selectable Wayland session are subsequent steps.
 
 The foundation provides the existing light/dark palettes, accent choices,
@@ -25,7 +26,9 @@ cmake --install build --prefix /usr --component development
 Installed consumers use `find_package(KaryoUiFoundation 0.1 CONFIG REQUIRED)`
 and link `Karyo::UiFoundation`. For desktop entries and icons, find
 `KaryoDesktopIntegration` and link `Karyo::DesktopIntegration`.
-Its install component is `desktop-development`. Public headers use `karyo/ui/*.h` and the
+Its install component is `desktop-development`. Common window, navigation,
+password and menu controls use `KaryoWidgets` / `Karyo::Widgets` and the
+`widgets-development` component. Public headers use `karyo/ui/*.h` and the
 `Karyo::Ui` namespace. Existing user settings retain the prototype's
 `openkaryon/desktop.conf` location. No ABI stability is promised before the
 first DE release.
