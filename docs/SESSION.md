@@ -64,8 +64,8 @@ Packaging the reviewed compositor extension is a later compatibility task.
 
 ## Validation and remaining acceptance
 
-Ten CTest targets cover foundation, icons, widgets, style, launcher, PAM
-policy, tray, Start filters and shell-service policies. Independent installed
+Eleven CTest targets cover foundation, icons, widgets, style, launcher, PAM
+policy, password error layout, tray, Start filters and shell-service policies. Independent installed
 SDK consumers continue to verify the UI component boundary.
 
 `tests/wayland-session-smoke.sh` exercises an actual headless labwc session
