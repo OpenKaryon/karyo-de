@@ -33,7 +33,8 @@ class SessionLauncherTest(unittest.TestCase):
 printf '%s\n' "$XDG_CURRENT_DESKTOP" "$XDG_SESSION_TYPE" "$QT_STYLE_OVERRIDE" "$@" > "$PROBE"
 exit 7
 """)
-        self.env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
+        self.program("mkdir", '#!/bin/sh\nexec /bin/mkdir "$@"\n')
+        self.env = dict(os.environ, PATH=str(self.bin),
                         HOME=str(self.root), XDG_RUNTIME_DIR=str(self.root),
                         XDG_STATE_HOME=str(self.root / "state"), PROBE=str(self.root / "probe"),
                         DBUS_SESSION_BUS_ADDRESS="unix:path=/fixture")

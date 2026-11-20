@@ -17,6 +17,8 @@
 #include <karyo/ui/theme.h>
 
 #include <QApplication>
+#include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QCoreApplication>
 #include <QLibraryInfo>
 #include <QLocale>
@@ -67,6 +69,9 @@ int main(int argc, char **argv)
     // Layer-shell surfaces only exist on Wayland.
     qputenv("QT_QPA_PLATFORM", "wayland");
     QApplication app(argc, argv);
+    if (QDBusConnection::sessionBus().interface()->isServiceRegistered(
+            QString::fromLatin1(ShellService::ServiceName)).value())
+        return 0;
     QApplication::setApplicationName(QStringLiteral("karyo-shell"));
     QApplication::setOrganizationName(QStringLiteral("openkaryon"));
     QApplication::setDesktopFileName(QStringLiteral("karyo-shell"));
