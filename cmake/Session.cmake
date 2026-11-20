@@ -16,3 +16,8 @@ if(BUILD_TESTING)
     add_test(NAME session-launch-contract COMMAND ${Python3_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/sessiontest.py)
 endif()
+
+install(FILES session/karyo-portals.conf
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/xdg-desktop-portal COMPONENT session-runtime)
+install(FILES LICENSE docs/SESSION.md
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-session-bundle COMPONENT session-bundle)

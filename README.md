@@ -50,3 +50,11 @@ their upstream licenses. IBM Plex is referenced by family name, not bundled.
 Migrate the shell with its file-operation/catalog dependencies, separate PAM lock
 from the optional greeter, then validate a complete selectable session on clean
 Debian. Verify login/lock, upgrade, removal and existing-desktop coexistence.
+
+## Standalone session
+
+The shell and PAM/Wayland lock are now independently buildable with
+`-DKARYO_BUILD_SESSION=ON` (the default). Debian build dependencies and package
+recipes live in Karyo Builder. The `karyo-session` bundle installs the shell,
+lock, style and Wayland entry alongside an existing display manager.
+See [session boundaries and acceptance](docs/SESSION.md).
