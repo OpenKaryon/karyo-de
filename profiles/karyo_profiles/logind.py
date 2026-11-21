@@ -118,6 +118,35 @@ class Session:
                    values["Active"] == "yes", values["LockedHint"] == "yes")
 
 
+@dataclass(frozen=True)
+class Greeter:
+    id: str
+    name: str
+    uid: int
+    vt: int
+    active: bool
+
+    @classmethod
+    def parse(cls,text,expected):
+        values={}
+        for line in text.splitlines():
+            key,separator,value=line.partition("=")
+            if not separator or key not in PROPERTIES or key in values:
+                raise ValueError("Invalid greeter session properties")
+            values[key]=value
+        if values.get("Id")!=session_id(expected):raise ValueError("Another greeter session was returned")
+        if (values.get("Type") not in {"wayland","x11"} or values.get("Seat")!="seat0"
+                or values.get("Class")!="greeter" or values.get("Remote")!="no"
+                or values.get("State") not in {"active","online"}):return None
+        uid,vt=values.get("User",""),values.get("VTNr","")
+        if (set(values)!=set(PROPERTIES) or not uid.isascii() or not uid.isdecimal()
+                or str(int(uid))!=uid or not 1<=int(uid)<1000 or not vt.isascii()
+                or not vt.isdecimal() or str(int(vt))!=vt or not 1<=int(vt)<=63
+                or values["Active"] not in {"yes","no"} or values["LockedHint"] not in {"yes","no"}):
+            raise ValueError("Invalid local greeter identity or console")
+        return cls(expected,account_name(values["Name"]),int(uid),int(vt),values["Active"]=="yes")
+
+
 OWNER_PROPERTIES = ("Id", "Name", "User", "Leader", "Class", "Scope", "Service", "State")
 
 
@@ -192,6 +221,35 @@ class Sessions:
                 raise ValueError("Duplicate login manager session identifier")
             identifiers.append(identifier)
         return tuple(identifiers)
+
+    def seat_active(self,*,timeout=5):
+        text=self.command.run("show-seat","seat0","--all","--property=Id","--property=ActiveSession",timeout=timeout)
+        rows={}
+        for line in text.splitlines():
+            key,separator,value=line.partition("=")
+            if not separator or key not in {"Id","ActiveSession"} or key in rows:
+                raise ValueError("Invalid active seat properties")
+            rows[key]=value
+        if set(rows)!={"Id","ActiveSession"} or rows["Id"]!="seat0":
+            raise ValueError("Another or incomplete native seat was returned")
+        return session_id(rows["ActiveSession"]) if rows["ActiveSession"] else ""
+
+    def owner(self,identifier,*,timeout=5):
+        text=self.command.run("show-session",session_id(identifier),"--all",
+            *("--property="+name for name in OWNER_PROPERTIES),timeout=timeout)
+        return LoginOwner.parse(text,identifier)
+
+    def greeter(self,identifier,*,timeout=5):
+        text=self.command.run("show-session",session_id(identifier),"--all",
+            *("--property="+name for name in PROPERTIES),timeout=timeout)
+        return Greeter.parse(text,identifier)
+
+    def greeters(self):
+        deadline=self.clock()+5;found=[]
+        for identifier in self._identifiers():
+            value=self.greeter(identifier,timeout=deadline-self.clock())
+            if value is not None:found.append(value)
+        return found
 
     def occupied_vts(self):
         # Console ownership is global, not limited to selectable graphical user

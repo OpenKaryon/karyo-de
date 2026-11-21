@@ -2,6 +2,7 @@
 """Bounded root-only transport to the host; never accept forwarded caller IDs."""
 import json
 import os
+import select
 from pathlib import Path
 import socket
 import stat
@@ -182,6 +183,16 @@ def request(packet):
     return result["result"]
 
 
+
+def serve(listener,dispatcher,registry,*,ready=select.select):
+    while True:
+        registry.poll()
+        readable,unused,unused=ready([listener],[],[],.5)
+        if not readable:continue
+        connection,unused=listener.accept()
+        with connection:dispatcher.handle(connection)
+
+
 def main():
     if sys.argv[1:]:
         print("karyo-profile-host: no arguments are accepted", file=sys.stderr)
@@ -193,10 +204,7 @@ def main():
             dispatcher = HostDispatcher()
             registry=SessionRegistry(journal,dispatcher.store).restore()
             try:
-                while True:
-                    connection, unused = listener.accept()
-                    with connection:
-                        dispatcher.handle(connection)
+                serve(listener,dispatcher,registry)
             finally:
                 registry.release_handles()
     except (OSError, RuntimeError, ValueError, PermissionError):

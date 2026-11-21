@@ -1054,3 +1054,33 @@ is used to infer completion. Old live-editor/lock, prepared, DNS, network and
 transport cases pass again on this runtime, with clean final resource/package
 checks. See Builder VALIDATION-PROFILE-CLOSING-JOURNAL.md for exact evidence and
 the still-required active close/logout supervision and full public runtime.
+
+
+The long-lived host now polls captured living session pidfds even without client
+requests. When an observed compositor exits, ReturnAfterExit checks the same
+private journal account/process receipt, family owner, active seat session/owner
+and kernel VT. It selects the actual Home session or an existing local service
+greeter, confirms a protected Home compositor lock before activation, and leaves
+another active seat/VT alone. No fixed greeter console is assumed.
+
+Known session teardown then retries GraphicalPending/ManagerPending while keeping
+DNS/network leases; lower resources close only after native logout completes.
+The listener uses bounded select polling rather than blocking forever in accept.
+Startup replay of already-dead/half-closing sessions and complete public profile
+allocation remain separate runtime work. Installed logout/crash acceptance follows.
+
+
+Installed tests/installed-supervision.py now accepts observed logout, compositor
+crash, background exit and initial-lock crash on both Debian/Ubuntu QA guests.
+The actual installed host restores the captured living profile, then receives no
+further client traffic while its pidfd poll returns Home and finishes teardown.
+Exactly one return decision is logged per profile; background exit leaves the
+already active Home alone. The ordinary logout command runs through the scoped
+user manager; crash signals use only a verified captured QA compositor pidfd.
+
+Original main logins, shells, account/common-PAM and network snapshots are restored.
+Old live-editor/lock, offline-closing/preparation, DNS/network and private transport
+probes pass again. All 344 source cases pass root/ordinary on both bases, and final
+package/resource checks are clean. See Builder VALIDATION-PROFILE-SUPERVISION.md;
+source-tested greeter/protected-Home boundaries and still-pending startup replay/
+public allocation are distinguished from the installed Home-return scenarios.

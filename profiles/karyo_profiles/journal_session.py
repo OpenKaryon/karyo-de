@@ -2,6 +2,7 @@
 """Own and reattach the prepared manager plus a fixed graphical PAM session."""
 from dataclasses import asdict
 import os
+import sys
 from pathlib import Path
 import time
 
@@ -262,6 +263,7 @@ class SessionRegistry:
     def __init__(self,journal,store):
         self.journal,self.store=journal,store
         self.profiles={}
+        self.returned=set()
 
     def restore(self):
         from .journal_session_cleanup import recover_closed_session
@@ -278,6 +280,24 @@ class SessionRegistry:
             self.release_handles()
             raise
 
+    def poll(self):
+        from .returning import ReturnAfterExit
+        from .graphical import GraphicalPending
+        from .user_manager import ManagerPending
+        for token,scope in tuple(self.profiles.items()):
+            if not scope.graph.closed and not scope.graph.process.exited(scope.graph.pidfd):continue
+            with self.store.locked():
+                if token not in self.returned:
+                    result=ReturnAfterExit(self.store,scope.dns.files.accounts,scope.graph.sessions).run(scope)
+                    print("karyo-profile-host: exited desktop return "+("activated" if result["changed"] else "seat-unchanged"),file=sys.stderr,flush=True)
+                    self.returned.add(token)
+                try:scope.close()
+                except (GraphicalPending,ManagerPending):continue
+                scope.dns.close();scope.network.close()
+                scope.release_handles()
+                del self.profiles[token];self.returned.discard(token)
+
     def release_handles(self):
         for profile in self.profiles.values():profile.release_handles()
         self.profiles.clear()
+        self.returned.clear()
