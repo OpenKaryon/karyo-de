@@ -134,3 +134,25 @@ seek dragging and a real second-process handoff. A regression exposed lexical
 track ordering under the C locale; natural sorting now works under C, English
 and Russian locales. All 24 tests pass on both bases. Physical audio, video
 decoding/GUI and installed package behavior still need acceptance.
+
+## System Monitor
+
+karyo-monitor (short command: monitor) retains grouped applications/workloads,
+process details, CPU/memory/disk/network graphs, users, services and startup
+entries. Sampling uses monotonic elapsed time and reset-safe counters. Service
+queries are asynchronous with a timeout; control errors are visible and system
+service authorization continues through the active polkit agent. No service is
+changed at startup.
+
+Process termination validates the sampled start time and uses a Linux pidfd so
+a recycled PID cannot receive its signal. Efficiency mode retains the ordinary
+setpriority permission checks; Linux provides no pidfd form of that operation,
+so start time is checked immediately beforehand. Actions report kernel errors.
+Startup changes atomically write only the user's override, preserve Desktop
+Actions and correctly re-enable an entry with the GNOME autostart flag disabled.
+
+Deterministic procfs/sysfs tests cover resets, reused/disappeared PIDs and model
+invariants. UI tests retain a responsive event loop while a fixture systemctl
+waits, preserve user service scope and system startup bytes, and control only
+a disposable child process. All 26 tests pass on both native bases; real VM
+service authorization and installed-monitor checks remain acceptance work.

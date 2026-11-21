@@ -22,7 +22,7 @@ and verified; this checklist must not be read as a completion claim.
 | Calculator | Core engine and complete UI migrated with shared history and existing scientific/lab modes. Native regressions pass on both bases (17/17 total); GUI package checks follow. |
 | Clock | Migrated timers/stopwatch, persisted deadlines and notifications. Fake-clock/restart regression passes on both bases (18/18 total); audio/GUI checks follow. |
 | Editor | Complete independent window, compatible recovery/IPC and lossless encoding choice migrated. Undo, malformed metadata, both dialog choices and real second-process reuse pass on both bases (21/21 total). GUI package checks follow. |
-| Monitor | Pending. Preserve native process/system behavior. |
+| Monitor | Complete sampler/UI migrated. Reset/PID/model, responsive services, user scope, atomic startup and disposable-child controls pass on both bases (26/26 total). Real authorization/package checks follow. |
 | Files | Pending. Preserve FileManager1, existing-window/tab routing, selection, rename, removable disks, folder-size cache and archive handoff. |
 | Archive | Pending. Preserve protected archives, password retry/cancel, atomic publication and actual compression/encryption behavior. |
 | Snipping | Pending. Preserve shortcuts, capture, editable annotations, inline text, blur, crop confirmation and clipboard. |

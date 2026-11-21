@@ -115,3 +115,15 @@ Media Player sources and Russian catalog are adapted from
 uses native Qt Multimedia, a shared FileManager1 helper and independent runtime
 packaging. Natural track sorting uses an explicit non-C collator when the user
 locale is C, avoiding Qt's lexical C-locale fallback. No media is packaged.
+
+System Monitor sampling and process grouping are adapted from
+`distro/desktop/apps/monitor` at the same application donor revision. The core
+reads procfs/sysfs without privilege. Sampling uses a monotonic clock and
+read-only fixture roots for deterministic tests; counter resets cannot wrap
+into enormous rates and memory keys match complete names. The GUI follows
+separately with a review of process/service control and startup overrides.
+
+Monitor pages, launch metadata and Russian catalog are now adapted from the same
+donor. The migration observes asynchronous service calls, atomically publishes
+user startup overrides and validates process identity for control actions. Native
+Linux pidfd syscalls are used for signaling; kernel permissions remain authoritative.

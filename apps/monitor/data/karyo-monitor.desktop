@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=System Monitor
+Name[ru]=Системный монитор
+GenericName=Task manager
+GenericName[ru]=Диспетчер задач
+Comment=See and end running programs, watch CPU, memory, disks and network
+Comment[ru]=Запущенные программы, загрузка процессора, памяти, дисков и сети
+Exec=karyo-monitor
+Icon=utilities-system-monitor
+Terminal=false
+Categories=System;Monitor;
+Keywords=task;process;cpu;memory;kill;performance;
+Keywords[ru]=задачи;процессы;память;процессор;диспетчер;
+StartupWMClass=karyo-monitor
