@@ -91,6 +91,8 @@ class ProviderLifecycleTest(unittest.TestCase):
         events = []
         def state_prepare():
             self.assertEqual(self.journal.value["provider"]["pending"], "state-prepare")
+            self.assertEqual(self.journal.value["network"]["contents"], "tunnel")
+            self.assertEqual(self.scope.network.contents, "tunnel")
             events.append("state")
         def start():
             self.assertEqual(self.journal.value["provider"]["pending"], "service-start")

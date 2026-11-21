@@ -135,6 +135,7 @@ class ProfileNetwork:
         self.attempted = False
         self.pair_attempted = False
         self.closed = False
+        self.contents = None  # Explicit namespace-local virtual-tunnel delegation.
 
     @property
     def name(self):
@@ -149,6 +150,8 @@ class ProfileNetwork:
             raise PermissionError("Profile networks require root and the held configuration lock")
         if self.closed:
             raise NetworkError("The profile network lease is closed")
+        if self.contents not in (None, "tunnel"):
+            raise NetworkError("Unsupported private namespace contents policy")
 
     def _ip(self, *arguments, inside=False):
         prefix = ("/usr/sbin/ip", "-n", self.name) if inside else ("/usr/sbin/ip",)
@@ -181,11 +184,30 @@ class ProfileNetwork:
         if identity != self.identity:
             raise NetworkError("The profile namespace path was replaced")
 
+    def _verify_contents(self, links, base):
+        if not base <= set(links):
+            raise NetworkError("The private namespace lost a base device")
+        extra = set(links) - base
+        if not extra:
+            return
+        if self.contents != "tunnel" or len(extra) != 1:
+            raise NetworkError("The private namespace has undelegated devices")
+        row = links[next(iter(extra))]
+        info = row.get("linkinfo")
+        if (not isinstance(info, dict) or info.get("info_kind") not in {"wireguard", "tun"}
+                or row.get("link_type") != "none" or "master" in row
+                or row["ifindex"] in {links[name]["ifindex"] for name in base}):
+            raise NetworkError("Only one namespace-local virtual tunnel is delegated")
+        if info["info_kind"] == "tun" and (not isinstance(info.get("info_data"), dict)
+                or info["info_data"].get("type") != "tun"):
+            raise NetworkError("The delegated interface is not a TUN device")
+
     def _verify_pair(self):
         host = self._inventory().get(self.spec.interface)
         links = self._inventory(inside=True)
         peer = links.get("eth0")
-        if set(links) != {"lo", "eth0"} or host is None or peer is None:
+        self._verify_contents(links, {"lo", "eth0"})
+        if host is None or peer is None:
             raise NetworkError("The profile link inventory changed")
         for side, row in (("host", host), ("peer", peer)):
             alias = self.spec.alias if side in self.tagged else None
@@ -292,8 +314,10 @@ class ProfileNetwork:
                 self._ip("link", "delete", "dev", self.spec.interface)
                 self.pair_attempted = False
                 self.indices = None
-            if set(self._inventory(inside=True)) != {"lo"}:
-                raise NetworkError("The namespace has an unknown network device")
+            # Local routes/firewall and a delegated virtual tunnel belong to
+            # this captured namespace. Destroy that namespace after its owners
+            # exit; never sweep tunnel names or host-wide VPN routes/rules.
+            self._verify_contents(self._inventory(inside=True), {"lo"})
             self._verify_namespace()
             self._empty()
             self._ip("netns", "delete", self.name)

@@ -1247,3 +1247,28 @@ This joins the pre-login provider to the graphical owner's lifetime. It does not
 yet enable public VPN startup, adopt a connected wt0 or implement catalog/vendor
 packaging. Connected ownership/recovery and real account enrollment remain
 required before the public VPN policy gate is removed.
+
+
+### Delegated virtual tunnel contents of an owned namespace
+
+Before starting a journaled NetBird service, schema6 explicitly records a fixed
+`tunnel` contents policy on its already captured private network. This allows one
+namespace-local kernel WireGuard or userspace TUN device, with any native valid
+interface name. It does not extend ownership to host VPN interfaces/routes,
+physical devices, TAP/bridge/veth devices, masters or additional tunnel devices.
+The original host/guest veth identity, alias, peer indices and namespace inode
+remain checked. A plain profile retains its strict lo/eth0 inventory.
+
+Routes, rules and firewall tables created inside that captured namespace are
+namespace-local runtime state. After the graphical owner, natural manager,
+provider and resolver have exited, cleanup removes the proven host veth and the
+captured process-free namespace. It never sweeps tunnel names or global VPN
+routes/firewall. Unknown devices or consumers retain the lease for review.
+The declaration persists after provider teardown, so interrupted DNS/network
+cleanup can still reconstruct the same ownership boundary. Schemas1–5 remain
+readable with their original strict device policy; older connected receipts are
+not silently promoted or adopted.
+
+This boundary permits connected-provider lifetime checks. Native connected
+teardown/recovery, peer traffic, DNS and public activation have their own gates;
+this declaration alone is not proof of those behaviors.

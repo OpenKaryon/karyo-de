@@ -62,7 +62,9 @@ class JournalNetBird:
         scope = NetBirdScope(dns)
         owner = cls(journal, dns, scope)
         value = {"kind": "netbird", "pending": "state-prepare", "state": None, "service": None}
-        journal.change(before, dict(before, provider=value))
+        delegated = dict(before["network"], contents="tunnel")
+        journal.change(before, dict(before, network=delegated, provider=value))
+        scope.network.contents = "tunnel"
         try:
             scope.state.prepare()
             owner.update(pending="service-start", state=state_receipt(scope.state))

@@ -18,6 +18,8 @@ def receipt(network):
     peer = network._inventory(inside=True)["eth0"]
     proof = {"namespace": list(network.identity), "indices": list(network.indices),
              "macs": [host.get("address"), peer.get("address")]}
+    if network.contents is not None:
+        proof["contents"] = network.contents
     validate_network(proof)
     return proof
 
@@ -94,6 +96,7 @@ def restore_network(store, record, command=None, *, require_empty=True):
     proof = record["network"]
     validate_network(proof)
     network = ProfileNetwork(store, NetworkSpec(account.uid, record["token"]), command)
+    network.contents = proof.get("contents")
     try:
         network.fd, network.identity = network._pin()
     except FileNotFoundError:
@@ -110,11 +113,12 @@ def restore_network(store, record, command=None, *, require_empty=True):
         links = network._inventory()
         inside = network._inventory(inside=True)
         if network.spec.interface not in links:
-            if (record["pending"] != "remove" or set(inside) != {"lo"}
+            if (record["pending"] != "remove"
                     or any(row["ifindex"] == proof["indices"][0] for row in links.values())):
                 raise JournalRetained("The journal link pair changed without proven cleanup")
+            network._verify_contents(inside, {"lo"})
             network._empty()
-            return network  # Only the pinned known empty namespace remains.
+            return network  # Only the captured process-free namespace remains.
         network.indices = tuple(proof["indices"])
         network.tagged = {"host", "peer"}
         network.pair_attempted = True

@@ -8,12 +8,14 @@ from pathlib import Path
 import select
 import shutil
 import socket
+import stat
+import uuid
 import subprocess
 import sys
 import time
 
 if (os.getuid()!=0 or os.geteuid()!=0 or socket.gethostname() not in
-        {"karyo-de-acceptance","karyo-de-ubuntu-acceptance"} or sys.argv[1:] not in ([],["--controller"],["--client"])):
+        {"karyo-de-acceptance","karyo-de-ubuntu-acceptance"} or sys.argv[1:] not in ([],["--connected"],["--controller"],["--client"])):
     raise SystemExit("Use only the fixed disposable hosts as root")
 sys.dont_write_bytecode=True
 sys.path.insert(0,"/usr/libexec/karyo/profiles")
@@ -78,7 +80,8 @@ def ui(record):
 
 
 def controller():
-    request=json.loads(sys.stdin.buffer.readline(1025));require(set(request)=={"mode"} and request["mode"] in {"none","home","prepared","closed"},"Unknown session QA mode")
+    request=json.loads(sys.stdin.buffer.readline(1025));require(set(request)<={"mode","connected"} and request.get("mode") in {"none","home","prepared","closed"},"Unknown session QA mode")
+    connected=request.get("connected",False);require(type(connected) is bool,"Invalid enrollment flag")
     mode=request["mode"];store=ConfigStore();accounts=LocalAccounts();sessions=Sessions()
     child=accounts.account("kq-switch-work");require(child.uid==1002,"Unexpected QA child")
     source=next(row for row in sessions.all() if row.uid==1001 and row.name=="karyoqa" and row.active)
@@ -114,11 +117,22 @@ def controller():
         endpoint=("KARYO_NETBIRD_ENDPOINT="+str(scope.provider.scope.endpoint)).encode()
         for pid in (scope.manager.identity.pid,scope.graph.pid,*view["shell"],*view["lock"]):
             require(endpoint in Path("/proc",str(pid),"environ").read_bytes().split(bytes([0])),"Captured owner lost derived provider endpoint")
+        if connected:
+            require(mode!="prepared","Offline preparation has no ordinary enrollment client")
+            result=subprocess.run(["/usr/sbin/runuser","-u",child.name,"--","/usr/bin/env",
+                "XDG_RUNTIME_DIR=/run/user/1002","DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus",
+                "/usr/bin/systemd-run","--user","--wait","--pipe","--collect",
+                "--unit=karyo-qa-recovery-enroll-"+scope.token+".service","--","/usr/bin/karyo-netbird-cli","up",
+                "--management-url","http://192.168.230.163:18443","--setup-key-file",
+                str(Path(child.home)/".karyo-qa-recovery-setup-key"),"--hostname","karyo-recovery-"+socket.gethostname()],
+                capture_output=True,text=True,timeout=65)
+            require(result.returncode==0,"Disposable connected enrollment failed")
+            with store.locked():scope.verify_consumers();scope.provider.verify()
         result=run("/usr/sbin/runuser","-u",child.name,"--","/usr/bin/env",
             "XDG_RUNTIME_DIR=/run/user/1002","DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus",
             "/usr/bin/systemd-run","--user","--wait","--pipe","--collect",
             "--unit=karyo-qa-netbird-autoenv.service","--","/usr/bin/karyo-netbird-cli","status","--json")
-        require(json.loads(result).get("daemonStatus")=="NeedsLogin","Ordinary CLI did not inherit the private provider endpoint")
+        require(json.loads(result).get("daemonStatus")==("Connected" if connected else "NeedsLogin"),"Ordinary CLI did not inherit the private provider endpoint")
         if mode=="closed":
             ExistingSwitcher(store).switch(child,"karyoqa")
             with store.locked():
@@ -129,7 +143,7 @@ def controller():
                 require(time.monotonic()<deadline,"Captured manager did not naturally exit")
                 time.sleep(.1)
             record=journal.record(scope.token)
-        print(json.dumps({"ready":mode,"pid":os.getpid(),"record":record,"ui":view}),flush=True)
+        print(json.dumps({"ready":mode,"pid":os.getpid(),"record":record,"ui":view,"connected":connected}),flush=True)
         sys.stdin.buffer.read(1)
         raise RuntimeError("This controller must be terminated by its fixed driver")
 
@@ -180,13 +194,26 @@ def end_compositor(record,crash):
             "--unit=karyo-qa-logout-"+record["token"]+".service","--","/usr/bin/labwc","--exit")
 
 
-def supervise(record,source,mode):
+def supervise(record,source,mode,connected=False):
     require(unit_info()["ActiveState"]=="inactive","A host controller is already active")
     run("/usr/bin/systemctl","start","karyo-profile-host.socket");node=socket_node();unit=None
     try:
         result=subprocess.run(["/usr/bin/python3","-I",__file__,"--client"],input=json.dumps({"record":record}),text=True,capture_output=True,timeout=35)
         require(result.returncode==0,"Live host request failed: "+result.stderr)
         unit=unit_info();require(unit["ActiveState"]=="active" and int(unit["MainPID"])>1,"Native host registry is not active")
+        if connected:
+            # Read-only inspection: the real socket host owns the journal lock.
+            captured=json.loads(Path("/run/karyo/profile-host/state.json").read_bytes())
+            require(captured["schema"]==6 and captured["profiles"]==[record],"Connected host recovery changed captured native receipts")
+            status=run("/usr/sbin/runuser","-u","kq-switch-work","--","/usr/bin/env",
+                "XDG_RUNTIME_DIR=/run/user/1002","DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus",
+                "/usr/bin/systemd-run","--user","--wait","--pipe","--collect",
+                "--unit=karyo-qa-recovery-status-"+record["token"]+".service","--","/usr/bin/karyo-netbird-cli","status","--json")
+            require(json.loads(status).get("daemonStatus")=="Connected","Provider disconnected during actual host recovery")
+            from karyo_profiles.journal_session import stat_start
+            require(stat_start(record["provider"]["service"]["unit"]["pid"])==record["provider"]["service"]["unit"]["start"],"Recovered provider PID/start changed")
+            print(json.dumps({"mode":mode,"connected_after_controller_sigkill":True,"same_native_receipts":True,
+                "host_pid":int(unit["MainPID"]),"provider_pid":record["provider"]["service"]["unit"]["pid"]}),flush=True)
         if mode=="background":
             current=Sessions().get(source.id)
             require(current is not None and (current.uid,current.name,current.vt)==(source.uid,source.name,source.vt),"Return Home identity changed")
@@ -221,6 +248,7 @@ def supervise(record,source,mode):
 if sys.argv[1:]==["--controller"]:controller();raise SystemExit(0)
 if sys.argv[1:]==["--client"]:client();raise SystemExit(0)
 
+connected=sys.argv[1:]==["--connected"]
 store=ConfigStore();sessions=Sessions();accounts=LocalAccounts()
 source=next(row for row in sessions.all() if row.uid==1001 and row.name=="karyoqa" and row.active)
 main_shell=processes(1001,"karyo-shell");require(len(main_shell)==1,"Original main shell is ambiguous")
@@ -234,18 +262,29 @@ original_accounts={str(path):hashlib.sha256(path.read_bytes()).hexdigest() for p
 with RuntimeJournal() as journal:require(not journal.snapshot()["profiles"],"Prior resources need review")
 run("/usr/local/libexec/karyo-qa-two-sessions","prepare")
 child=accounts.account("kq-switch-work");original_policy=store.settings(child.name)
+keyfile=key_identity=None
+if connected:
+    admission=Path("/var/lib/karyo-qa-netbird-admission/setup-key");value=admission.lstat()
+    require(stat.S_ISREG(value.st_mode) and value.st_uid==value.st_gid==0 and value.st_mode&0o777==0o600 and value.st_nlink==1 and value.st_size<65,"Unsafe lab admission key")
+    key=admission.read_bytes();uuid.UUID(key.decode().strip())
+    keyfile=Path(child.home)/".karyo-qa-recovery-setup-key"
+    fd=os.open(keyfile,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    try:os.fchown(fd,1002,1002);os.write(fd,key);os.fsync(fd)
+    finally:os.close(fd)
+    key_identity=(keyfile.stat().st_dev,keyfile.stat().st_ino)
 try:
     Path("/proc/sys/net/ipv4/ip_forward").write_text("1\n")
-    for mode in ("prepared","logout","crash","background","locked-crash","closed"):
+    for mode in (("logout","crash","background","locked-crash","closed") if connected else
+                 ("prepared","logout","crash","background","locked-crash","closed")):
         policy=DesktopSettings(password="home" if mode=="locked-crash" else "none")
         with store.locked():
             require(store.settings(child.name)==original_policy,"QA policy changed")
             store.save_settings(child.name,policy)
         with subprocess.Popen(["/usr/bin/python3","-I",__file__,"--controller"],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as process:
             requested=mode if mode in {"prepared","closed"} else policy.password
-            process.stdin.write((json.dumps({"mode":requested})+chr(10)).encode());process.stdin.flush()
+            process.stdin.write((json.dumps({"mode":requested,"connected":connected})+chr(10)).encode());process.stdin.flush()
             try:
-                require(select.select([process.stdout],[],[],55)[0],"Observed desktop controller readiness timeout")
+                require(select.select([process.stdout],[],[],110)[0],"Observed desktop controller readiness timeout")
                 packet=process.stdout.readline(32769)
                 if not packet:raise RuntimeError("Observed controller failed: "+process.stderr.read(32768).decode())
                 ready=json.loads(packet);require(ready["pid"]==process.pid and ready["ready"]==requested,"Captured controller changed")
@@ -263,7 +302,7 @@ try:
                 require(not registry.profiles and not journal.snapshot()["profiles"],"Interrupted provider/session cleanup incomplete")
                 registry.release_handles()
             print(json.dumps({"mode":mode,"cleanup":"complete","home":source.id}),flush=True)
-        else:supervise(record,source,mode)
+        else:supervise(record,source,mode,connected)
         with RuntimeJournal() as journal:require(not journal.snapshot()["profiles"],"Supervisor left ownership records")
         with store.locked():
             require(store.settings(child.name)==policy,"QA policy changed before restoration")
@@ -277,6 +316,9 @@ finally:
         require((info.st_dev,info.st_ino)==state_identity,"Provider QA state was replaced")
         require(json.loads((state/"owner.json").read_text())["account"]["name"]==child.name,"Provider ownership stamp changed")
         shutil.rmtree(state);state.parent.rmdir()  # Explicit previously absent fixture only.
+    if keyfile is not None:
+        require((keyfile.stat().st_dev,keyfile.stat().st_ino)==key_identity and keyfile.read_bytes()==key,"Captured lab key changed")
+        keyfile.unlink()
     run("/usr/local/libexec/karyo-qa-two-sessions","cleanup")
     Path("/proc/sys/net/ipv4/ip_forward").write_text("0\n")
     for name,value in original_conf.items():
@@ -286,4 +328,4 @@ require({path:hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in or
 require(snapshot()==original and sessions.get(source.id)==source and processes(1001,"karyo-shell")==main_shell,"Final original source changed")
 require(not run("/usr/bin/dpkg","-V","karyo-profile-accounts","karyo-profile-host","karyo-profile-session","karyo-profile-runtime","karyo-profile-netbird-client","karyo-profile-password-sync"),"Package verification failed")
 require(not run("/usr/bin/dpkg","--audit"),"Package audit failed")
-print("PASS installed provider/graphical reattachment, inherited clients, logout/crash and Home return",flush=True)
+print("PASS installed provider/graphical reattachment, inherited clients, logout/crash and Home return; connected="+str(connected),flush=True)

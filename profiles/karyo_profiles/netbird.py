@@ -251,8 +251,8 @@ class NetBirdScope:
         return value
 
     def close(self):
-        # This pre-login layer deliberately retains a connected/changed network
-        # until the later provider/tunnel journal can prove complete ownership.
+        # The journal declares namespace-local tunnel ownership before startup.
+        # Keep host-veth identity and consumer checks while the provider stops.
         if not self.unit.closed:
             self.state.verify()
             self.dns.services.verify()
