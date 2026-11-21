@@ -812,3 +812,58 @@ identities, not by adding generic adoption to the product. See Builder
 VALIDATION-INSTALLED-GRAPHICAL-PROFILES.md for exact inputs and diagnostics.
 The GUI fixture does not claim full VPN/Internet forwarding, a public stopped-
 profile operation, persistent recovery or automatic return after user logout.
+
+
+The optional profile-host component adds a systemd-activated root host transport.
+Its filesystem Unix socket is root:root 0600 under the trusted /run/karyo parent;
+installation does not enable or start either unit. Unit files use the systemd
+lib/systemd/system search directory rather than the architecture library path.
+The current public polkit helpers are unchanged and do not contact it yet.
+
+The host captures SO_PEERCRED and a pidfd before parsing a request. Only a root
+Python helper in the host user namespace and an active local graphical logind
+scope qualifies. The caller is derived from sd_pid_get_session(peer PID), local
+accounts and the exact kernel session cgroup; forwarded environment, UID,
+owner, session, namespace and command fields are never accepted. Start time,
+executable, all UID credentials, cgroup, active VT/session and local account are
+revalidated before the operation. A private helper network/mount context is
+allowed; the server itself must remain in PID 1's user/network/mount namespaces.
+
+The bounded versioned protocol currently offers family listing and switching
+already-running sessions only. It rejects repeated JSON keys, unknown fields,
+invalid UTF-8, oversized/truncated/trailing frames and slow/unclosed requests.
+Results have sanitized typed errors. A lost reply never retries a mutation.
+Stopped targets still return the existing typed error. This transport is not a
+persistent profile-resource graph, automatic logout return or recovery journal.
+No restart policy is enabled before those remaining ownership rules exist.
+
+266 profile regressions pass in Debian/Ubuntu root and ordinary roles; the
+host-only payload stages independently with fixed /usr/libexec and systemd paths.
+
+Native socket activation retains PID 1 as the listener creator seen by the
+client's SO_PEERCRED. Root PID 1 is therefore accepted for this server identity;
+PID 0 and non-root owners remain rejected. This does not relax the host's peer
+rule: an actual request must still come from a root helper PID greater than 1
+with a captured active graphical login scope. The first native QA found this
+client-side mismatch before an operation; both fresh units were stopped cleanly.
+
+The host also supplies peer reauthorization inside ExistingSwitcher: after
+acquiring the configuration lock and immediately before activation (or a no-op
+response). A login that ends or loses the active seat while the request waits
+cannot be replaced by another session of the same account. The public helper's
+existing direct path keeps its current behavior until runtime wiring is ready.
+
+The fixed-host tests/installed-dispatcher.py additionally accepts installed
+transport packages on Debian and Ubuntu. Only its own root QA children enter
+the captured active login cgroup. The fixture checks native socket activation,
+ordinary-user filesystem denial, rejected SSH-root callers, unknown-field
+rejection, ignored forged environment and successful listing/no-op switching
+from host and private network plus mount namespaces. The controller stays in
+PID 1's namespaces. This is kernel peer acceptance, not a GUI pkexec/PAM test.
+
+The QA owns its fresh socket inode and captured service InvocationID/MainPID,
+removes only its own empty namespace and stops only those known units. Original
+accounts, common PAM, network snapshots and active main login are unchanged;
+the optional host remains disabled/inactive. Builder documents exact package
+revisions and hashes in VALIDATION-PROFILE-HOST.md. Cross-desktop activation,
+stopped-profile startup and persistent resource recovery remain separate gates.

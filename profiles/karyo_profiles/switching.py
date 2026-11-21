@@ -58,11 +58,13 @@ class ExistingSwitcher:
             raise SessionError("The selected desktop has ambiguous graphical sessions")
         return found[0]
 
-    def switch(self, caller, target):
+    def switch(self, caller, target, *, reauthorize=None):
         account_name(target)
         # Share provisioning/password synchronization's lock: expired pending
         # accounts and half-published configuration must never become a target.
         with self.store.locked():
+            if reauthorize is not None and reauthorize() != caller:
+                raise PermissionError("The privileged desktop peer changed while waiting for the lock")
             if self.accounts.by_uid(caller.uid) != caller:
                 raise PermissionError("The authenticated desktop account changed")
             family = self.store.ownership().family(caller.name)
@@ -80,6 +82,8 @@ class ExistingSwitcher:
             source = self.single(values, caller, active=True)
             destination = self.single(values, selected)
             if self.identity(source) == self.identity(destination):
+                if reauthorize is not None and reauthorize() != caller:
+                    raise PermissionError("The privileged desktop peer changed during selection")
                 return {"user": selected.name, "vt": destination.vt, "changed": False}
             if destination.active or destination.vt == source.vt:
                 raise SessionError("Another desktop unexpectedly owns the active seat")
@@ -97,6 +101,8 @@ class ExistingSwitcher:
             if (not current.active or wanted.active or (protected_target and not wanted.locked)
                     or (protected_source and not current.locked)):
                 raise SessionError("Desktop lock readiness changed before activation")
+            if reauthorize is not None and reauthorize() != caller:
+                raise PermissionError("The privileged desktop peer changed before activation")
             self.sessions.activate(destination.id, timeout=self.remaining(deadline))
             # A successful method call is not proof the VT actually changed.
             while True:

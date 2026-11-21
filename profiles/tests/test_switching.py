@@ -117,6 +117,44 @@ class SwitchTest(unittest.TestCase):
         self.assertFalse(any(call[0] == "lock" for call in self.sessions.calls))
         self.assertEqual(self.sessions.calls[-1], ("get", "w2"))
 
+    def test_host_peer_is_rechecked_under_lock_and_before_activation(self):
+        controller = self.setup()
+        checks=[]
+        def authorize():
+            self.assertTrue(self.store.held)
+            self.no_pending_activation()
+            checks.append(len(self.sessions.calls))
+            return HOME
+        result=controller.switch(HOME,"work",reauthorize=authorize)
+        self.assertTrue(result["changed"])
+        self.assertEqual(checks[0],0);self.assertEqual(len(checks),2)
+        self.assertGreater(checks[1],0)
+
+    def no_pending_activation(self):
+        self.assertFalse(any(call[0]=="activate" for call in self.sessions.calls))
+
+    def test_peer_replaced_while_waiting_for_lock_is_denied_before_inventory(self):
+        controller=self.setup()
+        with self.assertRaises(PermissionError):controller.switch(HOME,"work",reauthorize=lambda: WORK)
+        self.assertEqual(self.sessions.calls,[]);self.no_activation()
+
+    def test_peer_ended_during_lock_readiness_never_activates_target(self):
+        controller=self.setup(target="home")
+        attempts=[]
+        def authorize():
+            attempts.append(1)
+            if len(attempts)==2:raise PermissionError("The original helper login ended")
+            return HOME
+        with self.assertRaises(PermissionError):controller.switch(HOME,"work",reauthorize=authorize)
+        self.assertIn(("lock","w2"),self.sessions.calls)
+        self.no_activation()
+
+    def test_current_desktop_noop_still_revalidates_the_original_peer(self):
+        controller=self.setup()
+        identities=iter((HOME,WORK))
+        with self.assertRaises(PermissionError):controller.switch(HOME,"home",reauthorize=lambda:next(identities))
+        self.no_activation()
+
     def test_protected_target_is_confirmed_before_activation(self):
         for mode in ("home", "separate"):
             with self.subTest(mode=mode):

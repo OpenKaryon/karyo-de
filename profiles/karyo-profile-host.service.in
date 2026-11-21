@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Unit]
+Description=Karyo host desktop controller
+Requires=karyo-profile-host.socket
+After=karyo-profile-host.socket systemd-logind.service
+
+[Service]
+Type=exec
+ExecStart=@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/profile-host
+User=root
+Group=root
+UMask=0077
+Restart=no
+StandardInput=null
+StandardOutput=journal
+StandardError=journal

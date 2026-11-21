@@ -26,9 +26,11 @@ def session_id(value):
     return value
 
 
-def process_session():
+def process_session(pid=0):
     # The process's kernel cgroup membership is authoritative; environment
     # variables such as XDG_SESSION_ID and USER are deliberately ignored.
+    if type(pid) is not int or not 0 <= pid < 2**31:
+        raise ValueError("Invalid native process identifier")
     library = ctypes.CDLL("libsystemd.so.0")
     library.sd_pid_get_session.argtypes = (ctypes.c_int, ctypes.POINTER(ctypes.c_void_p))
     library.sd_pid_get_session.restype = ctypes.c_int
@@ -36,7 +38,7 @@ def process_session():
     libc.free.argtypes = (ctypes.c_void_p,)
     libc.free.restype = None
     value = ctypes.c_void_p()
-    result = library.sd_pid_get_session(0, ctypes.byref(value))
+    result = library.sd_pid_get_session(pid, ctypes.byref(value))
     if result < 0:
         raise PermissionError("The desktop helper is not in a local graphical login session")
     try:

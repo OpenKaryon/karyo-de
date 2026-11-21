@@ -41,6 +41,22 @@ install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-session
     COMPONENT profile-session-runtime)
 
+# Inactive opt-in host transport. System units use lib, not the architecture
+# library directory (lib/x86_64-linux-gnu is not a systemd unit search path).
+set(KARYO_SYSTEMD_SYSTEM_UNIT_DIR "lib/systemd/system" CACHE STRING "systemd system unit installation directory")
+# The socket is root-only; installation does not enable it.
+configure_file("${profile_source}/host.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/profile-host" @ONLY)
+configure_file("${profile_source}/karyo-profile-host.service.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-host.service" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/profile-host"
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo COMPONENT profile-host-runtime)
+install(FILES "${profile_source}/karyo-profile-host.socket"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-host.service"
+    DESTINATION ${KARYO_SYSTEMD_SYSTEM_UNIT_DIR} COMPONENT profile-host-runtime)
+install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-host COMPONENT profile-host-runtime)
+
 if(BUILD_TESTING)
     find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
     add_test(NAME profile-account-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover
