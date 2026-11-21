@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "source": {
+    "name": "labwc",
+    "version": "0.9.3-1",
+    "dsc": {
+      "path": "../../../out/compositor/ubuntu/inputs/labwc_0.9.3-1.dsc",
+      "sha256": "5f20f914b6a0a7d2609a44c55bfb6d71e49c3ccf58c7ca0b8206c6c951d3c774"
+    },
+    "archives": [
+      {
+        "path": "../../../out/compositor/ubuntu/inputs/labwc_0.9.3-1.debian.tar.xz",
+        "sha256": "026d2c34915bd07028936bb1964f742c8b26093534bea2075d42a5e47be72c0c"
+      },
+      {
+        "path": "../../../out/compositor/ubuntu/inputs/labwc_0.9.3.orig.tar.xz",
+        "sha256": "deda3c37098b03eccbe4cc82662efde96570981910f1ae910f18156cbbaa231e"
+      }
+    ]
+  },
+  "patches": [
+    {
+      "path": "../patches/ubuntu/keyboard-layout-control.patch",
+      "sha256": "018a71ef9b7c76f6814b02dd1fa44d5f4c8863f0d49ffceef8dac078d7fbbbce"
+    },
+    {
+      "path": "../patches/ubuntu/window-snapshot.patch",
+      "sha256": "1b79d8e5aab83f16634f385a40f8ab1cf2ec54f7c5fbb1f3439ea707fd150041"
+    },
+    {
+      "path": "../patches/ubuntu/upstream-tests.patch",
+      "sha256": "84885706553a6a03812e1dab63e135d6c075c87ddf97fe7f4220f4d52e44664c"
+    }
+  ],
+  "build": {
+    "revision": "karyo1",
+    "distribution": "resolute",
+    "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
+    "message": "Add reviewed keyboard layout and window snapshot desktop protocols.",
+    "binaries": [
+      "labwc"
+    ],
+    "source_date_epoch": 1795215210
+  }
+}

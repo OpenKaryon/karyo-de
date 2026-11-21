@@ -413,3 +413,13 @@ failure and never follows a destination symlink. The optional greeter's tmpfiles
 data directory is independent of service activation and PAM. Native tests verify
 writer/reader interoperability, atomic replacement and unprivileged publication
 into a root-owned sticky directory without listing permission.
+
+Native compositor protocol integration is reviewed from the application's donor
+revision 26bad17cef413d26c36c117f2f1123dca4edded7, then adapted separately for native
+labwc 0.8.3 and 0.9.3. Derivative patches preserve the upstream GPL-2.0-only file
+licenses; XML preserves MIT identity/notices and native copyright metadata adds
+the full MIT terms. Independent fetch/acceptance tooling is GPL-3.0-or-later.
+Ubuntu adaptations use its actual node descriptor/view title API. Explicit
+session-lock definitions and a missing-keymap guard remove prototype assumptions.
+Native recipes and their source identities are under integrations/compositor;
+whole upstream sources and generated binaries remain ignored build inputs.

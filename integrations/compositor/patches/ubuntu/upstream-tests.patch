@@ -1,0 +1,51 @@
+Description: Enable the native compositor upstream tests during downstream packaging
+Origin: other, reviewed prototype integrations at 26bad17cef413d26c36c117f2f1123dca4edded7
+Forwarded: not-needed (private desktop integration)
+Last-Update: 2026-11-21
+
+--- a/debian/control
++++ b/debian/control
+@@ -9,6 +9,7 @@
+  cmake,
+  gettext,
+  libcairo2-dev,
++ libcmocka-dev,
+  libdrm-dev,
+  libglib2.0-dev,
+  libinput-dev,
+--- a/debian/rules
++++ b/debian/rules
+@@ -4,3 +4,6 @@
+ 
+ %:
+ 	dh $@
++
++override_dh_auto_configure:
++	dh_auto_configure -- -Dtest=enabled
+--- a/debian/copyright
++++ b/debian/copyright
+@@ -92,3 +92,24 @@
+  DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+  ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+  SOFTWARE.
++
++Files: protocols/openkaryon-keyboard-layout-v1.xml protocols/openkaryon-window-snapshot-v1.xml
++Copyright: 2026 OpenKaryon Developers
++License: MIT
++ Permission is hereby granted, free of charge, to any person obtaining a copy
++ of this software and associated documentation files (the "Software"), to deal
++ in the Software without restriction, including without limitation the rights
++ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ copies of the Software, and to permit persons to whom the Software is
++ furnished to do so, subject to the following conditions:
++ .
++ The above copyright notice and this permission notice shall be included in
++ all copies or substantial portions of the Software.
++ .
++ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ THE SOFTWARE.

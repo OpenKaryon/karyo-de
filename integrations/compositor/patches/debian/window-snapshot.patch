@@ -1,0 +1,169 @@
+Description: Expose visible toplevel rectangles in real scene stacking order
+Origin: other, reviewed prototype integrations at 26bad17cef413d26c36c117f2f1123dca4edded7
+Forwarded: not-needed (private desktop integration)
+Last-Update: 2026-11-21
+
+--- a/include/view.h
++++ b/include/view.h
+@@ -340,6 +340,8 @@
+  * view_from_wlr_surface() - returns the view associated with a
+  * wlr_surface, or NULL if the surface has no associated view.
+  */
++void window_snapshot_control_init(struct server *server);
++
+ struct view *view_from_wlr_surface(struct wlr_surface *surface);
+ 
+ /**
+--- a/protocols/meson.build
++++ b/protocols/meson.build
+@@ -14,6 +14,7 @@
+ )
+ 
+ server_protocols = [
++	'openkaryon-window-snapshot-v1.xml',
+ 	'openkaryon-keyboard-layout-v1.xml',
+ 	wl_protocol_dir / 'stable/xdg-shell/xdg-shell.xml',
+ 	wl_protocol_dir / 'unstable/pointer-constraints/pointer-constraints-unstable-v1.xml',
+--- /dev/null
++++ b/protocols/openkaryon-window-snapshot-v1.xml
+@@ -0,0 +1,27 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<protocol name="openkaryon_window_snapshot_v1">
++  <copyright>Copyright 2026 OpenKaryon Developers. SPDX-License-Identifier: MIT</copyright>
++  <interface name="openkaryon_window_snapshot_v1" version="1">
++    <description summary="visible window bounds for the desktop screenshot picker">
++      snapshot returns visible, mapped toplevel rectangles in global logical
++      coordinates, topmost first, followed by done. Decorations are included,
++      shadows and resize hitboxes are excluded. Minimized windows and windows
++      on hidden workspaces are omitted. A snapshot is not a live subscription.
++      No data is returned while the session is locked. Sandboxed clients must
++      not be offered this private desktop interface. Captures use the visible
++      screen pixels: any occluding windows remain in the resulting rectangle.
++    </description>
++    <request name="destroy" type="destructor"/>
++    <request name="snapshot"/>
++    <event name="window">
++      <arg name="x" type="int"/>
++      <arg name="y" type="int"/>
++      <arg name="width" type="int"/>
++      <arg name="height" type="int"/>
++      <arg name="title" type="string"/>
++    </event>
++    <event name="done">
++      <arg name="available" type="uint" summary="zero if the session is locked"/>
++    </event>
++  </interface>
++</protocol>
+--- a/src/server.c
++++ b/src/server.c
+@@ -212,6 +212,7 @@
+ 		"zwlr_virtual_pointer_manager_v1",
+ 		"zwp_virtual_keyboard_manager_v1",
+ 		"openkaryon_keyboard_layout_v1",
++		"openkaryon_window_snapshot_v1",
+ 		"zwlr_export_dmabuf_manager_v1",
+ 		"zwlr_screencopy_manager_v1",
+ 		"zwlr_data_control_manager_v1",
+@@ -627,6 +628,7 @@
+ 		server->wl_display);
+ 	seat_init(server);
+ 	keyboard_layout_control_init(server);
++	window_snapshot_control_init(server);
+ 	xdg_shell_init(server);
+ 	kde_server_decoration_init(server);
+ 	xdg_server_decoration_init(server);
+--- a/src/view.c
++++ b/src/view.c
+@@ -22,6 +22,10 @@
+ #include "snap-constraints.h"
+ #include "snap.h"
+ #include "ssd.h"
++#include "node.h"
++#include "openkaryon-window-snapshot-v1-protocol.h"
++#include "session-lock.h"
++#include <wlr/types/wlr_scene.h>
+ #include "view.h"
+ #include "window-rules.h"
+ #include "wlr/util/log.h"
+@@ -31,6 +35,81 @@
+ #if HAVE_XWAYLAND
+ #include <wlr/xwayland.h>
+ #endif
++
++/* Walk the enabled scene from front to back. Unlike the view/MRU list this
++ * preserves actual stacking, always-on-top/bottom groups and workspaces. */
++static void
++snapshot_node(struct wl_resource *resource, struct wlr_scene_node *node)
++{
++	if (!node->enabled) {
++		return;
++	}
++	struct node_descriptor *desc = node->data;
++	if (desc && desc->type == LAB_NODE_DESC_VIEW) {
++		struct view *view = desc->data;
++		if (!view->mapped || view->minimized || !view->surface) {
++			return;
++		}
++		struct wlr_box box = ssd_max_extents(view);
++		const char *title = view_get_string_prop(view, "title");
++		if (box.width > 0 && box.height > 0) {
++			openkaryon_window_snapshot_v1_send_window(resource,
++				box.x, box.y, box.width, box.height, title ? title : "");
++		}
++		return;
++	}
++	if (node->type == WLR_SCENE_NODE_TREE) {
++		struct wlr_scene_tree *tree = wlr_scene_tree_from_node(node);
++		struct wlr_scene_node *child;
++		wl_list_for_each_reverse(child, &tree->children, link) {
++			snapshot_node(resource, child);
++		}
++	}
++}
++
++static void
++snapshot_request(struct wl_client *client, struct wl_resource *resource)
++{
++	struct server *server = wl_resource_get_user_data(resource);
++	if (server->session_lock_manager->locked) {
++		openkaryon_window_snapshot_v1_send_done(resource, 0);
++		return;
++	}
++	snapshot_node(resource, &server->scene->tree.node);
++	openkaryon_window_snapshot_v1_send_done(resource, 1);
++}
++
++static void
++snapshot_destroy(struct wl_client *client, struct wl_resource *resource)
++{
++	wl_resource_destroy(resource);
++}
++
++static const struct openkaryon_window_snapshot_v1_interface snapshot_impl = {
++	.destroy = snapshot_destroy,
++	.snapshot = snapshot_request,
++};
++
++static void
++snapshot_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
++{
++	struct wl_resource *resource = wl_resource_create(client,
++		&openkaryon_window_snapshot_v1_interface, 1, id);
++	if (!resource) {
++		wl_client_post_no_memory(client);
++		return;
++	}
++	wl_resource_set_implementation(resource, &snapshot_impl, data, NULL);
++}
++
++void
++window_snapshot_control_init(struct server *server)
++{
++	if (!wl_global_create(server->wl_display,
++			&openkaryon_window_snapshot_v1_interface, 1, server, snapshot_bind)) {
++		wlr_log(WLR_ERROR, "Unable to create window snapshot control");
++	}
++}
+ 
+ struct view *
+ view_from_wlr_surface(struct wlr_surface *surface)

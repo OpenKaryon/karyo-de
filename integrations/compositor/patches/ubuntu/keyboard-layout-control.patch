@@ -1,0 +1,155 @@
+Description: Cycle the real physical keyboard group through a privileged desktop protocol
+Origin: other, reviewed prototype integrations at 26bad17cef413d26c36c117f2f1123dca4edded7
+Forwarded: not-needed (private desktop integration)
+Last-Update: 2026-11-21
+
+--- a/include/input/keyboard.h
++++ b/include/input/keyboard.h
+@@ -24,6 +24,9 @@
+ 	struct wl_event_source *keybind_repeat;
+ };
+ 
++struct server;
++void keyboard_layout_control_init(struct server *server);
++
+ void keyboard_reset_current_keybind(void);
+ void keyboard_configure(struct seat *seat, struct wlr_keyboard *kb,
+ 	bool is_virtual);
+--- a/protocols/meson.build
++++ b/protocols/meson.build
+@@ -14,6 +14,7 @@
+ )
+ 
+ server_protocols = [
++	'openkaryon-keyboard-layout-v1.xml',
+ 	wl_protocol_dir / 'stable/xdg-shell/xdg-shell.xml',
+ 	wl_protocol_dir / 'unstable/pointer-constraints/pointer-constraints-unstable-v1.xml',
+ 	wl_protocol_dir / 'stable/tablet/tablet-v2.xml',
+--- /dev/null
++++ b/protocols/openkaryon-keyboard-layout-v1.xml
+@@ -0,0 +1,18 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<protocol name="openkaryon_keyboard_layout_v1">
++  <copyright>Copyright 2026 OpenKaryon Developers. SPDX-License-Identifier: MIT</copyright>
++  <interface name="openkaryon_keyboard_layout_v1" version="1">
++    <description summary="cycle the compositor's keyboard layout">
++      A desktop panel can request the next layout without synthesizing keys or
++      changing focus. The compositor updates its physical keyboard group, so
++      normal keyboard input and per-window layout restoration stay consistent.
++      Requests are ignored while the session is locked. Sandboxed clients must
++      not be offered this interface. This private protocol may change in future
++      versions; incompatible changes require a new interface name or version.
++    </description>
++    <request name="destroy" type="destructor"/>
++    <request name="cycle">
++      <arg name="seat" type="object" interface="wl_seat"/>
++    </request>
++  </interface>
++</protocol>
+--- a/src/input/keyboard.c
++++ b/src/input/keyboard.c
+@@ -16,6 +16,7 @@
+ #include "input/ime.h"
+ #include "input/key-state.h"
+ #include "labwc.h"
++#include "openkaryon-keyboard-layout-v1-protocol.h"
+ #include "menu/menu.h"
+ #include "session-lock.h"
+ #include "view.h"
+@@ -714,6 +715,78 @@
+ 		kb->modifiers.latched, kb->modifiers.locked, layout);
+ }
+ 
++/*
++ * Desktop panels must change the physical group, not a virtual keyboard's
++ * private keymap. This preserves the usual modifier broadcasts and the
++ * per-window group stored by view_set_activated().
++ */
++static void
++layout_control_cycle(struct wl_client *client, struct wl_resource *resource,
++		struct wl_resource *seat_resource)
++{
++	struct server *server = wl_resource_get_user_data(resource);
++	struct wlr_seat_client *seat_client = wlr_seat_client_from_resource(seat_resource);
++	if (server->session_lock_manager->locked
++			|| !seat_client || seat_client->seat != server->seat.seat) {
++		return;
++	}
++	struct seat *seat = &server->seat;
++	struct input *input;
++	wl_list_for_each(input, &seat->inputs, link) {
++		if (input->wlr_input_device->type != WLR_INPUT_DEVICE_KEYBOARD) {
++			continue;
++		}
++		struct keyboard *keyboard = (struct keyboard *)input;
++		if (keyboard->is_virtual) {
++			continue;
++		}
++		struct wlr_keyboard *kb = keyboard->wlr_keyboard;
++		if (!kb || !kb->keymap) {
++			return;
++		}
++		xkb_layout_index_t count = xkb_keymap_num_layouts(kb->keymap);
++		if (count > 1) {
++			keyboard_update_layout(seat, (kb->modifiers.group + 1) % count);
++		}
++		return;
++	}
++}
++
++static void
++layout_control_destroy(struct wl_client *client, struct wl_resource *resource)
++{
++	wl_resource_destroy(resource);
++}
++
++static const struct openkaryon_keyboard_layout_v1_interface layout_control_impl = {
++	.destroy = layout_control_destroy,
++	.cycle = layout_control_cycle,
++};
++
++static void
++layout_control_bind(struct wl_client *client, void *data, uint32_t version,
++		uint32_t id)
++{
++	struct wl_resource *resource = wl_resource_create(client,
++		&openkaryon_keyboard_layout_v1_interface, 1, id);
++	if (!resource) {
++		wl_client_post_no_memory(client);
++		return;
++	}
++	wl_resource_set_implementation(resource, &layout_control_impl, data, NULL);
++}
++
++void
++keyboard_layout_control_init(struct server *server)
++{
++	if (!wl_global_create(server->wl_display,
++			&openkaryon_keyboard_layout_v1_interface, 1, server,
++			layout_control_bind)) {
++		wlr_log(WLR_ERROR, "Unable to create keyboard layout control");
++	}
++}
++
++
+ static void
+ reset_window_keyboard_layout_groups(struct server *server)
+ {
+--- a/src/server.c
++++ b/src/server.c
+@@ -215,6 +215,7 @@
+ 		"zwp_input_method_manager_v2",
+ 		"zwlr_virtual_pointer_manager_v1",
+ 		"zwp_virtual_keyboard_manager_v1",
++		"openkaryon_keyboard_layout_v1",
+ 		"zwlr_export_dmabuf_manager_v1",
+ 		"zwlr_screencopy_manager_v1",
+ 		"ext_data_control_manager_v1",
+@@ -634,6 +635,7 @@
+ 	server->text_input_manager = wlr_text_input_manager_v3_create(
+ 		server->wl_display);
+ 	seat_init(server);
++	keyboard_layout_control_init(server);
+ 	xdg_shell_init(server);
+ 	kde_server_decoration_init(server);
+ 	xdg_server_decoration_init(server);

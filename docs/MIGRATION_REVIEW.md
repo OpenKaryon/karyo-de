@@ -292,3 +292,23 @@ exact publications in a fresh real greetd session. No manual publication fixture
 is used in this scenario. LightDM was restored and package verification/audits
 remain clean on both disposable guests. This supersedes the pending runtime
 gate for appearance publication; compositor/profile/Files gates remain open.
+
+## Native layout and window snapshot protocols accepted
+
+The earlier stock-compositor limitation is now closed for these two protocols.
+The optional integration in integrations/compositor rebuilds each base's native
+source, preserves its wlroots ABI and enables upstream test suites. Exact DSC
+parts and patches are checksummed; generic isolated source packaging lives in
+Builder. Ubuntu uses its native descriptor/view-title API instead of old 0.8 code.
+
+Both final DEBs passed real headless server/client acceptance as UID 65534:
+registry discovery, mapped-window order, minimized exclusion, security-context
+filtering, locked-session privacy/layout denial and unlock recovery. Installed
+Debian and Ubuntu QA VMs additionally verified actual keyboard group events,
+real shell RU-to-EN clicks, and Snipping Tool window selection into the editor.
+Stock rollback and downstream reinstallation passed without changing wlroots or
+LightDM. Fixture keyboard files were restored and sessions ended afterward.
+
+This closes only layout/snapshot extensions. Prototype Wine/VMware compositor
+changes, profile/account/PAM/network/DNS/shared-clipboard helpers, Files existing-
+window activation and hardware-specific acceptance remain open.

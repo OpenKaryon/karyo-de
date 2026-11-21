@@ -113,3 +113,13 @@ FileManager1 causes that server to exit; it never replaces another manager.
 The package installs only its compatible private D-Bus activation identity,
 not a generic FileManager1 activation override in existing desktop sessions.
 User/default directory MIME associations remain an OS or user choice.
+
+### Optional compositor extensions
+
+The standalone session works with native labwc. The additional physical layout
+indicator control and screenshot window picker require the reviewed native
+protocol packages described in [compositor integration](../integrations/compositor/README.md).
+Separate patches follow Debian 13 labwc 0.8.3/wlroots 0.18 and Ubuntu 26.04
+labwc 0.9.3/wlroots 0.19. Both have real headless and installed-VM acceptance;
+the package changes neither the display manager nor the native wlroots library.
+Other prototype compositor and profile integrations are not implied by this slice.
