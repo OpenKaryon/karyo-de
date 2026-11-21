@@ -11,7 +11,7 @@ and verified; this checklist must not be read as a completion claim.
 
 | Capability | State / next acceptance |
 | --- | --- |
-| Shared UI, shell, lock, selectable session | Already migrated. Prior clean Debian VM lifecycle accepted; ongoing cross-base regression. |
+| Shared UI, shell, lock, selectable session | Migrated. Clean Debian and Ubuntu VM login/lock/sleep/portal/auth/upgrade/removal and Xfce coexistence accepted; later app/integration checks remain. |
 | Debian/Ubuntu native package stage | Added Ubuntu 26.04 build environment and exact base identity validation. Both native fixture packages built successfully; host tests 11/11. |
 | Qt compatibility | Explicit private Wayland import for Qt 6.10; Debian Qt 6.8 path retained. |
 | Terminal | Public UI targets and independent runtime component migrated. PTY execution and Ctrl+link regression pass on both bases; package/GUI acceptance follows. |
@@ -41,10 +41,30 @@ results must state whether they used virtual devices, fixtures or actual hardwar
 
 Local ignored Builder output out/migration contains native build/test logs and
 separate package records. out/debian-vm-qa retains the previous clean Debian VM.
-A separately provisioned Ubuntu VM is being prepared under out/ubuntu-vm-qa.
+A separately provisioned Ubuntu VM under out/ubuntu-vm-qa passed real login,
+lock/sleep, polkit/tray/portals, native app checks, upgrade/removal and Xfce
+coexistence. Builder docs/VALIDATION-UBUNTU-VM.md records exact scope and limits.
 No credential, personal profile, private endpoint or machine image belongs in Git.
 
 Before morning review, list exact commits, verified source revisions, actual
 commands/results, package hashes and remaining limitations. Local commit trailers
 must contain Co-Authored-By: Codex <noreply@openai.com> exactly once. Do not push
 these commits or include another agent's modifications.
+
+## Local review checkpoint after application wave
+
+Ten of fourteen application families have source/runtime components migrated:
+Terminal, Camera, Photos, Calculator, Clock, Editor, Reader, Player, Monitor and
+Snip. Files, Archive, Settings and App Center remain, plus the greeter and reviewed
+compositor/system integration boundaries above. All 28 current native CTest
+entries pass on both bases; final Snip/session changes additionally passed their
+three targeted checks. Builder host tests remain 11/11.
+
+The current source checkpoint is DE 368fe5d (19 local commits after 8ef17c0).
+New native VM packages were built from exact DE 9f1d1d7472e47e7619a9c6096eef1c43cbecda94;
+they do not contain the later Monitor/Snip changes. Installed graphical checks
+include Terminal, Photos, Editor, Reader and Player's file/duration recognition;
+the test VM has no audio device. PCM decoding is independently tested natively.
+Complete manifests/hashes and the acceptance-only upgrade mapping remain local.
+
+No commits have been pushed during this goal. The full migration is still active.
