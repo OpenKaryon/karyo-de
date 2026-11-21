@@ -182,3 +182,10 @@ Files breadcrumb and Places/UDisks2 integration come from the same donor.
 Mounting remains an explicit, asynchronous request authorized by the existing
 system service. The regression uses an isolated fake system bus and never
 registers fake devices on the host or mounts real hardware.
+
+Files quick archive actions retain their public behavior (single-root flattening,
+compound suffixes, ZIP/TAR.GZ/GZIP and streamed decompression) but now use the
+shared Archive backend for creation/extraction. Worker failures are always
+asynchronous and visible; complete results publish with no-replace rename.
+Unsafe paths, missing engines, protected archives and failed output publication
+cannot leave partial results or erase pre-existing outputs.
