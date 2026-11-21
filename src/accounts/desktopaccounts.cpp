@@ -1,40 +1,40 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "desktopaccounts.h"
-#include <QFileInfo>
-
-#include <QFile>
-#include <QRegularExpression>
+#include "profileconfig.h"
 #include <QStringList>
-
-namespace Karyo::Accounts {
-
-DesktopAccounts DesktopAccounts::load(const QString &path)
+namespace Karyo::Accounts
 {
-    const QString current = QStringLiteral("/etc/karyo/desktops.conf");
-    const QString selected = path.isEmpty()
-        ? (QFileInfo::exists(current) ? current : QStringLiteral("/etc/openkaryon/desktops.conf")) : path;
-    QFile file(selected);
-    if (!file.exists())
-        return {};
-    if (file.size() <= 1024 * 1024 && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        const QByteArray data = file.readAll();
-        if (file.error() == QFileDevice::NoError)
-            return parse(QString::fromUtf8(data));
-    }
-    DesktopAccounts accounts;
-    accounts.m_valid = false;
-    return accounts;
+DesktopAccounts DesktopAccounts::load(const QString &path, const QString &legacyPath)
+{
+    const QString current = path.isEmpty() ? QStringLiteral("/etc/karyo/desktops.conf") : path;
+    const QString legacy = path.isEmpty() && legacyPath.isEmpty()
+        ? QStringLiteral("/etc/openkaryon/desktops.conf")
+        : legacyPath;
+    const auto input = Internal::readConfig(current, legacy);
+    if (input.state == Internal::ReadState::Missing)
+        return { };
+    if (input.state == Internal::ReadState::Found)
+        return parse(input.text);
+    DesktopAccounts invalid;
+    invalid.m_valid = false;
+    return invalid;
 }
-
 DesktopAccounts DesktopAccounts::parse(const QString &text)
 {
     DesktopAccounts accounts;
-    const QRegularExpression whitespace(QStringLiteral("\\s+"));
-    const QRegularExpression name(QStringLiteral("^[A-Za-z_][A-Za-z0-9_.-]*\\$?$"));
-    for (const QString &line : text.split(QLatin1Char('\n'))) {
-        const QStringList names = line.section(QLatin1Char('#'), 0, 0).trimmed().split(whitespace, Qt::SkipEmptyParts);
-        for (const QString &login : names) {
-            if (!name.match(login).hasMatch() || accounts.m_owners.contains(login)) {
+    if (!Internal::boundedText(text))
+    {
+        accounts.m_valid = false;
+        return accounts;
+    }
+    for (const QString &line : text.split(Internal::lineBreaks()))
+    {
+        const auto names
+            = line.section(QLatin1Char('#'), 0, 0).split(Internal::whitespace(), Qt::SkipEmptyParts);
+        for (const auto &login : names)
+        {
+            if (!Internal::validLogin(login) || accounts.m_owners.contains(login))
+            {
                 accounts.m_owners.clear();
                 accounts.m_valid = false;
                 return accounts;
@@ -44,10 +44,5 @@ DesktopAccounts DesktopAccounts::parse(const QString &text)
     }
     return accounts;
 }
-
-QString DesktopAccounts::ownerOf(const QString &login) const
-{
-    return m_owners.value(login, login);
-}
-
+QString DesktopAccounts::ownerOf(const QString &login) const { return m_owners.value(login, login); }
 } // namespace Karyo::Accounts

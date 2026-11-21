@@ -3,6 +3,7 @@
 #include "pages.h"
 #include "widgets.h"
 #include <QComboBox>
+#include <QAbstractButton>
 #include <QDir>
 #include <QFile>
 #include <QSettings>
@@ -36,6 +37,28 @@ private Q_SLOTS:
         QVERIFY(!DefaultApps::set({"text/plain"}, "../bad.desktop", &error)); QCOMPARE(read(path), original);
         QVERIFY(QFile::remove(path)); QVERIFY(QDir().mkdir(path));
         QVERIFY(!DefaultApps::set({"text/plain"}, "new.desktop", &error)); QVERIFY(!error.isEmpty());
+    }
+    void accountProtectionIgnoresUserEnvironment() {
+        const bool wasSet = qEnvironmentVariableIsSet("OPENKARYON_DESKTOP_PASSWORD");
+        const QByteArray previous = qgetenv("OPENKARYON_DESKTOP_PASSWORD");
+        const auto snapshot = [] {
+            std::unique_ptr<SettingsPage> page(createAccountsPage(nullptr));
+            for (auto *row : page->findChildren<SettingRow *>()) {
+                if (row->property("settingTitle").toString() != "Ask for the password when switching here") continue;
+                if (auto *toggle = row->findChild<QAbstractButton *>())
+                    return QPair<int, int>(toggle->isChecked(), toggle->isEnabled());
+            }
+            return QPair<int, int>(-1, -1);
+        };
+        qunsetenv("OPENKARYON_DESKTOP_PASSWORD");
+        const auto baseline = snapshot();
+        QList<QPair<int, int>> values;
+        for (const QByteArray &spoof : {QByteArray("home"), QByteArray("separate"), QByteArray("none")}) {
+            qputenv("OPENKARYON_DESKTOP_PASSWORD", spoof); values.append(snapshot());
+        }
+        if (wasSet) qputenv("OPENKARYON_DESKTOP_PASSWORD", previous); else qunsetenv("OPENKARYON_DESKTOP_PASSWORD");
+        QVERIFY(baseline.first >= 0);
+        for (const auto &value : values) QCOMPARE(value, baseline);
     }
     void applicationPageWritesSelectedDefaults() {
         QTemporaryDir root; const QString config = root.filePath("config"), data = root.filePath("data");

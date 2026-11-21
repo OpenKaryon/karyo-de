@@ -6,6 +6,7 @@
 
 #include <karyo/ui/desktopentry.h>
 #include "desktopaccounts.h"
+#include "desktopsettings.h"
 #include "defaultapps.h"
 #include <QMessageBox>
 #include <QSignalBlocker>
@@ -140,7 +141,9 @@ public:
         auto *info = new FactsCard(this);
         const passwd *pw = getpwuid(getuid());
         const auto accounts = Karyo::Accounts::DesktopAccounts::load();
-        if (!accounts.valid())
+        const auto protection = Karyo::Accounts::DesktopSettings::load(
+            pw ? QString::fromLocal8Bit(pw->pw_name) : QString());
+        if (!accounts.valid() || !protection.valid())
             column()->addWidget(note(tr("Desktop account configuration is unavailable."), this));
         const QString owner = accounts.ownerOf(Config::userLogin());
         const bool child = owner != Config::userLogin();
@@ -151,8 +154,8 @@ public:
                         {tr("Shell"), pw ? QString::fromLocal8Bit(pw->pw_shell) : QString()}});
         column()->addWidget(info);
 
-        const QString passwordMode = qEnvironmentVariable("OPENKARYON_DESKTOP_PASSWORD");
-        const QString passwordDetail = child && passwordMode != QLatin1String("separate")
+        const QString passwordMode = protection.passwordMode();
+        const QString passwordDetail = child && protection.valid() && passwordMode != QLatin1String("separate")
             ? tr("Shared with the main account %1").arg(owner)
             : tr("Change it in a terminal; you type the current one first");
         auto *password = new SettingRow(QStringLiteral("key-round"), tr("Password"), passwordDetail, this);
@@ -164,13 +167,14 @@ public:
         // Karyo desktops (openkaryon-desktops): this desktop locks when it is
         // left, so coming back asks for the password. Off, switching is instant.
         column()->addWidget(sectionHeading(tr("Desktops")));
-        const bool protectedDesktop = !passwordMode.isEmpty();
+        const bool protectedDesktop = protection.protectedEntry();
         auto *lock = new SettingRow(QStringLiteral("lock"), tr("Ask for the password when switching here"),
-                                    protectedDesktop ? tr("Password protection was enabled for this desktop")
+                                    !protection.valid() ? tr("Desktop account configuration is unavailable.")
+                                    : protectedDesktop ? tr("Password protection was enabled for this desktop")
                                                      : tr("Ctrl+Alt+Left/Right and the taskbar switch desktops"), this);
         auto *toggle = lock->addToggle(protectedDesktop
                                       || Config::shell().value(QStringLiteral("Desktops/lockOnLeave"), false).toBool());
-        toggle->setEnabled(!protectedDesktop);
+        toggle->setEnabled(protection.valid() && !protectedDesktop);
         connect(toggle, &QAbstractButton::toggled, this,
                 [](bool on) { Config::shell().setValue(QStringLiteral("Desktops/lockOnLeave"), on); });
         column()->addWidget(lock);

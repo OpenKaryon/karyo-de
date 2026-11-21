@@ -338,3 +338,44 @@ users or temporary password services/binaries remaining. The -2 revision is an
 ignored QA upgrade artifact, not a change to the ordinary example recipe.
 This closes global hook/password-client/lifecycle acceptance; full desktop
 start/switch/protected-entry, network/VPN/DNS and clipboard still follow.
+
+## Shared Qt and system policy contract
+
+The greeter/Settings account inventory now reads root metadata through the same
+trust boundary as the system profile store: every absolute path parent is
+root-owned without group/world write, no parent or final symlink is followed,
+final input is a bounded regular root-owned file, and UTF-8/NUL errors fail.
+The 64 KiB byte limit applies during reads as well as model parsing. A missing
+canonical file may use legacy data; unsafe, malformed, unreadable or dangling
+canonical paths never fall back. QFileInfo existence checks are not authority.
+
+Qt and Python independently consume explicit shared policy-corpus.json vectors.
+Family boundaries match Python splitlines (including CR/VT/Unicode separators)
+and Unicode whitespace, with ordinary ASCII account names of at most 32 bytes.
+The same literal password/VPN/workstation parser is available to Qt consumers.
+Invalid protection metadata never suggests password-free entry. Settings reads
+that root policy for its password source/protection control rather than trusting
+OPENKARYON_DESKTOP_PASSWORD or a user session environment override.
+
+Native Qt checks exercise real root files, dangling/parent symlinks, FIFO,
+permissions, malformed/truncated UTF-8, NUL, size limits, missing-versus-invalid
+legacy handling and protected settings. Both bases also run the Qt reader as
+UID 65534 against an actual public root-owned file and a foreign-owned file
+inside trusted root directories. The root file is accepted, the foreign file
+is refused under both identities. Python discovery now contains 95 cases, with
+three ordinary-role skips as root and 42 root-fixture skips as UID 65534.
+Installed Settings and Greeter from 2f263df pass the native consumer gate on
+both QA guests. installed-policy-ui.py is a metadata-only, fixed-QA-host fixture:
+it records original account/PAM hashes, prepares mandatory protection for the
+existing QA user, and removes only its known unchanged configuration. With an
+empty user environment override, actual Settings displays protection enabled and
+read-only; clicking it cannot downgrade the root policy.
+
+A dangling canonical file plus valid legacy map makes the installed greeter
+show a configuration error without selectable users or successful submission.
+After removing only that fixture, wrong passwords are rejected and the original
+QA password opens a real Karyo session through greetd on both native bases.
+Recovery restores the original LightDM; account/password/PAM hashes, dpkg audits
+and package verification remain clean. Builder VALIDATION-ACCOUNT-POLICY.md
+records the exact DEBs, source and evidence. Initial protected-session startup
+is still a separate gate; this proof does not claim desktop switching.
