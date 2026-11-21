@@ -169,6 +169,8 @@ SettingRow::SettingRow(const QString &glyph, const QString &title, const QString
     auto *text = new QVBoxLayout;
     text->setSpacing(2);
     auto *titleLabel = new QLabel(title, this);
+    titleLabel->setTextFormat(Qt::PlainText);
+    m_description->setTextFormat(Qt::PlainText);
     titleLabel->setFont(Ui::bodyFont(14, QFont::DemiBold));
     setInk(titleLabel, t.text);
     text->addWidget(titleLabel);
@@ -192,6 +194,7 @@ void SettingRow::setValue(const QString &value)
 {
     if (!m_value) {
         m_value = new QLabel(this);
+        m_value->setTextFormat(Qt::PlainText);
         m_value->setFont(Ui::bodyFont(13));
         setInk(m_value, Ui::Theme::current().muted);
         m_right->insertWidget(0, m_value, 0, Qt::AlignVCenter);

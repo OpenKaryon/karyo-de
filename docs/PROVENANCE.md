@@ -247,3 +247,9 @@ D-Bus contract, asynchronous reads and authoritative readback after display,
 audio and notification changes. Display preferences are saved only after the
 compositor accepts the command; malformed replies and failed changes remain
 visible. Private-bus and fake-executable tests never change host displays/audio.
+
+Settings Bluetooth and input devices are adapted from the same application
+donor. BlueZ discovery and changes now have deadlines, visible failures and
+state readback; disconnected adapters cannot leave stale actionable paths.
+Device labels in shared setting rows are plain text. Private-bus tests cover
+accepted/denied power and connection changes and adapter/service removal.

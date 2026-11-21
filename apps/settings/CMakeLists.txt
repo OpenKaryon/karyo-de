@@ -69,3 +69,13 @@ if(BUILD_TESTING)
     add_test(NAME settings-system COMMAND dbus-run-session -- $<TARGET_FILE:karyo-settings-system-test>)
     set_tests_properties(settings-system PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 45)
 endif()
+
+add_library(karyo-settings-devices STATIC src/devices.cpp src/blueztypes.h)
+target_link_libraries(karyo-settings-devices PUBLIC karyo-settings-widgets Qt6::DBus)
+if(BUILD_TESTING)
+    add_executable(karyo-settings-devices-test tests/devicestest.cpp)
+    target_link_libraries(karyo-settings-devices-test PRIVATE karyo-settings-devices Qt6::Test)
+    add_test(NAME settings-bluetooth-devices COMMAND dbus-run-session -- /bin/sh
+        ${PROJECT_SOURCE_DIR}/tests/run-private-bus.sh $<TARGET_FILE:karyo-settings-devices-test>)
+    set_tests_properties(settings-bluetooth-devices PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 45)
+endif()
