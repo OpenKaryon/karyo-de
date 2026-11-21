@@ -34,3 +34,9 @@ Original license, reproduced from the accompanying test sources:
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 ```
+
+`implicit-folders.zip` is an original public QA fixture generated with Python's
+standard-library zipfile. It contains three four-byte files, no directory
+records, UTF-8 names and Unix permission attributes without explicit file-type
+bits, matching normal ZipFile.writestr output. Its date is fixed; no personal
+content is included. Karyo contributors license this fixture GPL-3.0-or-later.

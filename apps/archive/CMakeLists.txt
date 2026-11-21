@@ -16,7 +16,7 @@ endif()
 
 add_library(karyo-archive-window STATIC src/archivewindow.cpp src/archivewindow.h
     src/archivepassworddialog.cpp src/archivepassworddialog.h)
-target_link_libraries(karyo-archive-window PUBLIC karyo-archive-backend Karyo::Style karyo-file-presentation)
+target_link_libraries(karyo-archive-window PUBLIC karyo-archive-backend Karyo::Style karyo-file-presentation karyo-app-filemanager)
 qt_add_executable(karyo-archive src/main.cpp)
 target_link_libraries(karyo-archive PRIVATE karyo-archive-window)
 karyo_add_translation(karyo-archive "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-archive_ru.ts")

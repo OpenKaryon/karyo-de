@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "archivewindow.h"
+#include "filemanager.h"
 #include "archivepassworddialog.h"
 #include <QCheckBox>
 #include <QSignalBlocker>
@@ -315,7 +316,7 @@ void ArchiveWindow::extractTo(const QString &parent, const QStringList &paths, c
         [this, password](const Result &result) {
             m_password = password;
             m_status->setText(tr("Extracted to %1").arg(result.output));
-            QDesktopServices::openUrl(QUrl::fromLocalFile(result.output));
+            Karyo::Apps::openFolder(result.output, this);
         }, [this, parent, paths](const QString &password) { extractTo(parent, paths, password); }, QFileInfo(archive).fileName());
 }
 void ArchiveWindow::activate(QTreeWidgetItem *item)

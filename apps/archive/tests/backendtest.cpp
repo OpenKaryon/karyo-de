@@ -73,6 +73,16 @@ private Q_SLOTS:
         QVERIFY(!QFileInfo::exists(selected.output + '/' + QFileInfo(folder).fileName() + "/one.txt"));
         QCOMPARE(read(result.output + '/' + QFileInfo(folder).fileName() + "/one.txt"), QByteArray("keep"));
     }
+    void implicitParentDirectories()
+    {
+        QTemporaryDir root;
+        const QString path = QStringLiteral(ARCHIVE_FIXTURE_DIR "/implicit-folders.zip");
+        std::atomic_bool cancel{false};
+        const auto result = extract(path, root.path(), {}, {}, cancel);
+        QVERIFY2(result.ok(), qPrintable(result.error));
+        QCOMPARE(read(result.output + "/project/readme.txt"), QByteArray("data"));
+        QCOMPARE(read(result.output + "/project/nested/data.csv"), QByteArray("data"));
+    }
     void pathsAndLinksCannotEscape_data()
     {
         QTest::addColumn<QByteArray>("name"); QTest::addColumn<QByteArray>("link"); QTest::addColumn<bool>("hard");

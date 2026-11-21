@@ -12,7 +12,7 @@ and verified; this checklist must not be read as a completion claim.
 | Capability | State / next acceptance |
 | --- | --- |
 | Shared UI, shell, lock, selectable session | Migrated. Clean Debian and Ubuntu VM login/lock/sleep/portal/auth/upgrade/removal and Xfce coexistence accepted; later app/integration checks remain. |
-| Debian/Ubuntu native package stage | Added Ubuntu 26.04 build environment and exact base identity validation. Both native fixture packages built successfully; host tests 11/11. |
+| Debian/Ubuntu native package stage | Added Ubuntu 26.04 build environment and exact base identity validation. Both native fixture packages built successfully; host tests 17/17. |
 | Qt compatibility | Explicit private Wayland import for Qt 6.10; Debian Qt 6.8 path retained. |
 | Terminal | Public UI targets and independent runtime component migrated. PTY execution and Ctrl+link regression pass on both bases; package/GUI acceptance follows. |
 | Camera | Migrated with independent runtime and public UI. No-device controls/close pass on both bases (14/14 total tests); physical photo/video/audio acceptance pending. |
@@ -23,7 +23,7 @@ and verified; this checklist must not be read as a completion claim.
 | Clock | Migrated timers/stopwatch, persisted deadlines and notifications. Fake-clock/restart regression passes on both bases (18/18 total); audio/GUI checks follow. |
 | Editor | Complete independent window, compatible recovery/IPC and lossless encoding choice migrated. Undo, malformed metadata, both dialog choices and real second-process reuse pass on both bases (21/21 total). GUI package checks follow. |
 | Monitor | Complete sampler/UI migrated. Reset/PID/model, responsive services, user scope, atomic startup and disposable-child controls pass on both bases (26/26 total). Real authorization/package checks follow. |
-| Files | Pending. Preserve FileManager1, existing-window/tab routing, selection, rename, removable disks, folder-size cache and archive handoff. |
+| Files | Migrated with FileManager1, tab reuse, inline rename, USB, folder cache and safe quick archive actions. Both installed VM packages show correct selected-folder size/counts. Full native set 38/38; actual background-window activation remains an integration gate. |
 | Archive | Complete backend/window migrated with real ZIP/7z/encrypted RAR, compression, cancellation and atomic publication. Password retry/cancel and creation/browsing GUI cases pass on both bases (31 current CTest entries). Native package/VM checks follow. |
 | Snipping | Complete canvas/window/overlay migrated with public shortcut routes and compatible preferences. Native tests pass on both bases (28/28 total). Real overlay/clipboard and optional compositor window-snapshot integration follow. |
 | Settings | Pending. Review each page, user persistence, privileged changes and rollback. Public short routes must keep existing functionality. |
@@ -51,20 +51,43 @@ commands/results, package hashes and remaining limitations. Local commit trailer
 must contain Co-Authored-By: Codex <noreply@openai.com> exactly once. Do not push
 these commits or include another agent's modifications.
 
-## Local review checkpoint after application wave
+## Local review checkpoint after Files
 
-Ten of fourteen application families have source/runtime components migrated:
-Terminal, Camera, Photos, Calculator, Clock, Editor, Reader, Player, Monitor and
-Snip. Files, Archive, Settings and App Center remain, plus the greeter and reviewed
-compositor/system integration boundaries above. All 28 current native CTest
-entries pass on both bases; final Snip/session changes additionally passed their
-three targeted checks. Builder host tests remain 11/11.
+Twelve of fourteen application families now have source/runtime components:
+Terminal, Camera, Photos, Calculator, Clock, Editor, Reader, Player, Monitor,
+Snip, Archive and Files. Settings and App Center remain, together with the
+greeter, compositor and reviewed system integrations listed above. The complete
+38-entry CTest suite passes on Debian 13 and Ubuntu 26.04; the Wayland-only Files
+focus case is intentionally not accepted by its offscreen run. Archive's full
+31-case Qt backend suite additionally passes as UID 65534 on both bases without
+skips. Builder host tests are 17/17.
 
-The current source checkpoint is DE 368fe5d (19 local commits after 8ef17c0).
-New native VM packages were built from exact DE 9f1d1d7472e47e7619a9c6096eef1c43cbecda94;
-they do not contain the later Monitor/Snip changes. Installed graphical checks
-include Terminal, Photos, Editor, Reader and Player's file/duration recognition;
-the test VM has no audio device. PCM decoding is independently tested natively.
-Complete manifests/hashes and the acceptance-only upgrade mapping remain local.
+The first 17-package native wave uses exact DE
+21fdf2e4e0636d2ef17d0a8a72dce42475762bee. Debian installs 16 packages, leaving
+the optional non-free RAR addon uninstalled; Ubuntu installs all 17. Files and
+session-entry are subsequently built and installed from exact DE
+231bcff29796042ae0a810d6b5a212935af1a893. The corresponding Builder manifests,
+input hashes, native base identities and installation logs remain local.
 
-No commits have been pushed during this goal. The full migration is still active.
+Real new-session checks passed on both test VMs. Calculator, Clock and Monitor
+launch and render; Snip screen capture and editor Copy publish 1280x800 PNG,
+region capture publishes 401x231 PNG for inclusive pointer endpoints, and Escape
+retains the prior clipboard. Archive browses a public Python ZIP and extracts
+its UTF-8 files correctly. A Debian extraction failure was a QA-helper mistake:
+it inherited the admin's inaccessible cwd. The fixed helper uses the test user's
+home, as normal desktop-entry launches already do. This failed attempt is not
+counted as product acceptance.
+
+Files runs its idle FileManager1 server and accepts ShowItems on both VMs. A
+selected 42-byte QA folder shows two files and one subfolder, with Details open.
+Its refusal to replace a running Thunar was also observed before deliberately
+closing that QA fixture. FileManager1 folder routing added after the package
+wave is natively verified but not yet installed in these VM artifacts.
+
+Installed native apps and their regressions do not establish physical camera,
+microphone, audible playback, Bluetooth, Wi-Fi hardware or multi-GPU acceptance.
+The test VM has no audio device; actual PCM decoding is independently verified.
+The stock compositor still lacks the window-snapshot and keyboard-control
+extensions, whose separate package/acceptance work remains in this goal.
+
+No commits have been pushed during this goal. All remaining scope stays active.

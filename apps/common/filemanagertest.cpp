@@ -12,10 +12,13 @@ class Manager : public QObject
     Q_CLASSINFO("D-Bus Interface", "org.freedesktop.FileManager1")
 public:
     QStringList selected;
+    QStringList folders;
     QString startup;
 public Q_SLOTS:
     Q_SCRIPTABLE void ShowItems(const QStringList &uris, const QString &id)
     { selected = uris; startup = id; }
+    Q_SCRIPTABLE void ShowFolders(const QStringList &uris, const QString &id)
+    { folders = uris; startup = id; }
 };
 class FileManagerTest : public QObject
 {
@@ -24,6 +27,21 @@ class FileManagerTest : public QObject
 public Q_SLOTS:
     void openFolder(const QUrl &url) { m_opened = url; }
 private Q_SLOTS:
+    void opensTheRequestedFolderThenFallsBack()
+    {
+        auto bus = QDBusConnection::sessionBus(); Manager manager; QTemporaryDir root;
+        QVERIFY(bus.registerService("org.freedesktop.FileManager1"));
+        QVERIFY(bus.registerObject("/org/freedesktop/FileManager1", &manager, QDBusConnection::ExportScriptableSlots));
+        QDesktopServices::setUrlHandler("file", this, "openFolder");
+        Karyo::Apps::openFolder(root.path(), this);
+        QTRY_COMPARE(manager.folders, QStringList{QUrl::fromLocalFile(root.path()).toString()});
+        QVERIFY(manager.selected.isEmpty()); QVERIFY(m_opened.isEmpty());
+        bus.unregisterObject("/org/freedesktop/FileManager1");
+        QVERIFY(bus.unregisterService("org.freedesktop.FileManager1"));
+        Karyo::Apps::openFolder(root.path(), this);
+        QTRY_COMPARE(m_opened, QUrl::fromLocalFile(root.path()));
+        m_opened.clear(); QDesktopServices::unsetUrlHandler("file");
+    }
     void selectsThenFallsBack()
     {
         auto bus = QDBusConnection::sessionBus();
