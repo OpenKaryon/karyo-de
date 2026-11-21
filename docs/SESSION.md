@@ -282,3 +282,19 @@ network service. Private resolver mounts, runtime dependency/forwarding setup,
 user-manager scope, NetBird integration, persistence/reconciliation and stopped
 session startup/owned teardown remain required. Builder's forwarding validation
 report preserves failed native attempts and the exact final package identities.
+
+## Installed private profile DNS
+
+The private resolver library and fixed-host installed-dns.py probe now pass
+native Debian 13 and Ubuntu 26.04 with installed source 8b09128. A real ordinary
+client retains host logind access and normal sudo while resolving through its
+own private resolved instance. Read access is allowed; private-bus mutation is
+denied to that client. Root bootstrap validates private resolver name ownership.
+
+The same client survives global host stub atomic replacement and retargeting
+between the two canonical resolved aliases, then sees changed private DNS after
+NetBird-style per-link updates. Original host file/symlink identities and network
+snapshots are restored; both existing graphical shells keep their PIDs. Builder
+VALIDATION-PROFILE-DNS.md records native inputs, failed attempts and limitations.
+This closes a resolver-library gate, not stopped-profile/session supervision or
+actual NetBird integration. Unsupported resolver layouts/transports are refused.

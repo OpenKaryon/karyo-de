@@ -455,3 +455,10 @@ native table handles. Linux reverse-source lookup behavior was read from the
 upstream v6.12 fib_frontend.c and IP sysctl documentation; no implementation
 was copied. The fixture uses only synthetic policies and public DNS/TCP probes,
 not imported personal tunnel profiles, certificates or secrets.
+
+Private profile DNS configuration, lifecycle checks and installed QA are new
+GPL-3.0-or-later code. Backend discovery was reviewed against upstream NetBird
+v0.82.1 DNS sources and systemd resolve1/D-Bus documentation. No NetBird
+implementation, account, private server configuration or credential is imported.
+The QA fixture uses synthetic .test names and a local DNS responder. Native
+systemd-resolved and dbus-daemon remain separately packaged upstream programs.

@@ -631,3 +631,60 @@ single-datagram timeouts, packet traces and the numeric route-type failure are
 retained separately. They are not silently reclassified as successful runs.
 See Builder `docs/VALIDATION-PROFILE-FORWARDING.md` for exact hashes and limits.
 This does not configure a resolver mount or test an actual Home/Work VPN client.
+
+### Private DNS configuration and discovery
+
+`karyo_profiles.dns` reads DNS and search domains from the selected physical
+link's typed resolve1 API, checking the physical snapshot before and after.
+It does not copy the global resolver file, a host loopback stub or a VPN link's
+nameservers. Initial support is IPv4 with ordinary native resolver ports;
+IPv6-only seeds, nonstandard ports, authenticated DNS endpoints and encrypted
+transport policies fail rather than being downgraded or replaced with public
+fallback servers. Client preparation also requires a root-owned canonical
+resolved symlink; regular files/other backend paths are refused before mutation.
+
+The private resolved plan generates a dedicated D-Bus policy, isolated runtime
+aliases/varlink directory and hidden host networkd metadata. Its resolver daemon
+uses only its private system bus; ordinary desktop clients keep the host system
+bus for logind/polkit. This matters on Debian where nss-resolve bypasses the
+resolv.conf file and calls the varlink socket. Mounting the entire private
+/run/systemd/resolve directory gives both libc backends a private view and
+preserves visibility across atomic file replacement in that directory.
+
+Bootstrap uses the same per-link SetDNS/SetDomains/SetDefaultRoute API family as
+NetBird. The supervisor must prove the private resolver's unit/name owner before
+calling it; a namespace-local ifindex must never be sent to the host resolver.
+The bus permits only root/service control and profile-user read/query methods.
+Configuration files are created in a fresh root-owned UUID directory, held by
+inode, and removed only if all captured files remain unchanged and runtime
+services/directories are gone. Foreign files, links, replacements or consumers
+cause refusal. No service is enabled by installing these library files.
+
+Only DNS/network bind properties are supplied for user clients: capability
+bounding sets and normal password sudo are not restricted. The service-specific
+resolved sandbox is separate. Complete owned unit supervision, existing-session
+mounts, host resolver symlink retargeting beyond supported resolved layouts,
+real NetBird daemon lifecycle and UI/callback testing remain required.
+
+### Installed private resolver acceptance
+
+The opt-in root probe tests/installed-dns.py runs only on the two disposable
+QA hostnames. It starts captured transient bus/resolver/client services inside
+an owned profile network. Native private-bus name ownership must match the
+captured resolver PID before bootstrap. A single ordinary client process uses
+real libc lookups throughout; Debian takes nss-resolve/varlink and Ubuntu uses
+the DNS backend. It retains host logind access and the QA system's existing
+sudo rule, has NoNewPrivs=0, can query its private resolver and cannot change it.
+
+Exact installed packages from 8b09128 pass both native bases. After public DNS,
+the fixture atomically replaces the global host stub with an unreachable test
+server, then retargets the global symlink to the other canonical resolved alias.
+The same client still sees private files and succeeds. A private test DNS server
+and NetBird-style root link updates change that client's answer without restart;
+atomic replacement of the private resolver aliases is visible. Cleanup restores
+the original host file/symlink inodes, accounts/PAM, network snapshots and GUI PID.
+
+This covers the two supported canonical resolved targets, not arbitrary resolver
+backends or arbitrary global symlink destinations. Installation enables no
+service. The full controller, user-manager scope, physical-change reconciliation,
+real NetBird authentication/daemon and supervisor recovery remain open.
