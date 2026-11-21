@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "photoswindow.h"
+#include "filemanager.h"
 
 #include "imageview.h"
 #include "thumbnails.h"
@@ -25,11 +26,6 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPointer>
-#include <QDesktopServices>
-#include <QDBusConnection>
-#include <QDBusMessage>
-#include <QDBusPendingCallWatcher>
-#include <QDBusPendingReply>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSettings>
@@ -518,17 +514,7 @@ void PhotosWindow::showInFiles()
     if (m_current < 0)
         return;
     const QString path = m_paths.at(m_current);
-    auto message = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.FileManager1"),
-        QStringLiteral("/org/freedesktop/FileManager1"),
-        QStringLiteral("org.freedesktop.FileManager1"), QStringLiteral("ShowItems"));
-    message << QStringList{QUrl::fromLocalFile(path).toString()} << QString();
-    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(message), this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [watcher, path] {
-        QDBusPendingReply<> reply = *watcher;
-        if (reply.isError())
-            QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath()));
-        watcher->deleteLater();
-    });
+    Karyo::Apps::showInFiles(path, this);
 }
 
 void PhotosWindow::saveRotation()

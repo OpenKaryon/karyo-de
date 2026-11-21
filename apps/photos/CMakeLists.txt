@@ -1,7 +1,7 @@
 find_package(Qt6 REQUIRED COMPONENTS DBus)
 qt_add_executable(karyo-photos src/main.cpp src/photoswindow.cpp src/photoswindow.h
     src/gallery.cpp src/gallery.h src/imageview.cpp src/imageview.h src/thumbnails.cpp src/thumbnails.h)
-target_link_libraries(karyo-photos PRIVATE Karyo::Style Qt6::DBus)
+target_link_libraries(karyo-photos PRIVATE Karyo::Style karyo-app-filemanager Qt6::DBus)
 karyo_add_translation(karyo-photos "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-photos_ru.ts")
 install(TARGETS karyo-photos RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT photos-runtime)
 install(FILES data/karyo-photos.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT photos-runtime)

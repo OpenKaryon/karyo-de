@@ -1,7 +1,7 @@
 find_package(Qt6 REQUIRED COMPONENTS DBus Pdf PdfWidgets)
 add_library(karyo-reader-window STATIC src/documentpage.cpp src/documentpage.h
     src/readerwindow.cpp src/readerwindow.h src/thumbnails.cpp src/thumbnails.h)
-target_link_libraries(karyo-reader-window PUBLIC Karyo::Style Qt6::DBus Qt6::Pdf Qt6::PdfWidgets)
+target_link_libraries(karyo-reader-window PUBLIC Karyo::Style karyo-app-filemanager Qt6::DBus Qt6::Pdf Qt6::PdfWidgets)
 target_include_directories(karyo-reader-window PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 qt_add_executable(karyo-reader src/main.cpp)
 target_link_libraries(karyo-reader PRIVATE karyo-reader-window)
