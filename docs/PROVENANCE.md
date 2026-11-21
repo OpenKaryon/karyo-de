@@ -227,3 +227,10 @@ publication now validates and atomically updates only selected MIME defaults,
 retains other associations and reports failures with UI rollback. Account data
 is read through the shared ownership model; password changes still use the
 system's interactive passwd command and authoritative authentication policy.
+
+Settings time/language/privacy pages are adapted from the same donor. timedated
+reads and authorized changes are asynchronous; controls read back actual state
+on success or failure instead of assuming a queued request succeeded. Locale,
+layout and shortcut edits check atomic profile writes, and clearing recent-file
+history now publishes atomically with visible retryable errors. Regression tests
+use a private timedated service and disposable user data, never the host clock.

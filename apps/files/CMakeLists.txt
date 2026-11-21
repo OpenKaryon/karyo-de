@@ -22,7 +22,7 @@ if(BUILD_TESTING)
     add_executable(karyo-files-places-test tests/placestest.cpp)
     target_link_libraries(karyo-files-places-test PRIVATE karyo-files-places Qt6::Test)
     add_test(NAME files-places-usb COMMAND dbus-run-session -- /bin/sh
-        ${CMAKE_CURRENT_SOURCE_DIR}/tests/run-private-bus.sh $<TARGET_FILE:karyo-files-places-test>)
+        ${PROJECT_SOURCE_DIR}/tests/run-private-bus.sh $<TARGET_FILE:karyo-files-places-test>)
     set_tests_properties(files-places-usb PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 45)
 endif()
 
