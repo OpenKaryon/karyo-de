@@ -260,3 +260,19 @@ saved connections and bounded asynchronous commands with visible failures.
 Concurrent activation is prevented and superseded query callbacks are ignored;
 radio state is read back after failed changes. Fake nmcli fixtures never touch
 the build host or QA VM's actual network.
+
+The bounded Settings command adapter and process regressions are extracted to
+an internal Qt Core-only application helper for Settings/App Center reuse. Child
+queries use C.UTF-8 for stable parsable labels without changing the parent locale.
+The helper remains unsuitable for privileged package transactions, whose lifetime
+must not be tied to a query deadline or page destruction.
+
+The prototype App Center/Settings APT helper and polkit policy are reviewed as
+optional shared software integration. The root helper is rewritten as an isolated
+Python entry point with fixed executable/environment, explicit argument limits
+and no shell/options/local-file/version inputs. The polkit action retains admin
+authorization and applies only to the installed helper path. Software jobs have
+application lifetime and a quit lock, bounded retained output and exactly-once
+completion, without killing package transactions on a page's query deadline.
+References: https://www.freedesktop.org/software/polkit/docs/latest/pkexec.1.html
+and https://doc.qt.io/qt-6/qeventlooplocker.html .

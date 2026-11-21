@@ -4,6 +4,7 @@
 // toggle switch, the segmented control and fact cards.
 #pragma once
 
+#include "command.h"
 #include <QAbstractButton>
 #include <QLabel>
 #include <QList>
@@ -138,9 +139,7 @@ private:
     QStringList m_keywords;
 };
 
-// Runs a bounded asynchronous command; successful output or failure is delivered once.
-void runCommand(QObject *context, const QString &program, const QStringList &args,
-                const std::function<void(const QString &)> &done,
-                const std::function<void(const QString &)> &failed = {}, int timeoutMs = 15000);
+// Shared query adapter; privileged package transactions use a separate owner.
+using Karyo::Apps::runCommand;
 // Opens a terminal running commandLine; the terminal stays open afterwards.
 void runInTerminal(const QString &commandLine);

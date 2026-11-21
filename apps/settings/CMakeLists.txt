@@ -10,7 +10,7 @@ endif()
 
 add_library(karyo-settings-widgets STATIC src/widgets.cpp src/widgets.h)
 target_include_directories(karyo-settings-widgets PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(karyo-settings-widgets PUBLIC Karyo::Style)
+target_link_libraries(karyo-settings-widgets PUBLIC Karyo::Style karyo-app-command)
 if(BUILD_TESTING)
     add_executable(karyo-settings-widgets-test tests/widgettest.cpp)
     target_link_libraries(karyo-settings-widgets-test PRIVATE karyo-settings-widgets Qt6::Test)

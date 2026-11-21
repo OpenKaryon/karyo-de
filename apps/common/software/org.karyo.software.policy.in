@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<policyconfig>
+  <vendor>Karyo</vendor>
+  <action id="org.karyo.software.apt">
+    <description>Install, remove and update software</description>
+    <description xml:lang="ru">Установка, удаление и обновление программ</description>
+    <message>Authentication is required to install, remove or update software</message>
+    <message xml:lang="ru">Для установки, удаления или обновления программ требуется аутентификация</message>
+    <icon_name>system-software-install</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@KARYO_APT_HELPER_PATH@</annotate>
+  </action>
+</policyconfig>
