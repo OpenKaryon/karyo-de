@@ -16,6 +16,14 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.karyo.desktops.policy"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions COMPONENT profile-accounts-runtime)
 install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-accounts COMPONENT profile-accounts-runtime)
+configure_file("${profile_source}/karyo-desktops-sync.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-desktops-sync" @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/karyo-desktops-sync"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/pam-configs COMPONENT profile-password-sync-runtime)
+install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-password-sync
+    COMPONENT profile-password-sync-runtime)
+
 if(BUILD_TESTING)
     find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
     add_test(NAME profile-account-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover

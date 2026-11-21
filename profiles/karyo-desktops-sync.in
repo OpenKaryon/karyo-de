@@ -1,0 +1,6 @@
+Name: Keep shared Karyo desktop passwords synchronized
+Default: yes
+Priority: 0
+Password-Type: Additional
+Password:
+ required pam_exec.so seteuid @CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/desktop-password-changed

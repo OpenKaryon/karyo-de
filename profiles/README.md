@@ -2,11 +2,13 @@
 
 These are reviewed account-management slices of the prototype's independent
 desktop sessions. The optional profile-accounts-runtime component packages fixed
-privileged account helpers and its creation policy. Installation does not create
-users, enable a PAM hook, start/switch sessions or change networking. Logind/VT
+privileged account helpers and its creation policy. That base component does not
+create users, enable a PAM hook, start/switch sessions or change networking. The separate optional password-sync component
+registers the PAM integration described in the latest lifecycle section. Logind/VT
 switching, protected entry, per-profile network/VPN/DNS and family clipboard
-services follow as separately reviewed runtime slices. The current combined test suite is described
-in the latest provisioning section below; earlier counts record their own slices.
+services follow as separately reviewed runtime slices. The current combined test
+suite is described in the latest lifecycle section; earlier counts record their
+own slices.
 
 The model retains the two-level contract: a line contains one main account and
 its child desktops; a child creating another desktop adds a sibling under the
@@ -238,3 +240,101 @@ cwd, PYTHONPATH and PYTHONHOME fixtures, and verifies no bytecode is generated.
 It passes on both bases under root and UID 65534, with three and 42 role-specific
 cases skipped respectively. Full graphical DE regression remains 68/68 on each
 base; account-only packaging runs the identical profile test independently.
+
+## Installed private PAM password-stack acceptance
+
+The installed desktop-password-changed and desktop-sync helpers also pass real
+native PAM acceptance on both QA guests. tests/native-pam-password.c calls
+pam_chauthtok through the fixed temporary karyo-qa-password service and accepts
+only the three predefined fresh fixture usernames on the two QA hostnames.
+It reads the disposable new password from stdin, bounds conversation prompts,
+omits PAM text diagnostics and erases its in-process password buffer.
+
+The temporary service runs native pam_unix.so yescrypt followed by pam_exec.so
+seteuid pointing to the actual installed helper. A main-account change updates
+its shared child; a shared-child change updates the main account; an independent
+child stays separate. The installed system synchronization command passes too.
+All accounts in this experiment are newly created fixtures, including its main
+account. Original passwd/shadow/group/common-password bytes remain unchanged
+after teardown. The temporary PAM service, fixture identities/homes/metadata and
+QA probe executables are removed; no production global PAM hook is enabled.
+
+This verifies the administrative PAM password-update path and installed hook
+ordering. The extended probe also sets its real UID to the fresh shared child
+while retaining the effective root identity, as a setuid passwd client does.
+A wrong current password is refused with every fixture hash unchanged; a correct
+current password updates only the shared family. This uses actual native PAM
+conversation and pam_unix verification, not mocked authentication. It does not
+claim to execute the distro passwd binary or enable the global pam-auth-update
+lifecycle. That lifecycle must remove/disable an enabled hook before its
+executable disappears. The low-level package therefore continues to
+ship no auto-enabled common-password change until the complete session runtime
+and safe maintainer behavior have their own installed acceptance.
+
+The upstream [pam_exec implementation](https://github.com/linux-pam/linux-pam/blob/master/modules/pam_exec/pam_exec.c)
+returns success during PAM_PRELIM_CHECK and executes the password helper only in
+the update phase. No expose_authtok option is used; synchronization reads the
+updated local hash and never asks PAM to export the plaintext password.
+
+## Optional shared-password PAM package lifecycle
+
+The separate profile-password-sync-runtime component supplies the packaged
+karyo-desktops-sync password profile. It depends on the account-helper package;
+installing that explicit additional package registers the profile through
+pam-auth-update --package. The profile is enabled by default when newly selected,
+while existing administrator profile selections and local PAM edits remain under
+pam-auth-update control. The maintainer never uses --force or edits common-* by
+hand. Only the password stack receives the hook; authentication remains native.
+
+On remove/deconfigure, prerm first calls pam-auth-update --package --remove.
+It then reads the bounded regular UTF-8 common-password file and refuses removal
+if any active line still refers to the helper. Thus a local manual stack which
+the native tool refuses to rewrite cannot leave a stale helper reference after
+files disappear. Tool failures, malformed/unreadable/nonregular/oversized stacks
+also fail before removal. Commented/disabled references do not block removal.
+Upgrade keeps the existing integration until the new package configures; postrm
+idempotently cleans remove/purge/aborted-install state. No account data is erased.
+
+The script code is exercised with isolated actual shell/pam-auth-update fixtures
+for configure, dependency/tool failure, upgrade, remove/deconfigure, purge,
+locally modified active references and unsafe common-password input. All 94
+profile tests pass on Debian and Ubuntu as root and UID 65534, with three and
+42 role-specific skips respectively. Native installed lifecycle evidence follows
+separately; this code-level fixture does not substitute for global PAM acceptance.
+
+The native [pam-auth-update manual](https://manpages.debian.org/trixie/libpam-runtime/pam-auth-update.8.en.html)
+requires removing profile references before modules disappear, preserving local
+configuration and avoiding --force from maintainer scripts.
+
+## Native global PAM and package lifecycle acceptance
+
+The optional password-sync package from exact runtime source
+6b9093391bde39bd4cf1b2a4d1ce2c7cc50dca1a is installed and accepted on both
+Debian 13 and Ubuntu 26.04 QA guests. Registration adds exactly one helper line
+to common-password; other common PAM stacks and account bytes remain unchanged.
+Root-only recovery snapshots of original and configured PAM/tool state are kept
+on the disposable guests, not included in source or distributed artifacts.
+
+installed-pam.py --global-stack tests both the native common-password stack and
+the actual distro /usr/bin/passwd. Administrative passwd changes propagate from
+a fresh fixture owner to its shared child. An ordinary child calls the setuid
+passwd binary through runuser: a wrong current password is refused without
+changing any family hash, and a correct current password updates the shared
+family. A separate child stays independent. Test teardown removes only newly
+captured fixture users/homes/metadata and restores original account bytes.
+
+The native package also passes administrator disable followed by reinstall
+(the hook stays disabled), explicit re-enable, an actual -1 to -2 QA version
+upgrade (one enabled hook), remove, reinstall and purge. A harmless extra module
+inside the managed block reproduces a locally modified stack. Native removal
+fails before deleting files, leaves the custom stack byte-for-byte unchanged and
+retains its helper/profile. After restoring that controlled QA edit and matching
+pam-auth-update state, removal and purge restore every original common PAM file
+and account database byte. The default display manager remains unchanged.
+
+Both guests finish with the ordinary -1 optional PAM package installed/enabled
+for subsequent profile-session QA, the original LightDM active and no fixture
+users or temporary password services/binaries remaining. The -2 revision is an
+ignored QA upgrade artifact, not a change to the ordinary example recipe.
+This closes global hook/password-client/lifecycle acceptance; full desktop
+start/switch/protected-entry, network/VPN/DNS and clipboard still follow.

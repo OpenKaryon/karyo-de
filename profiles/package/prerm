@@ -1,0 +1,33 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+case "${1:-}" in
+    remove|deconfigure)
+        /usr/sbin/pam-auth-update --package --remove karyo-desktops-sync
+        # A locally modified stack can make pam-auth-update leave files intact.
+        # Refuse removal while an active reference remains; never use --force.
+        /usr/bin/python3 -I - <<'PYTHON'
+from pathlib import Path
+import os
+import stat
+path = Path("/etc/pam.d/common-password")
+fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NONBLOCK)
+with os.fdopen(fd, "rb") as stream:
+    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+        raise SystemExit("Karyo PAM removal requires a regular common-password file; package retained.")
+    data = stream.read(131073)
+if len(data) > 131072 or b"\0" in data:
+    raise SystemExit("Karyo PAM removal cannot verify common-password; package retained.")
+try:
+    text = data.decode("utf-8")
+except UnicodeError:
+    raise SystemExit("Karyo PAM removal cannot decode common-password; package retained.")
+for line in text.splitlines():
+    if "/usr/libexec/karyo/desktop-password-changed" in line.partition("#")[0]:
+        raise SystemExit("Karyo PAM is still referenced by a locally modified stack. Disable that reference before removal; package retained.")
+PYTHON
+        ;;
+esac
+exit 0

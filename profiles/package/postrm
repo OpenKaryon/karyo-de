@@ -1,0 +1,13 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+case "${1:-}" in
+    remove|purge|abort-install)
+        if [ -x /usr/sbin/pam-auth-update ]; then
+            /usr/sbin/pam-auth-update --package --remove karyo-desktops-sync
+        fi
+        ;;
+esac
+exit 0

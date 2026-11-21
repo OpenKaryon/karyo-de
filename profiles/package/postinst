@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+case "${1:-}" in
+    configure)
+        test -x /usr/libexec/karyo/desktop-password-changed
+        /usr/sbin/pam-auth-update --package
+        ;;
+esac
+exit 0
