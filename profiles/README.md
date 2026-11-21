@@ -1189,3 +1189,29 @@ The external NetBird package's maintainer script starts a system-wide service;
 installing that dependency must be an explicit packaging/administrator decision,
 not a side effect of the base DE or this primitive. The DE neither replaces that
 upstream package nor disables/adopts an administrator's existing global service.
+
+
+### Isolated NetBird clients and browser handoff
+
+The optional `profile-netbird-client` component installs `karyo-netbird-cli`,
+`karyo-netbird-gui` and a private `xdg-open` handoff shim. It starts no service and
+pulls in no vendor package that could enable a global daemon. The native CLI/GUI
+binaries must be supplied separately through reviewed provider packaging.
+
+After a verified provider start the root controller publishes `client.json` in
+its private runtime directory. `KARYO_NETBIRD_ENDPOINT` selects that exact metadata
+path; the ordinary client verifies root ownership, account/group, native network/resolver mount,
+socket inode and root peer PID before using its derived daemon address. A caller
+outside that profile context is refused. This prevents accidental wrong-desktop
+launches; filesystem/socket permissions and the upstream daemon's caller checks
+remain the access-control boundaries. No root state or credential is exposed.
+
+Both clients clear inheritable/ambient capabilities with setpriv. They preserve
+the ordinary user's capability bounding set and ability to use native sandboxing;
+the GUI explicitly sets `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=0` so the vendor
+bootstrap does not mistake Ubuntu userns restrictions for a reason to disable its
+working renderer sandbox. Only the provider client
+PATH includes the asynchronous opener shim. It accepts one HTTP(S) URL and hands
+it to the native browser without waiting, so the provider can start its callback
+listener even when the browser was cold. URL/code values are not logged on failure.
+The complete host provider/tunnel journal and public VPN activation remain separate.

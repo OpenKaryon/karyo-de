@@ -15,6 +15,7 @@ import struct
 import time
 
 from .model import root_file
+from .netbird_client import endpoint_record
 from .services import OwnedUnit, ServiceError, ServiceRetained, host_controller
 from .storage import atomic_write, trusted_directory
 
@@ -127,6 +128,8 @@ class NetBirdScope:
         self.unit = OwnedUnit(self.network.store, self.network.spec, "netbird", 0,
                               self.network.command, network=self.network.identity)
         self.socket_identity = None
+        self.endpoint_identity = None
+        self.endpoint_contents = None
 
     @property
     def address(self):
@@ -158,6 +161,31 @@ class NetBirdScope:
         finally:
             os.close(fd)
 
+    @property
+    def endpoint(self):
+        return self.directory / "client.json"
+
+    def publish_endpoint(self):
+        self.verify()
+        resolver = os.stat("/run/" + self.files.plan.runtime_name)
+        value = endpoint_record(self.state.account.uid, self.state.account.gid, self.network.identity,
+                                (resolver.st_dev, resolver.st_ino), self.socket_identity, self.unit.identity.pid)
+        self.endpoint_contents = json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n"
+        directory = trusted_directory(self.directory)
+        try:
+            try:
+                os.stat(self.endpoint.name, dir_fd=directory, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                raise ServiceError("Refuse an existing private provider endpoint")
+            atomic_write(directory, self.endpoint.name, self.endpoint_contents.encode("ascii"))
+            info = os.stat(self.endpoint.name, dir_fd=directory, follow_symlinks=False)
+            self.endpoint_identity = info.st_dev, info.st_ino
+        finally:
+            os.close(directory)
+        self.verify()
+
     def verify(self):
         self.state.verify()
         self.dns.services.verify()
@@ -172,6 +200,16 @@ class NetBirdScope:
                     or self.socket_node() != self.socket_identity):
                 raise ServiceRetained(self.unit)
         self.unit.verify()
+        if self.endpoint_identity is not None:
+            directory = trusted_directory(self.directory)
+            try:
+                info = os.stat(self.endpoint.name, dir_fd=directory, follow_symlinks=False)
+                if ((info.st_dev, info.st_ino) != self.endpoint_identity or info.st_nlink != 1
+                        or stat.S_IMODE(info.st_mode) != 0o644
+                        or root_file(self.endpoint.name, dir_fd=directory) != self.endpoint_contents):
+                    raise ServiceRetained(self.unit)
+            finally:
+                os.close(directory)
 
     def start(self):
         self.network.verify()
@@ -189,7 +227,7 @@ class NetBirdScope:
                 if time.monotonic() >= deadline:
                     raise ServiceRetained(self.unit) from None
                 time.sleep(.05)
-        self.verify()
+        self.publish_endpoint()
         return self
 
     def status(self):

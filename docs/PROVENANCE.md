@@ -486,3 +486,19 @@ https://github.com/netbirdio/netbird/blob/v0.82.1/client/cmd/service.go and
 https://github.com/netbirdio/netbird/blob/v0.82.1/client/internal/dns/host_unix.go.
 No upstream implementation, management URL, imported profile or credential is
 included. Native NetBird remains an external separately licensed dependency.
+
+
+The ordinary NetBird client endpoint validation, capability reset and asynchronous
+browser shim are newly written own GPL-3.0-or-later code. They preserve the reviewed
+prototype wrapper's nonblocking browser intent without importing its shell PATH
+assumptions, user configuration or credentials. Native NetBird and xdg-utils are
+external programs; no upstream implementation is copied into these launchers.
+
+
+The GUI wrapper's explicit WebKit sandbox-preserving zero value follows review
+of NetBird v0.82.1 client/ui/tray_linux.go and WebKit's sandbox switch semantics.
+NetBird respects a preexisting environment value instead of applying its coarse
+Ubuntu sysctl heuristic. This adapts launch policy without modifying upstream
+binaries, globally relaxing userns/AppArmor or importing upstream implementation.
+Sources: https://github.com/netbirdio/netbird/blob/v0.82.1/client/ui/tray_linux.go
+and https://github.com/WebKit/WebKit/blob/webkitgtk-2.52.6/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp.

@@ -73,6 +73,21 @@ install(FILES "${profile_source}/karyo-profile-host-runtime.conf"
 install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-runtime COMPONENT profile-runtime)
 
+# Optional ordinary-user provider clients; installation starts no daemon.
+foreach(KARYO_NETBIRD_CLIENT IN ITEMS cli gui)
+    configure_file("${profile_source}/netbird-client.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/karyo-netbird-${KARYO_NETBIRD_CLIENT}" @ONLY)
+    install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-netbird-${KARYO_NETBIRD_CLIENT}"
+        DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-netbird-client)
+endforeach()
+configure_file("${profile_source}/netbird-opener.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-netbird-xdg-open" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-netbird-xdg-open"
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo/netbird-opener
+    RENAME xdg-open COMPONENT profile-netbird-client)
+install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-netbird-client COMPONENT profile-netbird-client)
+
 if(BUILD_TESTING)
     find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
     add_test(NAME profile-account-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover
