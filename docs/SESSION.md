@@ -264,3 +264,11 @@ and demand fresh Home authentication on re-entry, with both shell PIDs preserved
 QA cleanup restores original account/common-PAM bytes and package verification
 is clean. Builder VALIDATION-INSTALLED-PROFILE-MENU.md records exact inputs and
 limits. LightDM bootstrap is not the pending owned stopped-session launcher.
+
+The optional root profiles library now also provides an owned native namespace
+and point-to-point veth primitive. Native Debian/Ubuntu packages from b56892a
+pass resource creation, collision, live-consumer/foreign-alias refusal and exact
+host-network restoration. This is not yet consumed by a stopped-profile starter.
+Private DNS, physical-underlay routing/NAT, user-manager scope, persistent
+supervision and complete owned session teardown remain required. See profiles/
+README.md and Builder VALIDATION-PROFILE-NETWORKS.md for tested limits.

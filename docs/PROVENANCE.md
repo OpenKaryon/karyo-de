@@ -439,3 +439,12 @@ revision. It preserves main/child semantics and legacy read compatibility while
 rewriting parsing as immutable, bounded literal policy. Its tests do not create
 accounts, invoke PAM, start sessions or configure networks. Privileged mutation,
 network, VPN and clipboard runtime migration remains separate.
+
+The owned network primitive reviews the prototype `desktop-netns` UID-to-/30
+address layout and intended per-profile isolation. Its implementation is newly
+written GPL-3.0-or-later Python using native iproute2/util-linux/procps commands
+and Linux namespace descriptors. It does not copy the prototype shell script,
+unconditional namespace/link deletion, global forwarding switch, shared NAT
+table, resolver selection or Docker firewall exceptions. Full networking and
+session supervision remain separate. The installed QA probe is also new own
+code; it contains no imported user accounts, tunnel profiles or secrets.

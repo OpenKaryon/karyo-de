@@ -521,3 +521,54 @@ Only the fixture waits for settling; it never resets or disallocates a console.
 Builder VALIDATION-CONSOLE-RESERVATION.md contains exact packages, hashes and
 observed masks. This completes the allocation primitive, not owned unit/session
 startup, networking or safe teardown of complete desktop services.
+
+### Owned native profile network primitive
+
+`karyo_profiles.networks.create_network` is an internal root primitive, not a
+new privileged command or a running network service. It requires the existing
+configuration lock; its future supervisor must first validate the account and
+absence of existing consumers. A fresh UUID names each namespace and tags both
+ends of its veth pair. The UID selects a /30 in the bounded 10.231.0.0/16 pool.
+Existing namespace names, links or overlapping non-default host routes cause
+refusal. The code never adopts or deletes an earlier deployment by name.
+
+The lease holds a CLOEXEC namespace descriptor and verifies its nsfs identity
+and native type, both link indices, peer relationship and ownership aliases
+before teardown. It refuses unknown devices and active namespace processes;
+it never kills those processes. Native mutation timeouts are uncertain outcomes,
+so unacknowledged resources are retained and that lease cannot create again.
+A failed acknowledged setup removes only a completely captured owned pair.
+After ambiguous cleanup, the supervisor must retain the lease and report the
+need for recovery. There is intentionally no automatic crash recovery or
+sweeping of similarly named objects.
+
+IPv6 is disabled inside this new namespace and on its own host veth. The host's
+global sysctls, default routes, policy rules, firewall and resolver stay unchanged.
+This stage provides only the private point-to-point link and a default route
+inside the namespace. Internet forwarding, physical underlay policy, NAT,
+private DNS mounts, user-manager and desktop startup are **not implemented by
+this primitive**. Do not start an ordinary child session as a substitute.
+The native dependencies are iproute2, util-linux and procps; installing the
+low-level accounts package alone does not activate this runtime.
+
+Linux interfaces reviewed: [named namespaces and descriptor lifetime](https://man7.org/linux/man-pages/man8/ip-netns.8.html),
+[link aliases and peer creation](https://man7.org/linux/man-pages/man8/ip-link.8.html),
+and [NS_GET_NSTYPE](https://man7.org/linux/man-pages/man2/NS_GET_NSTYPE.2const.html).
+No upstream implementation was copied.
+
+Installed native acceptance: `tests/installed-networks.py` is restricted to the
+two disposable migration VM hostnames and takes no arguments. It holds two
+leases, reaches each host endpoint with native ICMP, checks absent private IPv6,
+refuses a live owned consumer, refuses changed link ownership and a duplicate
+subnet, then closes only its own resources. The final host link/route/rule,
+namespace, global forwarding/IPv6 and resolver snapshots must match exactly.
+Debian 13 and Ubuntu 26.04 pass with source b56892a. Their existing graphical
+sessions remain active on VT8 with unchanged shell PIDs. This is acceptance of
+the kernel primitive, not an Internet/VPN or complete profile runtime claim.
+
+The first native runs found two real setup constraints: creation-time veth
+aliases were not applied, and a gateway was rejected before the peer was up.
+The final code tags captured peers explicitly and raises links before routing.
+Unknown aliases were retained; the later acknowledged route failure rolled
+back its proven resources. The corresponding failure logs and exact artifact
+hashes are recorded by Builder in `docs/VALIDATION-PROFILE-NETWORKS.md`.
