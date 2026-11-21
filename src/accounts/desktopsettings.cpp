@@ -4,6 +4,8 @@
 #include <QHash>
 #include <QSet>
 #include <QStringList>
+#include <pwd.h>
+#include <unistd.h>
 namespace Karyo::Accounts
 {
 DesktopSettings DesktopSettings::load(
@@ -22,6 +24,11 @@ DesktopSettings DesktopSettings::load(
         return parse(input.text);
     result.m_valid = input.state == Internal::ReadState::Missing;
     return result;
+}
+DesktopSettings DesktopSettings::current(const QString &configuration, const QString &legacy)
+{
+    const passwd *account = ::getpwuid(::getuid());
+    return load(account ? QString::fromLocal8Bit(account->pw_name) : QString(), configuration, legacy);
 }
 DesktopSettings DesktopSettings::parse(const QString &text)
 {

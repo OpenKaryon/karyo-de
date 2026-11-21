@@ -58,6 +58,23 @@ export XDG_SESSION_DESKTOP=karyo
 export XDG_CURRENT_DESKTOP=Karyo
 export QT_QPA_PLATFORM='wayland;xcb'
 export QT_STYLE_OVERRIDE=Karyo
+# Root-owned protection policy, resolved for the real process UID. This happens
+# after user session preferences so they cannot replace the decision by setting
+# a password environment variable. A protected compositor must start locked,
+# before its socket, shortcuts or normal clients become usable.
+entry_status=0
+karyo-lock --entry-check || entry_status=$?
+case "$entry_status" in
+    0) startup_lock= ;;
+    3)
+        case "$(labwc --help 2>/dev/null)" in
+            *--startup-lock*) startup_lock=--startup-lock ;;
+            *) echo "karyo-session: protected startup requires labwc --startup-lock" >&2; exit 1 ;;
+        esac
+        ;;
+    *) echo "karyo-session: desktop protection policy is unavailable" >&2; exit 1 ;;
+esac
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/karyo"
 mkdir -p "$state_dir"
-exec labwc -C "$data_dir/labwc" >>"$state_dir/session.log" 2>&1
+# startup_lock is empty or one fixed flag; never a caller-supplied command.
+exec labwc ${startup_lock:+"$startup_lock"} -C "$data_dir/labwc" >>"$state_dir/session.log" 2>&1

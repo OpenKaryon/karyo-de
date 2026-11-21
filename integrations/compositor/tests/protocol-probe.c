@@ -237,14 +237,57 @@ static void locked_event(void *data, struct ext_session_lock_v1 *lock) { *(int *
 static void finished_event(void *data, struct ext_session_lock_v1 *lock) { assert(!"lock refused"); }
 static const struct ext_session_lock_v1_listener lock_listener
     = { .locked = locked_event, .finished = finished_event };
+static void check_startup_lock(struct state *s)
+{
+    // No locker exists yet. Even an already-mapped normal client must remain
+    // private until a real session-lock client explicitly releases the lock.
+    snapshot(s, 0, 0, NULL);
+    struct window window = { 0 };
+    make_window(s, &window, "Karyo hidden before first lock");
+    snapshot(s, 0, 0, NULL);
+    struct state first = { .display = wl_display_connect(NULL) };
+    assert(first.display);
+    discover(&first);
+    int ready = 0;
+    struct ext_session_lock_v1 *adopted = ext_session_lock_manager_v1_lock(first.lock_manager);
+    ext_session_lock_v1_add_listener(adopted, &lock_listener, &ready);
+    for (int i = 0; i < 20 && !ready; ++i)
+        settle(&first);
+    assert(ready);
+    snapshot(s, 0, 0, NULL);
+    // A crashed first locker must not turn initial protection into an unlock.
+    wl_display_disconnect(first.display);
+    settle(s);
+    snapshot(s, 0, 0, NULL);
+    ready = 0;
+    adopted = ext_session_lock_manager_v1_lock(s->lock_manager);
+    ext_session_lock_v1_add_listener(adopted, &lock_listener, &ready);
+    for (int i = 0; i < 20 && !ready; ++i)
+        settle(s);
+    assert(ready);
+    snapshot(s, 0, 0, NULL);
+    ext_session_lock_v1_unlock_and_destroy(adopted);
+    settle(s);
+    snapshot(s, 1, 1, "Karyo hidden before first lock");
+    xdg_toplevel_destroy(window.top);
+    xdg_surface_destroy(window.xdg);
+    wl_surface_destroy(window.surface);
+    wl_buffer_destroy(window.buffer);
+    munmap(window.pixels, 320 * 200 * 4);
+    settle(s);
+    puts("PASS startup lock hides pre-lock clients and survives locker failure until explicit unlock");
+}
 int main(int argc, char **argv)
 {
     alarm(25);
+    int startup = argc == 2 && !strcmp(argv[1], "--startup-lock");
     int physical = argc == 2 && !strcmp(argv[1], "--keyboard");
     struct state s = { .display = wl_display_connect(NULL) };
     assert(s.display);
     discover(&s);
     assert(s.compositor && s.shm && s.seat && s.wm && s.layout && s.snapshot && s.security && s.lock_manager);
+    if (startup)
+        check_startup_lock(&s);
     snapshot(&s, 0, 1, NULL);
     openkaryon_keyboard_layout_v1_cycle(s.layout, s.seat);
     settle(&s); // Safe even when a headless compositor has no physical keyboard.

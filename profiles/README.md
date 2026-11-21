@@ -379,3 +379,25 @@ Recovery restores the original LightDM; account/password/PAM hashes, dpkg audits
 and package verification remain clean. Builder VALIDATION-ACCOUNT-POLICY.md
 records the exact DEBs, source and evidence. Initial protected-session startup
 is still a separate gate; this proof does not claim desktop switching.
+
+## Existing-session switch core
+
+The internal ExistingSwitcher validates the caller's unchanged local identity,
+root family membership, target password/expiry and unique graphical sessions
+under the same store lock as provisioning. Expired pending accounts, locked
+password records and distinct sessions claiming the same VT are refused.
+
+A protected destination receives loginctl lock-session and must confirm a literal
+LockedHint before activation. A protected source is also locked before leaving.
+The controller rereads identities, active state and required lock hints directly
+before activation, then verifies the destination actually became active. One
+shared deadline bounds preparation and confirmation. Missing/ambiguous sessions,
+vanishing locks, changed identities and nonfunctional lockers fail without an
+activation request; a successful method call alone is not a successful switch.
+
+Both native bases pass all 113 Python cases as root and UID 65534. This is the
+internal switch core and native logind read/control adapter, not a published
+privileged switch entrypoint or completed GUI/runtime acceptance. Creation of
+stopped sessions, owned systemd units, VT allocation, protected runtime QA and
+network/clipboard integration remain separate stages. No unattended process
+launch is added by this component.

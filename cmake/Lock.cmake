@@ -7,6 +7,7 @@ if(NOT TARGET Qt6::WaylandClientPrivate)
     find_package(Qt6 REQUIRED COMPONENTS WaylandClientPrivate)
 endif()
 include(${CMAKE_CURRENT_LIST_DIR}/Translations.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/DesktopAccounts.cmake)
 find_library(PAM_LIBRARY pam REQUIRED)
 qt_add_executable(karyo-lock
     ${PROJECT_SOURCE_DIR}/lock/main.cpp
@@ -16,7 +17,7 @@ qt_add_executable(karyo-lock
     ${PROJECT_SOURCE_DIR}/lock/lock/sessionlock.cpp
     ${PROJECT_SOURCE_DIR}/lock/lock/sessionlock.h)
 target_include_directories(karyo-lock PRIVATE ${PROJECT_SOURCE_DIR}/lock)
-target_link_libraries(karyo-lock PRIVATE karyo-signin-view Karyo::Style Qt6::DBus Qt6::WaylandClient
+target_link_libraries(karyo-lock PRIVATE karyo-desktop-accounts karyo-signin-view Karyo::Style Qt6::DBus Qt6::WaylandClient
     Qt6::WaylandClientPrivate ${PAM_LIBRARY})
 qt6_generate_wayland_protocol_client_sources(karyo-lock
     FILES ${PROJECT_SOURCE_DIR}/lock/protocols/ext-session-lock-v1.xml)

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "sessionlocker.h"
+#include "desktopsettings.h"
 
 #include <QDBusConnection>
 #include <QDBusObjectPath>
@@ -105,7 +106,7 @@ void SessionLocker::onSessionChanged(const QString &interface, const QVariantMap
         return;
     const QSettings shell(QSettings::NativeFormat, QSettings::UserScope, QStringLiteral("openkaryon"),
                           QStringLiteral("shell"));
-    if (!qEnvironmentVariableIsEmpty("OPENKARYON_DESKTOP_PASSWORD")
+    if (Karyo::Accounts::DesktopSettings::current().protectedEntry()
         || shell.value(QStringLiteral("Desktops/lockOnLeave"), false).toBool())
         lock();
 }

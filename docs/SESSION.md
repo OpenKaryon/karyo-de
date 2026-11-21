@@ -123,3 +123,32 @@ Separate patches follow Debian 13 labwc 0.8.3/wlroots 0.18 and Ubuntu 26.04
 labwc 0.9.3/wlroots 0.19. Both have real headless and installed-VM acceptance;
 the package changes neither the display manager nor the native wlroots library.
 Other prototype compositor and profile integrations are not implied by this slice.
+
+## Mandatory protection in the running shell
+
+The shell reads root-owned desktop settings for its real process UID when its
+logind session becomes inactive. PASSWORD=home/separate requires the PAM lock;
+invalid settings also request a lock. USER, LOGNAME and the legacy password
+session environment variable cannot downgrade that policy. The optional user
+lockOnLeave preference can add a lock to an unprotected desktop.
+
+This deactivation reaction is defense in depth. It does not prove safe entry:
+the privileged switch controller still needs to confirm the target compositor
+lock before activation, and initial protected sessions need a startup gate.
+
+## Initial protected-session authentication
+
+karyo-lock --entry-check reads root settings for the real UID before a compositor
+starts (0 unprotected, 3 protected, 1 invalid). Protected sessions require the
+optional native labwc --startup-lock capability. Missing support or invalid policy
+stops startup; there is no silent stock-backend fallback. User session.env may
+select keyboard/renderer preferences but cannot override the root password mode.
+
+The compositor starts locked before outputs/input/normal clients become usable.
+Its autostart first runs karyo-lock --on-start synchronously. An unprotected user
+returns immediately without a Qt display; a protected user must complete actual
+PAM authentication. Shell, FileManager1, desktop autostart and activation exports
+start only after success. Locker error/refusal/crash exits the compositor. A root
+administrator changing policy during startup remains trusted; an ordinary user
+cannot alter those files. Existing-session switching still needs a privileged
+lock-before-activate controller and its separate installed acceptance.

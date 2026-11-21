@@ -1,5 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
+# A protected session is already compositor-locked before this script starts.
+# Do not launch the shell, FileManager1, autostart clients or bus activations
+# until the real PAM lock completes. Refusal/crash must end this compositor.
+if ! karyo-lock --on-start; then
+    echo "karyo-session: initial desktop authentication did not finish" >&2
+    labwc --exit
+    exit 1
+fi
 # labwc supplies WAYLAND_DISPLAY after the compositor is ready.
 if command -v dbus-update-activation-environment >/dev/null 2>&1; then
     dbus-update-activation-environment --systemd WAYLAND_DISPLAY \

@@ -16,7 +16,7 @@ from karyo_profiles.model import DesktopSettings, Ownership
 
 def properties(identifier="c2", name="home", uid="1000", **changes):
     values = dict(Id=identifier, Name=name, User=uid, Type="wayland", Seat="seat0", VTNr="7",
-                  Active="yes", State="active", Class="user", Remote="no")
+                  Active="yes", State="active", Class="user", Remote="no", LockedHint="no")
     values.update(changes)
     return "".join(key + "=" + value + "\n" for key, value in values.items())
 
@@ -49,7 +49,7 @@ class Command:
             raise TimeoutError("Fixture deadline")
         if arguments[0] == "list-sessions":
             return json.dumps([{"session": identifier} for identifier in self.rows])
-        expected = {"--property=" + name for name in ("Id", "Name", "User", "Type", "Seat", "VTNr", "Active", "State", "Class", "Remote")}
+        expected = {"--property=" + name for name in ("Id", "Name", "User", "Type", "Seat", "VTNr", "Active", "State", "Class", "Remote", "LockedHint")}
         if set(arguments[3:]) != expected:
             raise AssertionError("Each loginctl property needs its own option")
         return self.rows[arguments[1]]
@@ -82,7 +82,7 @@ class LogindTest(unittest.TestCase):
 
     def test_invalid_identity_and_vt_are_not_running_desktops(self):
         for values in (dict(uid="0"), dict(uid="65534"), dict(uid="1000x"), dict(VTNr="0"),
-                       dict(VTNr="64"), dict(VTNr="-1"), dict(Active="maybe"), dict(name="--help")):
+                       dict(VTNr="64"), dict(VTNr="-1"), dict(Active="maybe"), dict(LockedHint="unknown"), dict(name="--help")):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 Session.parse(properties(**values), "c2")
 
@@ -93,6 +93,24 @@ class LogindTest(unittest.TestCase):
             with self.subTest(rows=str(rows)[:80]), patch.object(Command, "run", return_value=json.dumps(rows)):
                 with self.assertRaises(ValueError):
                     Sessions(Command()).all()
+
+    def test_lock_hint_is_literal_and_required_for_graphical_sessions(self):
+        self.assertTrue(Session.parse(properties(LockedHint="yes"), "c2").locked)
+        self.assertFalse(Session.parse(properties(LockedHint="no"), "c2").locked)
+        with self.assertRaises(ValueError):
+            Session.parse(properties().replace("LockedHint=no\n", ""), "c2")
+
+    def test_control_actions_accept_only_validated_session_identifiers(self):
+        command = Command()
+        with patch.object(command, "run", return_value="") as run:
+            sessions = Sessions(command)
+            sessions.lock("c2", timeout=1)
+            sessions.activate("c3", timeout=1)
+            self.assertEqual([call.args for call in run.call_args_list], [("lock-session", "c2"), ("activate", "c3")])
+            for identifier in ("--help", "../c2", "c2\n"):
+                with self.assertRaises(ValueError):
+                    sessions.activate(identifier)
+            self.assertEqual(run.call_count, 2)
 
     def test_shared_total_deadline_instead_of_timeout_per_session(self):
         command = Command({"c2": properties(), "c3": properties("c3")})

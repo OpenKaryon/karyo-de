@@ -23,7 +23,11 @@ def main():
     parser.add_argument("--package", type=Path, required=True, help="Published Builder source-package result")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--display", help="Use an already running disposable VM compositor")
+    parser.add_argument("--startup-lock", action="store_true",
+                        help="Start locked before any protocol client and verify crash recovery")
     args = parser.parse_args()
+    if args.display and args.startup_lock:
+        parser.error("Startup-lock acceptance must own its disposable compositor")
     if os.getuid() == 0:
         raise ValueError("Protocol acceptance must run without root")
     args.output.mkdir(parents=True, exist_ok=True)
@@ -75,7 +79,8 @@ def main():
                     environment.pop("DISPLAY", None)
                     environment.pop("WAYLAND_SOCKET", None)
                     server = subprocess.Popen(
-                        [str(work / "installed/usr/bin/labwc"), "--config-dir", str(config)],
+                        [str(work / "installed/usr/bin/labwc"), "--config-dir", str(config),
+                         *(["--startup-lock"] if args.startup_lock else [])],
                         env=environment, cwd=work, stdout=server_log, stderr=subprocess.STDOUT)
                     for _ in range(100):
                         if (runtime / "wayland-0").exists():
@@ -86,7 +91,8 @@ def main():
                     else:
                         raise RuntimeError("Packaged compositor did not open its socket")
                 with (args.output / "probe.log").open("wb") as log:
-                    run([probe, *(["--keyboard"] if args.display else [])], env=environment,
+                    mode = ["--startup-lock"] if args.startup_lock else ["--keyboard"] if args.display else []
+                    run([probe, *mode], env=environment,
                         cwd=work, stdout=log, stderr=subprocess.STDOUT, timeout=35)
             finally:
                 if server and server.poll() is None:
@@ -100,6 +106,7 @@ def main():
             "uid": os.getuid(), "version": manifest["version"],
             "image_id": manifest["environment"]["image_id"],
             "mode": "physical keyboard VM" if args.display else "headless no physical keyboard",
+            "startup_lock": args.startup_lock,
             "checks": "registry/windows/stacking/minimize/security-context/session-lock passed"
         }, indent=2) + "\n")
     print("PASS compositor native acceptance:", args.output)

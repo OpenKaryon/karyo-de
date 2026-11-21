@@ -10,6 +10,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTemporaryDir>
+#include <pwd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 using Karyo::Accounts::DesktopAccounts;
@@ -167,5 +168,34 @@ int main(int argc, char **argv)
     check(DesktopSettings::load("fresh", current, legacy).valid()
             && !DesktopSettings::load("fresh", current, legacy).protectedEntry(),
         "unconfigured desktop has no extra entry password");
+    const passwd *self = ::getpwuid(::getuid());
+    check(self != nullptr, "actual current account");
+    const auto selfPath = current + "/desktops.d/" + QString::fromLocal8Bit(self->pw_name) + ".conf";
+    put(current + "/desktops.d/forged.conf", "PASSWORD=none\n");
+    const auto originalUser = qgetenv("USER");
+    const auto originalLogname = qgetenv("LOGNAME");
+    const auto originalPassword = qgetenv("OPENKARYON_DESKTOP_PASSWORD");
+    qputenv("USER", "forged");
+    qputenv("LOGNAME", "forged");
+    qputenv("OPENKARYON_DESKTOP_PASSWORD", "");
+    put(selfPath, "PASSWORD=separate\n");
+    check(DesktopSettings::current(current, legacy).protectedEntry(),
+        "mandatory protection uses real UID despite empty environment override");
+    put(selfPath, "PASSWORD=unknown\n");
+    check(!DesktopSettings::current(current, legacy).valid()
+            && DesktopSettings::current(current, legacy).protectedEntry(),
+        "invalid current-user settings fail closed");
+    put(selfPath, "PASSWORD=none\n");
+    qputenv("OPENKARYON_DESKTOP_PASSWORD", "separate");
+    check(!DesktopSettings::current(current, legacy).protectedEntry(),
+        "user environment cannot add or replace root protection policy");
+    for (const auto &pair : { qMakePair("USER", originalUser), qMakePair("LOGNAME", originalLogname),
+             qMakePair("OPENKARYON_DESKTOP_PASSWORD", originalPassword) })
+    {
+        if (pair.second.isNull())
+            qunsetenv(pair.first);
+        else
+            qputenv(pair.first, pair.second);
+    }
     qInfo("PASS trusted account metadata, shared policy corpus and fail-closed protection");
 }

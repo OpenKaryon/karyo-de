@@ -1,6 +1,7 @@
 if(NOT KARYO_BUILD_SESSION)
     return()
 endif()
+include(${CMAKE_CURRENT_LIST_DIR}/DesktopAccounts.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/Toplevels.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/Wifi.cmake)
 find_package(LayerShellQt REQUIRED)
@@ -15,7 +16,7 @@ add_library(karyo-shell-core STATIC
     ${shell_dir}/keyboardlayout.cpp ${shell_dir}/keyboardlayout.h
 )
 target_include_directories(karyo-shell-core PUBLIC ${shell_dir} ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(karyo-shell-core PUBLIC Karyo::Style karyo-file-presentation karyo-file-operations karyo-toplevels karyo-wifi Qt6::DBus Qt6::WaylandClient LayerShellQt::Interface)
+target_link_libraries(karyo-shell-core PUBLIC karyo-desktop-accounts Karyo::Style karyo-file-presentation karyo-file-operations karyo-toplevels karyo-wifi Qt6::DBus Qt6::WaylandClient LayerShellQt::Interface)
 qt6_generate_wayland_protocol_client_sources(karyo-shell-core FILES
     ${PROJECT_SOURCE_DIR}/shell/protocols/openkaryon-keyboard-layout-v1.xml)
 

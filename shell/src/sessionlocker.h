@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Starts the lock screen (karyo-lock) for Start, and when
-// logind asks: "loginctl lock-session" and going to sleep. With
-// Desktops/lockOnLeave in shell.conf it also locks when another Karyo
-// desktop takes the screen, so coming back asks for the password.
+// logind asks: "loginctl lock-session" and going to sleep. Root desktop
+// protection policy or the optional Desktops/lockOnLeave preference also
+// locks on deactivation. The session switch controller must additionally
+// wait for a confirmed lock before activating a protected target.
 #pragma once
 
 #include <QObject>

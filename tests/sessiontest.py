@@ -122,6 +122,39 @@ exit 7
         self.assertEqual((self.root / "autostart-runs").read_text().splitlines(),
                          ["--autostart --environment Karyo"])
 
+    def test_protected_start_requires_backend_capability(self):
+        self.program("karyo-lock", "#!/bin/sh\nexit 3\n")
+        self.program("labwc", "#!/bin/sh\necho 'Usage: stock backend'\n")
+        result = self.run_launcher()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("requires labwc --startup-lock", result.stderr)
+        self.assertFalse((self.root / "probe").exists())
+        self.program("labwc", '''#!/bin/sh
+if [ "$1" = --help ]; then echo 'Usage: --startup-lock'; exit 0; fi
+printf '%s\\n' "$@" > "$PROBE"
+''')
+        self.assertEqual(self.run_launcher().returncode, 0)
+        self.assertEqual((self.root / "probe").read_text().splitlines()[0], "--startup-lock")
+
+    def test_invalid_protection_does_not_start_compositor(self):
+        self.program("karyo-lock", "#!/bin/sh\nexit 1\n")
+        result = self.run_launcher()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("protection policy is unavailable", result.stderr)
+        self.assertFalse((self.root / "probe").exists())
+
+    def test_startup_auth_failure_never_launches_session_clients(self):
+        self.program("karyo-lock", '#!/bin/sh\nprintf "%s\\n" "$*" > "$PROBE"\nexit 1\n')
+        self.program("labwc", '#!/bin/sh\nprintf "%s\\n" "$*" >> "$PROBE"\n')
+        for program in ("karyo-shell", "karyo-files", "dex", "dbus-update-activation-environment"):
+            self.program(program, '#!/bin/sh\necho forbidden >> "$FORBIDDEN_PROBE"\n')
+        self.env["FORBIDDEN_PROBE"] = str(self.root / "forbidden")
+        autostart = self.root / "share/karyo/session/labwc/autostart"
+        result = subprocess.run([str(autostart)], env=self.env, capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual((self.root / "probe").read_text().splitlines(), ["--on-start", "--exit"])
+        self.assertFalse((self.root / "forbidden").exists())
+
     def test_private_bus_fallback_and_argument_validation(self):
         self.program("dbus-run-session", """#!/bin/sh
 [ "$1" = -- ] && shift

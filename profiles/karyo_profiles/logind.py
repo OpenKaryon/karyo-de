@@ -13,7 +13,7 @@ from .credentials import LocalAccounts
 from .model import account_name
 
 SESSION_ID = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}")
-PROPERTIES = ("Id", "Name", "User", "Type", "Seat", "VTNr", "Active", "State", "Class", "Remote")
+PROPERTIES = ("Id", "Name", "User", "Type", "Seat", "VTNr", "Active", "State", "Class", "Remote", "LockedHint")
 
 
 class SessionError(RuntimeError):
@@ -90,6 +90,7 @@ class Session:
     uid: int
     vt: int
     active: bool
+    locked: bool = False
 
     @classmethod
     def parse(cls, text, expected):
@@ -108,9 +109,11 @@ class Session:
         uid, vt = values.get("User", ""), values.get("VTNr", "")
         if (not uid.isascii() or not uid.isdecimal() or not 1000 <= int(uid) < 65534
                 or not vt.isascii() or not vt.isdecimal() or not 1 <= int(vt) <= 63
-                or values.get("Active") not in {"yes", "no"}):
+                or values.get("Active") not in {"yes", "no"}
+                or values.get("LockedHint") not in {"yes", "no"}):
             raise ValueError("Invalid desktop session identity or virtual terminal")
-        return cls(expected, account_name(values.get("Name", "")), int(uid), int(vt), values["Active"] == "yes")
+        return cls(expected, account_name(values.get("Name", "")), int(uid), int(vt),
+                   values["Active"] == "yes", values["LockedHint"] == "yes")
 
 
 class Sessions:
@@ -123,6 +126,12 @@ class Sessions:
         text = self.command.run("show-session", identifier, "--all",
                                 *("--property=" + name for name in PROPERTIES), timeout=timeout)
         return Session.parse(text, identifier)
+
+    def lock(self, identifier, *, timeout=2):
+        self.command.run("lock-session", session_id(identifier), timeout=timeout)
+
+    def activate(self, identifier, *, timeout=2):
+        self.command.run("activate", session_id(identifier), timeout=timeout)
 
     def all(self):
         deadline = self.clock() + 5

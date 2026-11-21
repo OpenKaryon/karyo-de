@@ -10,6 +10,9 @@ public:
     static DesktopSettings load(const QString &login,
         const QString &configuration = QStringLiteral("/etc/karyo"),
         const QString &legacy = QStringLiteral("/etc/openkaryon"));
+    // Resolve the real process UID, never USER/LOGNAME or a session override.
+    static DesktopSettings current(const QString &configuration = QStringLiteral("/etc/karyo"),
+        const QString &legacy = QStringLiteral("/etc/openkaryon"));
     bool valid() const { return m_valid; }
     bool protectedEntry() const { return !m_valid || m_password != QLatin1String("none"); }
     QString passwordMode() const { return m_password; }

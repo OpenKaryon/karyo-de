@@ -40,7 +40,7 @@ XML copyright notice in the native package. Upstream tests run with Meson's test
 feature enabled: two suites on 0.8.3 and three on 0.9.3. No nocheck is requested.
 Existing runtime dependencies, sessions, icons, hardening flags and upstream
 copyright data remain native. The package keeps the name labwc and adds +karyo1
-to its complete distribution version. It does not replace a display manager,
+to its complete distribution version. The later startup-lock extension uses +karyo2. It does not replace a display manager,
 activate Karyo or install a wlroots library.
 
 ## Protocol behavior and adaptation
@@ -117,3 +117,30 @@ XML retains OpenKaryon Developers' MIT notice and full MIT terms in native
 copyright metadata. New independent Python tooling and the standalone acceptance
 client are GPL-3.0-or-later. These distinctions preserve the third-party licensing
 boundary instead of labeling the upstream compositor as GPL-3.
+
+## Protected-session startup lock
+
+The optional --startup-lock command-line flag sets the existing abandoned-lock
+state after server initialization but before backend/output startup. Output
+creation immediately adds opaque lock backgrounds, normal input stays subject
+to the native locked-session policy, and the first ext-session-lock client
+adopts the lock. Its failure/disconnect leaves the compositor locked; an explicit
+protocol unlock is required. Unflagged startup keeps upstream behavior.
+
+The derivative src/main.c patches retain GPL-2.0-only. Ubuntu explicitly includes
+session-lock.h because its newer labwc.h intentionally leaves the manager opaque.
+No user/program-specific window rule, new display manager or library ABI is used.
+Both native +karyo2 packages build with upstream tests and pass ordinary UID 65534
+protocol acceptance in read-only, networkless containers. In addition to the
+ordinary protocol scenario, tests/native-acceptance.py --startup-lock starts the
+actual packaged compositor before any lock client. A normal mapped window stays
+unavailable; a first real locker adopts the state, disconnects without unlock,
+and a replacement locker must explicitly unlock before that window is visible
+to snapshots. Original layout, minimize, sandbox and lock/unlock checks then run.
+
+This closes the headless native state gate only. Installed initial-session PAM,
+physical input/visual output, VT readiness and privileged profile switching have
+separate acceptance. Protocol snapshot denial alone is not a pixel capture or
+proof of physical keyboard behavior. DE session wiring must fail closed when a
+protected startup lacks this compositor capability rather than silently starting
+an unprotected stock compositor.

@@ -30,13 +30,17 @@
     {
       "path": "../patches/ubuntu/upstream-tests.patch",
       "sha256": "84885706553a6a03812e1dab63e135d6c075c87ddf97fe7f4220f4d52e44664c"
+    },
+    {
+      "path": "../patches/ubuntu/startup-lock.patch",
+      "sha256": "1e09cea422b1e487a7bf4dbb7f72cabe2ec426bb10f98bf13b01f83c33169dbc"
     }
   ],
   "build": {
-    "revision": "karyo1",
+    "revision": "karyo2",
     "distribution": "resolute",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Add reviewed keyboard layout and window snapshot desktop protocols.",
+    "message": "Add desktop protocols and a fail-closed initial compositor lock.",
     "binaries": [
       "labwc"
     ],

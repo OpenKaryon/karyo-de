@@ -7,6 +7,38 @@ work are DE 8ef17c0 and Builder a343953. The donor is read-only during extractio
 The long-running task remains active until its remaining scope is implemented
 and verified; this checklist must not be read as a completion claim.
 
+## Current system integration checkpoint
+
+Account provisioning, isolated privileged add/sync helpers, global PAM password
+synchronization and trusted Qt policy readers have native installed acceptance
+on both bases. Shared versus separate password behavior, administrator PAM edits
+and package removal/upgrade are verified independently of desktop switching.
+
+The installed initial protected-session gate from 156d1aa also passes both QA
+VMs: root-mandated startup uses native labwc +karyo2 locked before clients; real
+PAM wrong-password denial, Super/Print suppression, locker crash, retry and
+correct-password entry preserve the no-clients-before-authentication rule.
+A fixed-host metadata-only driver is profiles/tests/installed-startup.py.
+Builder VALIDATION-PROTECTED-STARTUP.md records exact artifacts and limits.
+
+A later VT-return check found an open Ubuntu output-lifecycle defect: vmwgfx
+removes/recreates Qt outputs and the old locker gives the replacement output
+only a decorative view. The compositor remains locked, but the password form
+is missing. Debian returns and unlocks successfully. Generic lock-screen output
+handoff is being corrected; initial startup acceptance must not be interpreted
+as complete protected desktop switching. Test metadata was removed, and both
+VMs finish at their original LightDM with unchanged account/PAM databases.
+
+The existing-session switch core is source-tested (113 Python cases on each
+base, including ordinary UID runs), but has no published privileged entrypoint
+or shell wiring yet. Controlled startup of stopped sessions, VT allocation,
+network namespaces/DNS/VPN/capability reset and family clipboard remain required.
+The compatibility backlog also includes actual Win32 and experimental macOS
+launchers/MIME/runtime integration, VMware session/clipboard/DnD/hgfs agents,
+and the remaining Wine/VMware compositor changes. These are not just visual
+patches. The donor style plugin is a QStyle plugin, not a separate platform-theme
+plugin; external portals remain intentional dependencies. Forge is untouched.
+
 ## Boundaries and current state
 
 | Capability | State / next acceptance |
@@ -36,7 +68,8 @@ and verified; this checklist must not be read as a completion claim.
 Installed application checkpoints and later common fixes are detailed in Builder
 VALIDATION-APPLICATION-WAVE.md and VALIDATION-GREETER.md. Earlier per-application
 test totals below are historical checkpoints, not the current suite size; the
-latest source suite passes 67/67 on both native bases.
+last accepted complete package wave passes 68/68 on both native bases; later
+source changes have separately identified gates above.
 
 ## Validation policy and retained evidence
 
