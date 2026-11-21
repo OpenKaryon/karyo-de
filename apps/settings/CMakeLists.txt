@@ -91,3 +91,33 @@ if(BUILD_TESTING)
     add_test(NAME settings-network COMMAND karyo-settings-network-test)
     set_tests_properties(settings-network PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 45)
 endif()
+
+add_library(karyo-settings-about STATIC src/about.cpp)
+target_link_libraries(karyo-settings-about PUBLIC karyo-settings-config karyo-settings-widgets karyo-app-software Qt6::DBus)
+if(BUILD_TESTING)
+    add_executable(karyo-settings-about-test tests/abouttest.cpp)
+    target_link_libraries(karyo-settings-about-test PRIVATE karyo-settings-about Qt6::Test)
+    add_test(NAME settings-about-updates COMMAND dbus-run-session -- /bin/sh
+        ${PROJECT_SOURCE_DIR}/tests/run-private-bus.sh $<TARGET_FILE:karyo-settings-about-test>)
+    set_tests_properties(settings-about-updates PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 45)
+endif()
+
+add_library(karyo-settings-window STATIC src/settingswindow.cpp src/settingswindow.h)
+target_link_libraries(karyo-settings-window PUBLIC karyo-settings-system karyo-settings-devices
+    karyo-settings-network karyo-settings-personalization karyo-settings-apps karyo-settings-time karyo-settings-about)
+qt_add_executable(karyo-settings src/main.cpp)
+target_link_libraries(karyo-settings PRIVATE karyo-settings-window)
+karyo_add_translation(karyo-settings "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-settings_ru.ts")
+install(TARGETS karyo-settings RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT settings-runtime)
+install(FILES data/karyo-settings.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT settings-runtime)
+install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-settings COMPONENT settings-runtime)
+configure_file(data/settings.in "${CMAKE_CURRENT_BINARY_DIR}/settings" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/settings" DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT settings-runtime)
+if(BUILD_TESTING)
+    add_executable(karyo-settings-window-test tests/windowtest.cpp)
+    target_link_libraries(karyo-settings-window-test PRIVATE karyo-settings-window Qt6::Test)
+    add_test(NAME settings-window-navigation COMMAND dbus-run-session -- /bin/sh
+        ${PROJECT_SOURCE_DIR}/tests/run-private-bus.sh $<TARGET_FILE:karyo-settings-window-test>)
+    set_tests_properties(settings-window-navigation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 45)
+endif()

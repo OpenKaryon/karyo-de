@@ -276,3 +276,15 @@ application lifetime and a quit lock, bounded retained output and exactly-once
 completion, without killing package transactions on a page's query deadline.
 References: https://www.freedesktop.org/software/polkit/docs/latest/pkexec.1.html
 and https://doc.qt.io/qt-6/qeventlooplocker.html .
+
+Settings Updates/About are adapted from the application donor. APT simulation
+is a bounded unprivileged query; list refresh uses the shared application-owned
+software job with explicit failure/retry state. Hostname changes are serialized,
+request interactive authorization and read back authoritative state. Tests use
+fake APT/pkexec and hostnamed services and never change packages or host names.
+
+The complete Settings window, navigation/search, nested pages, theme rebuild,
+launcher metadata and Russian catalog are adapted from the same application
+donor. Public executable/desktop/translation names use Karyo; explicit compatible
+user preference locations remain unchanged. The optional software runtime owns
+the APT helper rather than embedding privilege policy in the application UI.

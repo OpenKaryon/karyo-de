@@ -31,6 +31,8 @@ install(PROGRAMS software/apt_helper.py DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/
     RENAME appcenter-apt COMPONENT software-runtime)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.karyo.software.policy
     DESTINATION ${CMAKE_INSTALL_DATADIR}/polkit-1/actions COMPONENT software-runtime)
+install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-software COMPONENT software-runtime)
 if(BUILD_TESTING)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_executable(karyo-app-software-test softwarejobtest.cpp)
