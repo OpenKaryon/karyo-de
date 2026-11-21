@@ -448,3 +448,10 @@ unconditional namespace/link deletion, global forwarding switch, shared NAT
 table, resolver selection or Docker firewall exceptions. Full networking and
 session supervision remain separate. The installed QA probe is also new own
 code; it contains no imported user accounts, tunnel profiles or secrets.
+
+Physical-underlay discovery and owned forwarding are new GPL-3.0-or-later code.
+They use reviewed iproute2 RPDB/numeric output, nftables exclusive creation and
+native table handles. Linux reverse-source lookup behavior was read from the
+upstream v6.12 fib_frontend.c and IP sysctl documentation; no implementation
+was copied. The fixture uses only synthetic policies and public DNS/TCP probes,
+not imported personal tunnel profiles, certificates or secrets.

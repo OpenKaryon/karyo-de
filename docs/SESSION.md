@@ -272,3 +272,13 @@ host-network restoration. This is not yet consumed by a stopped-profile starter.
 Private DNS, physical-underlay routing/NAT, user-manager scope, persistent
 supervision and complete owned session teardown remain required. See profiles/
 README.md and Builder VALIDATION-PROFILE-NETWORKS.md for tested limits.
+
+The next network layer, native physical IPv4 forwarding, is accepted separately:
+source/destination PBR, per-profile exclusive nft NAT/filter table and unreachable
+fallback pass three fresh two-profile UDP/TCP cycles on both native QA bases
+(source 088d333). Original global/per-interface network settings and running GUI
+sessions are restored. This is a library acceptance gate, not an enabled session
+network service. Private resolver mounts, runtime dependency/forwarding setup,
+user-manager scope, NetBird integration, persistence/reconciliation and stopped
+session startup/owned teardown remain required. Builder's forwarding validation
+report preserves failed native attempts and the exact final package identities.

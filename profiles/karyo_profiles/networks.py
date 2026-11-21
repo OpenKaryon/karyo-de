@@ -31,14 +31,22 @@ class NetworkRetained(NetworkError):
 
 
 class NetworkCommand:
-    def run(self, *arguments):
+    def run(self, *arguments, input_data=None):
+        if input_data is not None and (not isinstance(input_data, bytes) or len(input_data) > 4096):
+            raise ValueError("Native network input must be at most one bounded pipe buffer")
         # No shell, caller environment, inherited descriptors or unbounded output.
-        with subprocess.Popen(arguments, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+        with subprocess.Popen(arguments, stdin=subprocess.PIPE if input_data is not None else subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL, close_fds=True,
                 env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8"}) as process:
             deadline = time.monotonic() + 10
             data = bytearray()
             try:
+                if input_data is not None:
+                    # At most Linux PIPE_BUF bytes: the initial write cannot
+                    # block behind a child that has not started reading yet.
+                    process.stdin.write(input_data)
+                    process.stdin.close()
                 with selectors.DefaultSelector() as ready:
                     ready.register(process.stdout, selectors.EVENT_READ)
                     while True:

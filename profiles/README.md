@@ -572,3 +572,62 @@ The final code tags captured peers explicitly and raises links before routing.
 Unknown aliases were retained; the later acknowledged route failure rolled
 back its proven resources. The corresponding failure logs and exact artifact
 hashes are recorded by Builder in `docs/VALIDATION-PROFILE-NETWORKS.md`.
+
+### Owned physical IPv4 forwarding primitive
+
+`karyo_profiles.underlay` selects a unique lowest-metric live physical IPv4
+main-table gateway, requiring a kernel sysfs device, matching ifindex/address,
+carrier, an ordinary connected subnet and no ambiguous/multipath configuration.
+A lower-metric tun/WireGuard/veth route does not become the physical underlay.
+This supports ordinary physical Ethernet/Wi-Fi with a gateway; bridged/bonded,
+point-to-point, multipath and IPv6 underlays need further support and are refused
+rather than guessed. Interface/DHCP changes require supervisor reconciliation.
+
+`karyo_profiles.forwarding.ProfileForwarding` consumes a captured network lease
+under the same root configuration lock, before any consumers start. It requires
+host IPv4 forwarding to be explicitly provided by the optional runtime; it never
+toggles a global sysctl itself. An unused per-UID routing table contains private
+and physical connected routes, a physical default and an unreachable fallback.
+Two early RPDB rules pin traffic from and to the private /32 before Home VPN
+rules, covering both packet routing and kernel reverse-path validation. Source
+priorities use slots 1–16 and return priorities 17–32, enough for the fixed VT
+pool; unknown earlier global policies are refused. Physical subnets overlapping
+the reserved private pool are also refused. Numeric iproute2
+identities avoid aliases masking an already-used routing table. If no safely
+earlier priority exists, setup refuses instead of diverting existing rules.
+
+A fresh exclusive nft inet table carries the UUID ownership comment and captured
+native handle/complete contents. It masquerades only this private IPv4 source
+through the selected physical interface, drops spoofed sources or wrong egress,
+and admits return forwarding only from that interface for established/related
+traffic. Its input is bounded to one pipe buffer; native calls use no shell.
+The code neither flushes a table nor edits a foreign firewall chain. Existing
+administrative firewall drops still apply; Docker/firewall-manager cooperation
+needs its own tested integration rather than a blanket firewall bypass.
+
+Setup captures each acknowledged route/tag/rule before publishing the graph.
+Teardown first requires stopped consumers and exact route/rule/firewall identity,
+including refusal if a new foreign rule references the private table. It deletes
+only its own rules, firewall handle and individual recorded routes. Uncertain
+mutations are retained, not adopted on a retry. The supervisor must close this
+forwarding lease before closing the namespace. Persistent recovery, dynamic
+reconciliation, private DNS, user-manager/NetBird scope and complete session
+startup are separate remaining work; this library alone enables no service.
+
+Installed forwarding acceptance uses `tests/installed-forwarding.py`, restricted
+to the two disposable VM hostnames. It explicitly toggles forwarding only as a
+fixture, creates a captured blocking Home policy, verifies Home's route/DNS
+failure, and tests two live profile graphs concurrently. Each sends a bounded
+DNS request and establishes a real external TCP connection by numeric address.
+Removing only its captured physical default must hit the unreachable fallback.
+Every cycle restores original interfaces, all routes/rules/nft contents, global
+and per-interface IPv4 configuration, IPv6 setting and resolver target/hash.
+
+Exact native packages from 088d333 pass three fresh cycles on Debian 13 and
+Ubuntu 26.04, with ordinary reverse-path settings unchanged. All twelve DNS
+exchanges in those confirming cycles succeed on the first attempt; the fixture
+allows at most three bounded UDP sends and reports the actual count. Earlier
+single-datagram timeouts, packet traces and the numeric route-type failure are
+retained separately. They are not silently reclassified as successful runs.
+See Builder `docs/VALIDATION-PROFILE-FORWARDING.md` for exact hashes and limits.
+This does not configure a resolver mount or test an actual Home/Work VPN client.
