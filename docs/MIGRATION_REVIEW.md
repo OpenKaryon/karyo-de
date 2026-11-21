@@ -326,3 +326,15 @@ Ubuntu. A private-bus real-Wayland fixture also verifies distinct concurrent
 tokens and cancellation when the owner is destroyed, with no late duplicate.
 All 67 CTests pass on both bases. This closes the source/real-client regression;
 new native caller packages and their installed application acceptance follow.
+
+## Installed background Files activation gate closed
+
+Both eight-runtime native package sets from exact source
+82f9d4b0de338cf8339eb539aa2232c25055b495 passed all 67 CTests, verified artifact
+hashes, installation and dpkg integrity. Installed /usr/bin/karyo-photos menu
+Show in Files raised the already-open target folder and selected photo.png on
+both native VMware sessions without another Files window. The same Files PIDs
+survived package installation. Original LightDM remained active after ending
+fixture sessions. Builder docs/VALIDATION-FILEMANAGER-ACTIVATION.md retains exact
+hashes and before/after evidence. This closes the source-and-installed activation
+gate; optional profile/PAM/network helpers and other compositor patches remain.

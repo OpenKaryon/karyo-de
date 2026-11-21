@@ -63,3 +63,9 @@ The complete 67-entry CTest suite also passes on both native bases, including
 ordinary offscreen routing/fallback and URI/selection regressions. These native
 fixture results precede the caller runtime package wave; installed acceptance
 of the rebuilt applications is recorded separately by Builder.
+
+The eight caller runtime packages from exact activation source 82f9d4b are now
+installed and accepted on both native QA VMs. Actual Photos menu activation
+raises the existing Files window and selects its generated image fixture; PID
+survival and integrity checks pass. This closes the installed caller gate left
+open by the source-fixture checkpoint above.
