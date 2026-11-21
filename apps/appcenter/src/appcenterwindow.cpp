@@ -124,6 +124,12 @@ AppCenterWindow::AppCenterWindow()
     connect(m_back, &QAbstractButton::clicked, this, &AppCenterWindow::back);
     connect(m_packages, &PackageManager::updatesChanged, this, &AppCenterWindow::updateBadge);
     connect(m_packages, &PackageManager::queryFailed, this, &AppCenterWindow::message);
+    connect(m_packages, &PackageManager::jobChanged, this,
+        [this](const CatalogApp &app)
+        {
+            if (m_packages->isBusy(app) && m_packages->progress(app) == 0)
+                message(QString());
+        });
     connect(m_packages, &PackageManager::jobFailed, this, [this](const CatalogApp &app, const QString &error)
         { message(tr("Could not finish %1: %2").arg(app.name.isEmpty() ? app.package : app.name, error)); });
     connect(m_packages, &PackageManager::environmentExported, this,

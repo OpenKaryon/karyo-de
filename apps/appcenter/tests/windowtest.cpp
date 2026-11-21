@@ -30,6 +30,7 @@ class AppCenterWindowTest : public QObject
         QCOMPARE(file.write(data), data.size());
     }
 private Q_SLOTS:
+    void initTestCase() { QCoreApplication::setQuitLockEnabled(false); }
     void init()
     {
         m_root = std::make_unique<QTemporaryDir>();
@@ -43,7 +44,8 @@ private Q_SLOTS:
         QFile fixture(QFINDTESTDATA("fixtures/tool.py"));
         QVERIFY(fixture.open(QIODevice::ReadOnly));
         const auto bytes = fixture.readAll();
-        for (const auto &name : QStringList { "apt-cache", "apt-get", "dpkg-query", "flatpak", "du" })
+        for (const auto &name :
+            QStringList { "apt-cache", "apt-get", "dpkg-query", "flatpak", "du", "pkexec" })
         {
             const auto path = m_root->filePath("bin/" + name);
             put(path, bytes);
@@ -123,6 +125,11 @@ private Q_SLOTS:
         manager->queryFailed("<b>Literal failure</b>");
         QCOMPARE(status->text(), QString("<b>Literal failure</b>"));
         QCOMPARE(status->textFormat(), Qt::PlainText);
+        manager->install(manager->catalog().first());
+        QVERIFY(manager->isBusy(manager->catalog().first()));
+        QVERIFY(status->text().isEmpty());
+        QTRY_VERIFY(!manager->isBusy(manager->catalog().first()));
+        QVERIFY(status->text().isEmpty());
     }
 };
 QTEST_MAIN(AppCenterWindowTest)
