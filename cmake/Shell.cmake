@@ -12,10 +12,9 @@ add_library(karyo-shell-core STATIC
     ${shell_dir}/sessionlocker.cpp ${shell_dir}/sessionlocker.h
     ${shell_dir}/keyboardlayout.cpp ${shell_dir}/keyboardlayout.h
     ${shell_dir}/toplevels.cpp ${shell_dir}/toplevels.h
-    ${shell_dir}/fileops.cpp ${shell_dir}/fileops.h
     ${shell_dir}/wifi.cpp ${shell_dir}/wifi.h)
 target_include_directories(karyo-shell-core PUBLIC ${shell_dir} ${CMAKE_CURRENT_BINARY_DIR})
-target_link_libraries(karyo-shell-core PUBLIC Karyo::Style karyo-file-presentation Qt6::DBus Qt6::WaylandClient LayerShellQt::Interface)
+target_link_libraries(karyo-shell-core PUBLIC Karyo::Style karyo-file-presentation karyo-file-operations Qt6::DBus Qt6::WaylandClient LayerShellQt::Interface)
 qt6_generate_wayland_protocol_client_sources(karyo-shell-core FILES
     ${PROJECT_SOURCE_DIR}/shell/protocols/openkaryon-keyboard-layout-v1.xml
     ${PROJECT_SOURCE_DIR}/shell/protocols/wlr-foreign-toplevel-management-unstable-v1.xml)

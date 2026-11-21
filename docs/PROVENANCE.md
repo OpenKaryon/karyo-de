@@ -160,3 +160,9 @@ Archive window, password form, icon and Russian catalog are now adapted from the
 same donor. Backend and GUI regressions remain separate executable targets; all
 retained UI scenarios are explicitly registered. The optional RAR addon contains
 only metadata/documentation and depends on the distribution's own codec package.
+
+Shared clipboard/background file operations are extracted from the already
+reviewed shell implementation, matching the donor Files implementation. Copies
+now stage complete trees and publish with Linux no-replace rename; errors never
+publish incomplete trees or remove move sources. Relative/dangling symlinks and
+compound suffixes are retained. Tests operate only in disposable directories.

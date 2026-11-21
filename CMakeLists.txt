@@ -72,6 +72,7 @@ if(KARYO_BUILD_DESKTOP_INTEGRATION)
     include(cmake/Widgets.cmake)
     include(cmake/Style.cmake)
     include(cmake/FilePresentation.cmake)
+    include(cmake/FileOperations.cmake)
 endif()
 
 include(cmake/Session.cmake)

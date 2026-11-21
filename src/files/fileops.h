@@ -25,7 +25,7 @@ public:
     // Starts in its own thread; the job deletes itself when done.
     static FileJob *start(Kind kind, const QStringList &sources, const QString &targetDir = {});
 
-    // A free name in dir: "name (copy)", "name (2)"...
+    // A free compound-suffix name in dir, or empty when none can be chosen.
     static QString freeName(const QString &dir, const QString &name);
 
 Q_SIGNALS:
