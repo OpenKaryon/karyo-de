@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Media Player
+Name[ru]=Медиаплеер
+GenericName=Music and video player
+GenericName[ru]=Проигрыватель музыки и видео
+Comment=Play music and videos
+Comment[ru]=Музыка и видео
+Exec=karyo-player %F
+Icon=multimedia-player
+Terminal=false
+Categories=AudioVideo;Audio;Video;Player;
+MimeType=audio/mpeg;audio/flac;audio/x-flac;audio/ogg;audio/opus;audio/mp4;audio/aac;audio/x-wav;audio/wav;audio/x-ms-wma;audio/x-aiff;audio/x-matroska;video/mp4;video/x-matroska;video/webm;video/x-msvideo;video/quicktime;video/mpeg;video/ogg;video/x-ms-wmv;video/3gpp;
+Keywords=music;video;audio;movie;player;mp3;flac;mp4;
+Keywords[ru]=музыка;видео;аудио;фильм;плеер;проигрыватель;
+StartupWMClass=karyo-player

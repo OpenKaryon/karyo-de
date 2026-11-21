@@ -119,3 +119,18 @@ rejects missing/non-PDF inputs. A real second process reuses the window without
 duplicating tabs. All twenty-two tests pass on native Debian 13 and Ubuntu 26.04.
 Encrypted-document interaction and graphical package checks remain separate
 acceptance items; the automated fixture does not establish those results.
+
+## Media Player
+
+karyo-player (short command: player) retains Music/Videos library scans on a
+worker thread, queue/shuffle/repeat, metadata/artwork, seek/volume, fullscreen
+and CPU-painted video frames. The existing preferences and Player bus endpoint
+remain compatible; Show in Files uses the common FileManager1 handoff. Native
+Qt Multimedia/FFmpeg dependencies remain external distribution packages.
+
+Tests generate a PCM WAV and receive real decoded audio buffers through Qt
+6.8+ QAudioBufferOutput without requiring an audio device. They also exercise
+seek dragging and a real second-process handoff. A regression exposed lexical
+track ordering under the C locale; natural sorting now works under C, English
+and Russian locales. All 24 tests pass on both bases. Physical audio, video
+decoding/GUI and installed package behavior still need acceptance.

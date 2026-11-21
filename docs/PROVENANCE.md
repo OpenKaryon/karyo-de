@@ -109,3 +109,9 @@ PDF Reader sources and Russian translations are adapted from
 an external native distribution dependency. The migrated app preserves user
 positions/preferences and its existing session-bus contract; file selection
 uses standard FileManager1 rather than a private-monorepository executable.
+
+Media Player sources and Russian catalog are adapted from
+`distro/desktop/apps/player` at the same application donor revision. The player
+uses native Qt Multimedia, a shared FileManager1 helper and independent runtime
+packaging. Natural track sorting uses an explicit non-C collator when the user
+locale is C, avoiding Qt's lexical C-locale fallback. No media is packaged.
