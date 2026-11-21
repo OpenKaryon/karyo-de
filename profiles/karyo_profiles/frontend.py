@@ -13,7 +13,7 @@ def command(arguments, helper_directory):
     operations = parser.add_subparsers(dest="operation", required=True)
     listing = operations.add_parser("list", allow_abbrev=False, help="list your account family as JSON")
     listing.add_argument("--json", action="store_true", help="explicitly select the default JSON output")
-    switching = operations.add_parser("switch", allow_abbrev=False, help="switch to an existing family session")
+    switching = operations.add_parser("switch", allow_abbrev=False, help="switch to a family desktop; start an isolated child when enabled")
     switching.add_argument("name", type=account_name)
     adding = operations.add_parser("add", allow_abbrev=False, help="create a child of your main account")
     adding.add_argument("name", nargs="?", type=account_name, default=None)

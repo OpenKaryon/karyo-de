@@ -13,6 +13,8 @@ from .model import account_name
 from .provision import AccountProvisioner, CreationError
 from .storage import ConfigStore
 from .switching import DesktopStopped, ExistingSwitcher
+from .runtime_policy import enabled as runtime_enabled
+from .dispatcher import request as host_request
 
 
 def read_password(fd=0, *, timeout=10):
@@ -60,11 +62,15 @@ def list_desktops(arguments, *, environment, store, authorize=authorized_caller,
 
 
 def switch_existing(arguments, *, environment, store, authorize=authorized_caller,
-                    switcher=ExistingSwitcher):
+                    switcher=ExistingSwitcher, runtime=runtime_enabled, request=host_request):
     parser = argparse.ArgumentParser(prog="karyo-desktop-switch", allow_abbrev=False)
     parser.add_argument("name", type=account_name)
     args = parser.parse_args(arguments)
     caller = authorize(environment)
+    if runtime():
+        # Local pkexec authorization is still required. The host independently
+        # derives this root process's native login account; no caller UID travels.
+        return request({"version": 1, "operation": "switch", "name": args.name})
     return switcher(store).switch(caller, args.name)
 
 

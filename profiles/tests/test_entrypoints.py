@@ -106,6 +106,20 @@ class DesktopControlEntrypointTest(unittest.TestCase):
         backend.return_value.switch.assert_called_once_with(HOME, "work")
         self.assertEqual(result["user"], "work")
 
+    def test_enabled_runtime_uses_fixed_host_packet_after_local_authorization(self):
+        authorize, request, backend = Mock(return_value=HOME), Mock(return_value={"user": "work"}), Mock()
+        result = switch_existing(["work"], environment={"PKEXEC_UID": "1000"}, store="store",
+                                 authorize=authorize, switcher=backend, runtime=lambda: True, request=request)
+        self.assertEqual(result, {"user": "work"})
+        request.assert_called_once_with({"version": 1, "operation": "switch", "name": "work"})
+        backend.assert_not_called()
+        request.reset_mock()
+        authorize.side_effect = PermissionError("inactive")
+        with self.assertRaises(PermissionError):
+            switch_existing(["work"], environment={}, store="store", authorize=authorize,
+                            runtime=lambda: True, request=request)
+        request.assert_not_called()
+
     def test_switch_has_no_arbitrary_owner_session_command_or_option_abbreviation(self):
         for arguments in ([], ["work", "other"], ["--owner", "other", "work"],
                           ["--session", "c2"], ["--command", "/bin/sh"], ["../work"],

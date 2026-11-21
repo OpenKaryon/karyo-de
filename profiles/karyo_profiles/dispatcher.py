@@ -200,9 +200,11 @@ def main():
     try:
         from .journal import RuntimeJournal
         from .journal_session import SessionRegistry
+        from .runtime_switching import RuntimeSwitcher
         with activated_listener(os.environ) as listener, RuntimeJournal() as journal:
             dispatcher = HostDispatcher()
             registry=SessionRegistry(journal,dispatcher.store).restore()
+            dispatcher.switcher = lambda store, **options: RuntimeSwitcher(store, registry=registry, **options)
             try:
                 serve(listener,dispatcher,registry)
             finally:

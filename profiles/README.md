@@ -1147,3 +1147,26 @@ for administrator review. Retrying `enable` is supported. There is deliberately
 no automatic global forwarding reset on service stop, because other software
 may also depend on that global setting. Removing the optional package likewise
 requires reviewing any enabled profiles and administrator networking policy.
+
+
+### Public startup of an isolated child desktop
+
+With the explicit runtime enabled, `karyo-desktops switch NAME` still performs
+local pkexec authorization, then sends only a versioned switch operation and a
+validated account name to the root-only host. The host independently captures
+and revalidates the peer's native process, login scope and account. A running
+family session uses the existing lock-before-switch path. A stopped child gets
+an owned private network, physical-underlay forwarding, private DNS, scoped user
+manager and fresh controlled graphical PAM session, in that order.
+
+The host registers the complete session before activation and supervises its
+lifetime without a client connection. Loss of authorization before allocation
+creates nothing; a failure after native mutation retains exact journal receipts
+for recovery or administrator review. A partial startup is not silently retried.
+After observed logout/crash the existing lifecycle path returns to Home and
+closes GUI/manager, DNS, forwarding and network in ownership order.
+
+A stopped main/Home session still belongs to the login manager and is not
+started inside a private child namespace. Current public cold startup does not
+claim automatic DHCP/DNS refresh, VPN provisioning or half-created graphical
+session recovery. These remain migration work rather than hidden success paths.
