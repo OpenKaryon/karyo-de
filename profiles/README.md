@@ -472,3 +472,52 @@ afterward; dpkg checks are clean. QA command scripts/JSON are removed explicitly
 See Builder VALIDATION-TWO-SESSIONS.md for installed artifact references, actual
 sessions/PIDs, observed password forms and the distinction from stopped-session
 startup, shell menu integration and network/clipboard isolation.
+
+
+## Console reservation for controlled startup
+
+The upcoming stopped-session controller now has a constrained console primitive.
+Sessions.occupied_vts reads every logind session's literal Id/VTNr under one
+bounded inventory deadline, including console users, greeters and closing owners.
+It deliberately does not reuse the selectable graphical-only inventory for VT
+allocation. A missing, malformed or disappearing owner fails the attempt.
+
+consoles.reserve_console requires the existing profile configuration lock and
+combines that complete inventory with the kernel in-use mask. The fixed pool is
+VT8 through VT12, within Linux VT_GETSTATE's representable mask. Only an unused
+native character device is opened with no-follow/no-controlling-terminal and
+close-on-exec flags. Its descriptor stays held until the caller's preparation
+scope ends. New logind ownership, activation or lost busy state invalidates the
+lease. Reuse after release or outside the configuration lock is rejected.
+
+This is a cooperative allocation primitive, not an exclusive kernel ownership
+barrier against another privileged administrator. The future unit controller
+must revalidate before handoff and prove its own target session/unit afterward.
+The primitive never activates, resets, hangs up or disallocates a console and
+never terminates a foreign owner. It does not itself start a session or configure
+networking. Source regressions now total 143 cases on Debian and Ubuntu: root
+passes with 3 role-specific skips, ordinary UID with 42. Native installed
+open/hold/release acceptance now passes on both fixed QA hosts, as described below.
+
+The Linux UAPI contract was reviewed against the
+[Linux v6.12 VT implementation](https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux/+/refs/tags/v6.12/drivers/tty/vt/vt_ioctl.c)
+and the [kernel man-pages ioctl_vt reference](https://man7.org/linux/man-pages/man2/ioctl_vt.2.html).
+Only interface constants/behavior are used; no kernel implementation is copied.
+
+
+The installed account packages from afdcbbd pass tests/installed-consoles.py on
+both native kernels. While VT8 remains active, a held descriptor reserves free
+VT9 and a second allocator selects VT10. Both are close-on-exec, revalidated
+against logind/kernel state and released without activation. The original busy
+mask and selected graphical session are restored; account/common-PAM bytes and
+package verification remain unchanged. A released lease cannot be reused.
+
+The first Ubuntu QA assertion incorrectly required the kernel busy flag to
+clear immediately on close. A later read found no owner or open descriptor;
+a bounded settle check observes release after about 5 ms on both native kernels.
+The original failed test is retained. The production allocator conservatively
+skips a still-busy console and needs no change to treat it as free prematurely.
+Only the fixture waits for settling; it never resets or disallocates a console.
+Builder VALIDATION-CONSOLE-RESERVATION.md contains exact packages, hashes and
+observed masks. This completes the allocation primitive, not owned unit/session
+startup, networking or safe teardown of complete desktop services.

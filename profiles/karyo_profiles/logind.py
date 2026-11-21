@@ -133,8 +133,7 @@ class Sessions:
     def activate(self, identifier, *, timeout=2):
         self.command.run("activate", session_id(identifier), timeout=timeout)
 
-    def all(self):
-        deadline = self.clock() + 5
+    def _identifiers(self):
         text = self.command.run("list-sessions", "--json=short", timeout=5)
         rows = json.loads(text)
         if not isinstance(rows, list) or len(rows) > 256:
@@ -147,8 +146,35 @@ class Sessions:
             if identifier in identifiers:
                 raise ValueError("Duplicate login manager session identifier")
             identifiers.append(identifier)
+        return tuple(identifiers)
+
+    def occupied_vts(self):
+        # Console ownership is global, not limited to selectable graphical user
+        # sessions: greeters, TTY users and closing sessions must reserve theirs.
+        deadline = self.clock() + 5
+        occupied = set()
+        for identifier in self._identifiers():
+            text = self.command.run("show-session", identifier, "--all", "--property=Id", "--property=VTNr",
+                                    timeout=deadline - self.clock())
+            values = {}
+            for line in text.splitlines():
+                key, separator, value = line.partition("=")
+                if not separator or key not in {"Id", "VTNr"} or key in values:
+                    raise ValueError("Invalid console ownership properties")
+                values[key] = value
+            if set(values) != {"Id", "VTNr"} or values["Id"] != identifier:
+                raise ValueError("Console ownership returned another or incomplete session")
+            vt = values["VTNr"]
+            if not vt.isascii() or not vt.isdecimal() or str(int(vt)) != vt or not 0 <= int(vt) <= 63:
+                raise ValueError("Invalid console owner virtual terminal")
+            if int(vt):
+                occupied.add(int(vt))
+        return frozenset(occupied)
+
+    def all(self):
+        deadline = self.clock() + 5
         found = []
-        for identifier in identifiers:
+        for identifier in self._identifiers():
             # A session ending while inventory is read fails this attempt. Never
             # interpret an unavailable login manager as proof a desktop stopped.
             value = self.get(identifier, timeout=deadline - self.clock())

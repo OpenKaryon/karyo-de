@@ -253,3 +253,14 @@ unchanged. All 17 controller cases pass as ordinary UID on both bases, covering
 event-loop progress, input/argument separation, consumer removal, double starts,
 malformed/wrong/oversized responses, result classes and timeouts. Four targeted
 CTest regressions pass per base. Final native package acceptance remains separate.
+
+
+The final clean shell packages from 2a77771 now also pass installed public-menu
+acceptance on both guests, with all 69 CTests passing and no source overlay.
+The real form creates a shared child through native pkexec. Protection is then
+enabled before its first native LightDM session starts; the initial password
+form precedes shell/Files. Actual menu clicks lock the protected source on leave
+and demand fresh Home authentication on re-entry, with both shell PIDs preserved.
+QA cleanup restores original account/common-PAM bytes and package verification
+is clean. Builder VALIDATION-INSTALLED-PROFILE-MENU.md records exact inputs and
+limits. LightDM bootstrap is not the pending owned stopped-session launcher.
