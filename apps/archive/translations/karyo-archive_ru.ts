@@ -128,6 +128,10 @@
             <source>Choose a compression level between 0 and 9.</source>
             <translation>Выберите уровень сжатия от 0 до 9.</translation>
         </message>
+        <message>
+            <source>The password may be incorrect, or the encrypted file is damaged.</source>
+            <translation>Возможно, пароль неверен или зашифрованный файл повреждён.</translation>
+        </message>
     </context>
     <context>
         <name>ArchiveWindow</name>

@@ -234,7 +234,22 @@ static Result extractNative(const QString &path, const QString &parent, const QS
             done += qint64(size);
             if (progress) progress(done, 0, name);
         }
-        if (code != ARCHIVE_EOF) return failed(error(a.get()), cancel);
+        if (code != ARCHIVE_EOF) {
+            auto result = failed(error(a.get()), cancel);
+            const QString lower = result.error.toLower();
+            // Traditional ZIP encryption checks only one header byte. A wrong
+            // password can pass it and fail later at decompression or the CRC.
+            // Keep retry available, without claiming that damaged data is sound.
+            const bool decoderError = lower.contains("crc") || lower.contains("decompress")
+                || lower.contains("inflate") || lower.contains("compressed data");
+            if (!cancel && family == ARCHIVE_FORMAT_ZIP && archive_entry_is_encrypted(entry) == 1
+                && !password.isEmpty() && a.input->file.error() == QFileDevice::NoError && decoderError) {
+                result.passwordRequired = result.passwordRejected = true;
+                result.error = tr("The password may be incorrect, or the encrypted file is damaged.")
+                    + QLatin1Char('\n') + result.error;
+            }
+            return result;
+        }
         if (archive_write_finish_entry(disk.get()) < ARCHIVE_OK) return failed(error(disk.get()));
         ++count;
     }

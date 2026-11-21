@@ -151,12 +151,33 @@ private Q_SLOTS:
         QCOMPARE(QProcess::execute(seven, {"a", "-tzip", "-pfixture-password", "-mem=" + encryption, archive, source}), 0);
         std::atomic_bool cancel = false;
         auto result = extract(archive, root.path(), {}, {}, cancel);
-        QVERIFY(!result.ok()); QVERIFY(result.passwordRequired);
+        QVERIFY(!result.ok()); QVERIFY2(result.passwordRequired, qPrintable(result.error));
         result = extract(archive, root.path(), {}, "wrong", cancel);
-        QVERIFY(!result.ok()); QVERIFY(result.passwordRequired);
+        QVERIFY(!result.ok()); QVERIFY2(result.passwordRequired, qPrintable(result.error));
         result = extract(archive, root.path(), {}, "fixture-password", cancel);
         QVERIFY2(result.ok(), qPrintable(result.error));
         QCOMPARE(read(result.output + "/secret.txt"), QByteArray("private test fixture"));
+    }
+    void encryptedZipHeaderCollision()
+    {
+        const QString archive = QFINDTESTDATA("fixtures/zipcrypto-header-collision.zip");
+        QVERIFY(!archive.isEmpty());
+        QTemporaryDir root;
+        std::atomic_bool cancel = false;
+        auto result = extract(archive, root.path(), {}, "wrong", cancel);
+        QVERIFY(!result.ok());
+        QVERIFY2(result.passwordRequired, qPrintable(result.error));
+        QVERIFY(result.passwordRejected);
+        QVERIFY(QDir(root.path()).entryList(QDir::Dirs | QDir::NoDotAndDotDot).isEmpty());
+        result = extract(archive, root.path(), {}, "fixture-password", cancel);
+        QVERIFY2(result.ok(), qPrintable(result.error));
+        QCOMPARE(read(result.output + "/secret.txt"), QByteArray("private test fixture"));
+        const QString corrupt = QFINDTESTDATA("fixtures/zip-unencrypted-bad-crc.zip");
+        QVERIFY(!corrupt.isEmpty());
+        result = extract(corrupt, root.path(), {}, "wrong", cancel);
+        QVERIFY(!result.ok());
+        QVERIFY(!result.passwordRequired);
+        QVERIFY(!result.passwordRejected);
     }
     void protectedRoundTrip_data()
     {
@@ -180,8 +201,8 @@ private Q_SLOTS:
         auto contents = list(archive, secret, cancel);
         QVERIFY2(contents.ok(), qPrintable(contents.error)); QVERIFY(contents.entries.size() >= 3);
         if (format == int(Format::SevenZip) && headers) {
-            result = list(archive, {}, cancel); QVERIFY(result.passwordRequired); QVERIFY(!result.passwordRejected);
-            result = list(archive, "wrong", cancel); QVERIFY(result.passwordRequired); QVERIFY(result.passwordRejected);
+            result = list(archive, {}, cancel); QVERIFY2(result.passwordRequired, qPrintable(result.error)); QVERIFY(!result.passwordRejected);
+            result = list(archive, "wrong", cancel); QVERIFY2(result.passwordRequired, qPrintable(result.error)); QVERIFY(result.passwordRejected);
         }
         const QString out = root.filePath("out"); QVERIFY(QDir().mkdir(out));
         result = extract(archive, out, {}, {}, cancel);

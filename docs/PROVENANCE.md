@@ -326,3 +326,11 @@ not claim the system is current. Actions track active transactions. Environment
 exports query before atomic publication, and imported paths and environment names
 pass through validated model operations. Shared literal shell argument quoting
 is exercised with apostrophes, shell substitutions and newlines.
+
+The native full run exposed a traditional-ZIP wrong-password header collision.
+A deterministic synthetic stored ZIP and standard-library generator reproduce
+it on both bases: the wrong password passes the one-byte encryption header and
+fails at the data CRC. Encrypted ZIP decoder/CRC failures retain password retry
+while explicitly allowing damaged-data diagnosis; filesystem failures and
+cancellation do not become password prompts. Format reference:
+https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT .
