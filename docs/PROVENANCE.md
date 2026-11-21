@@ -475,3 +475,14 @@ supported bases. The PAM file includes native common account/session policy and
 denies authentication; it copies no prototype unchecked login service, source-
 environment shell execution or TTY hangup lifecycle. Optional QA contains no
 personal accounts, tunnel configuration or embedded test credentials.
+
+
+The pre-login NetBird provider primitive is newly written GPL-3.0-or-later code.
+It reviews the prototype desktop-netbird unit's separate state/socket/namespace
+intent, but does not copy its overlay /etc mounts, host resolver file mutation,
+unchecked service activation or cleanup. The upstream NetBird v0.82.1 daemon
+flags and private resolve1 integration were reviewed against
+https://github.com/netbirdio/netbird/blob/v0.82.1/client/cmd/service.go and
+https://github.com/netbirdio/netbird/blob/v0.82.1/client/internal/dns/host_unix.go.
+No upstream implementation, management URL, imported profile or credential is
+included. Native NetBird remains an external separately licensed dependency.

@@ -54,6 +54,8 @@ class RuntimeSwitcher(ExistingSwitcher):
                 raise JournalRetained("The desktop already has a retained runtime receipt")
             if not enabled():
                 raise DesktopStopped("Private desktop startup has not been enabled by the administrator")
+            if self.store.settings(target).vpn != "none":
+                raise RuntimeError("The configured profile VPN requires the separate provider integration")
             forwarding_ready()
             supported_resolver_layout()
             command = NetworkCommand()

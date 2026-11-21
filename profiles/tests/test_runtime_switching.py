@@ -96,6 +96,14 @@ class RuntimeSwitchTest(unittest.TestCase):
                 self.assertEqual(self.events, [])
                 self.patches.close()
 
+    def test_configured_vpn_is_not_silently_started_without_its_provider(self):
+        self.setup()
+        from karyo_profiles.model import DesktopSettings
+        self.store.policies["work"] = DesktopSettings(vpn="netbird")
+        with self.assertRaisesRegex(RuntimeError, "provider"):
+            self.switcher.start(HOME, "work")
+        self.assertEqual(self.events, [])
+
     def test_lost_authorization_before_allocation_never_starts(self):
         self.setup()
         authorize = Mock(side_effect=[HOME, WORK])

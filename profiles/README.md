@@ -1170,3 +1170,22 @@ A stopped main/Home session still belongs to the login manager and is not
 started inside a private child namespace. Current public cold startup does not
 claim automatic DHCP/DNS refresh, VPN provisioning or half-created graphical
 session recovery. These remain migration work rather than hidden success paths.
+
+
+### NetBird provider migration boundary
+
+A configured `VPN=netbird` child currently fails before public runtime allocation;
+it is not silently started with ordinary networking. The pre-login provider
+primitive owns a separate root-only state directory, private runtime socket and
+transient native service inside the profile network/resolver context. Persistent
+state is stamped with the complete account identity and captured home device/inode, and never recursively adopted,
+chowned or deleted on a retry. It connects to the profile's private resolve1 bus,
+never the host NetworkManager/system bus, and grants no SYS_ADMIN/SYS_MODULE capability.
+
+This layer is deliberately not public VPN activation yet. Durable provider/tunnel
+receipts, wt0 inventory, connected teardown, client/GUI launch and callback
+acceptance must be joined to the profile host before the VPN policy is enabled.
+The external NetBird package's maintainer script starts a system-wide service;
+installing that dependency must be an explicit packaging/administrator decision,
+not a side effect of the base DE or this primitive. The DE neither replaces that
+upstream package nor disables/adopts an administrator's existing global service.
