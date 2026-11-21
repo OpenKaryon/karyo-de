@@ -7,6 +7,9 @@ foreach(operation IN ITEMS add list switch sync password-changed)
     install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/desktop-${operation}"
         DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo COMPONENT profile-accounts-runtime)
 endforeach()
+configure_file("${profile_source}/frontend.in" "${CMAKE_CURRENT_BINARY_DIR}/karyo-desktops" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-desktops"
+    DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-accounts-runtime)
 install(DIRECTORY "${profile_source}/karyo_profiles"
     DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo/profiles
     COMPONENT profile-accounts-runtime FILES_MATCHING PATTERN "*.py" PATTERN "__pycache__" EXCLUDE)

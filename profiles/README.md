@@ -410,3 +410,26 @@ acceptance. Creation of
 stopped sessions, owned systemd units, VT allocation, protected runtime QA and
 network/clipboard integration remain separate stages. No unattended process
 launch is added by this component.
+
+
+## Public unprivileged command interface
+
+The optional accounts package now installs karyo-desktops in the public binary
+path. It supports list [--json], switch NAME and add [NAME] --label LABEL
+[--protection none|home|separate]. Separate protection additionally requires
+--password-stdin; only stdin carries the password, never argv. Every successful
+root operation retains its JSON response. A stopped switch target retains the
+helper's distinct exit 3; this interface does not silently start a session.
+
+The frontend replaces itself with the absolute native pkexec and a fixed
+package-owned helper path, preserving the actual graphical caller session,
+stdin and exact exit result. It cannot select an owner, arbitrary executable,
+session, configuration path or system password-synchronization operation.
+Root helpers independently enforce family, active-session and account policy.
+Both frontend and root launchers use Python isolated mode with a literal module
+path and no bytecode writes; cwd/PYTHONPATH/PYTHONHOME do not replace imports.
+
+All 129 profile cases pass on Debian and Ubuntu as root (3 role-specific skips)
+and ordinary UID 65534 (42 skips). An independent CMake accounts build stages
+the public launcher and runs the same suite without building Qt. Native package
+and real GUI-caller acceptance of the public interface remain separate checks.
