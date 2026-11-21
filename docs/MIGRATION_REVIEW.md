@@ -25,7 +25,7 @@ and verified; this checklist must not be read as a completion claim.
 | Monitor | Complete sampler/UI migrated. Reset/PID/model, responsive services, user scope, atomic startup and disposable-child controls pass on both bases (26/26 total). Real authorization/package checks follow. |
 | Files | Pending. Preserve FileManager1, existing-window/tab routing, selection, rename, removable disks, folder-size cache and archive handoff. |
 | Archive | Pending. Preserve protected archives, password retry/cancel, atomic publication and actual compression/encryption behavior. |
-| Snipping | Pending. Preserve shortcuts, capture, editable annotations, inline text, blur, crop confirmation and clipboard. |
+| Snipping | Canvas/capture primitives migrated: editable vectors, inline text, undoable blur, explicit crop and clipboard error/timeout regressions pass on both bases (28/28 total). Window/overlay and compositor extension integration follow. |
 | Settings | Pending. Review each page, user persistence, privileged changes and rollback. Public short routes must keep existing functionality. |
 | App Center / catalog | Pending. Keep personal/corporate package sources and data external; review privileged installation boundaries. |
 | Optional greeter | Pending as optional component. Keep existing display manager authoritative. |

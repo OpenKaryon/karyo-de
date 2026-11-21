@@ -127,3 +127,9 @@ Monitor pages, launch metadata and Russian catalog are now adapted from the same
 donor. The migration observes asynchronous service calls, atomically publishes
 user startup overrides and validates process identity for control actions. Native
 Linux pidfd syscalls are used for signaling; kernel permissions remain authoritative.
+
+Screenshot annotation/capture primitives and their existing canvas regressions
+are adapted from `distro/desktop/apps/snip` at the same application donor
+revision. Editable vectors, inline text, raster blur and explicit crop commit
+retain one undo history. Clipboard publication now requires successful wl-copy
+completion before skipping the Qt fallback, including timeout/error paths.
