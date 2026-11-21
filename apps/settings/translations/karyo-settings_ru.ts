@@ -450,6 +450,14 @@
             <source>NetworkManager returned an invalid Wi-Fi state.</source>
             <translation>NetworkManager вернул некорректное состояние Wi-Fi.</translation>
         </message>
+        <message>
+            <source>Network management</source>
+            <translation>Управление сетью</translation>
+        </message>
+        <message>
+            <source>Managed outside NetworkManager</source>
+            <translation>Управляется вне NetworkManager</translation>
+        </message>
     </context>
     <context>
         <name>Personalization</name>

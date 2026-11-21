@@ -306,3 +306,10 @@ assets before running as the current user. See the upstream release asset index:
 https://github.com/conda-forge/miniforge/releases/expanded_assets/26.9.4-2 .
 Tests substitute every package manager/downloader and never install conda or
 contact a real repository during source-level acceptance.
+
+Real installed Settings acceptance found loopback being shown as the active
+network and a false disconnected state on networkd/ifupdown QA bases. Network
+observation now skips loopback, prefers a default-route interface and falls back
+to read-only Qt interface/kernel-route/resolver data in the caller's namespace.
+It does not replace or reconfigure an existing network manager. Regression
+fixtures cover loopback/bridge precedence, escaped IPv6/DNS and route metrics.

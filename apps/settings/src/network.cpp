@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Network settings using bounded nmcli queries and the shared activation helper.
+#include "networkdetails.h"
 #include "pages.h"
 #include "widgets.h"
 #include "wifi.h"
@@ -14,30 +15,7 @@
 #include <QVBoxLayout>
 namespace
 {
-// nmcli -t separates fields with ':' and escapes ':' in values as '\:'.
-QStringList splitTerse(const QString &line)
-{
-    QStringList fields;
-    QString field;
-    for (qsizetype i = 0; i < line.size(); ++i)
-    {
-        if (line.at(i) == QLatin1Char('\\') && i + 1 < line.size())
-        {
-            field += line.at(++i);
-        }
-        else if (line.at(i) == QLatin1Char(':'))
-        {
-            fields.append(field);
-            field.clear();
-        }
-        else
-        {
-            field += line.at(i);
-        }
-    }
-    fields.append(field);
-    return fields;
-}
+using NetworkDetails::splitTerse;
 
 class NetworkPage : public SettingsPage
 {
@@ -102,7 +80,8 @@ public:
     }
 
 private:
-    void query(const QStringList &args, const std::function<void(const QString &)> &done)
+    void query(const QStringList &args, const std::function<void(const QString &)> &done,
+        const std::function<void(const QString &)> &failed = { })
     {
         const auto generation = m_generation;
         runCommand(
@@ -112,10 +91,15 @@ private:
                 if (generation == m_generation && !m_connecting)
                     done(text);
             },
-            [this, generation](const QString &error)
+            [this, generation, failed](const QString &error)
             {
                 if (generation != m_generation || m_connecting)
                     return;
+                if (failed)
+                {
+                    failed(error);
+                    return;
+                }
                 m_wifiStatus->setText(error);
                 m_wifiStatus->show();
             });
@@ -156,9 +140,24 @@ private:
             });
     }
 
+    void showStatus(const NetworkDetails::Connection &info)
+    {
+        if (!info.valid())
+        {
+            m_status->setFacts({ { tr("Status"), tr("Not connected") } });
+            return;
+        }
+        QList<QPair<QString, QString>> facts { { tr("Connection"), info.name },
+            { tr("Device"), info.device + QStringLiteral(" · ") + info.type },
+            { tr("IPv4 address"), info.ipv4 }, { tr("Gateway"), info.gateway },
+            { tr("DNS servers"), info.dns }, { tr("IPv6 address"), info.ipv6 },
+            { tr("Hardware address"), info.mac } };
+        if (info.external)
+            facts.append({ tr("Network management"), tr("Managed outside NetworkManager") });
+        m_status->setFacts(facts);
+    }
     void readStatus()
     {
-        // The first connected device: its connection, addresses and DNS.
         query(
             { QStringLiteral("-t"), QStringLiteral("-f"),
                 QStringLiteral("GENERAL.DEVICE,GENERAL.TYPE,GENERAL.STATE,GENERAL.CONNECTION,GENERAL.HWADDR,"
@@ -166,51 +165,15 @@ private:
                 QStringLiteral("device"), QStringLiteral("show") },
             [this](const QString &out)
             {
-                QList<QPair<QString, QString>> facts;
-                bool taken = false;
-                QMap<QString, QString> device;
-                auto flush = [&]
-                {
-                    if (taken
-                        || !device.value(QStringLiteral("GENERAL.STATE")).startsWith(QLatin1String("100")))
-                        return;
-                    taken = true;
-                    facts = { { tr("Connection"), device.value(QStringLiteral("GENERAL.CONNECTION")) },
-                        { tr("Device"),
-                            device.value(QStringLiteral("GENERAL.DEVICE")) + QStringLiteral(" · ")
-                                + device.value(QStringLiteral("GENERAL.TYPE")) },
-                        { tr("IPv4 address"), device.value(QStringLiteral("IP4.ADDRESS[1]")) },
-                        { tr("Gateway"), device.value(QStringLiteral("IP4.GATEWAY")) },
-                        { tr("DNS servers"), device.value(QStringLiteral("IP4.DNS")) },
-                        { tr("IPv6 address"), device.value(QStringLiteral("IP6.ADDRESS[1]")) },
-                        { tr("Hardware address"), device.value(QStringLiteral("GENERAL.HWADDR")) } };
-                };
-                for (const QString &line : out.split(QLatin1Char('\n')))
-                {
-                    if (line.isEmpty())
-                    {
-                        flush();
-                        device.clear();
-                        continue;
-                    }
-                    const QStringList kv = splitTerse(line);
-                    const QString key = kv.value(0);
-                    const QString value = kv.mid(1).join(QLatin1Char(':'));
-                    if (key == QLatin1String("IP4.DNS") || key.startsWith(QLatin1String("IP4.DNS[")))
-                    {
-                        const QString dns = device.value(QStringLiteral("IP4.DNS"));
-                        device[QStringLiteral("IP4.DNS")]
-                            = dns.isEmpty() ? value : dns + QStringLiteral(", ") + value;
-                    }
-                    else
-                    {
-                        device[key] = value;
-                    }
-                }
-                flush();
-                if (!taken)
-                    facts = { { tr("Status"), tr("Not connected") } };
-                m_status->setFacts(facts);
+                const auto system = NetworkDetails::systemConnection();
+                auto info = NetworkDetails::fromNmcli(out, system.device);
+                showStatus(info.valid() ? info : system);
+            },
+            [this](const QString &error)
+            {
+                showStatus(NetworkDetails::systemConnection());
+                m_wifiStatus->setText(error);
+                m_wifiStatus->show();
             });
     }
 

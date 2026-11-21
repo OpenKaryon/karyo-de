@@ -26,8 +26,8 @@ and verified; this checklist must not be read as a completion claim.
 | Files | Migrated with FileManager1, tab reuse, inline rename, USB, folder cache and safe quick archive actions. Both installed VM packages show correct selected-folder size/counts. Full native set 38/38; actual background-window activation remains an integration gate. |
 | Archive | Complete backend/window migrated with real ZIP/7z/encrypted RAR, compression, cancellation and atomic publication. Password retry/cancel and creation/browsing GUI cases pass on both bases (31 current CTest entries). Native package/VM checks follow. |
 | Snipping | Complete canvas/window/overlay migrated with public shortcut routes and compatible preferences. Native tests pass on both bases (28/28 total). Real overlay/clipboard and optional compositor window-snapshot integration follow. |
-| Settings | Pending. Review each page, user persistence, privileged changes and rollback. Public short routes must keep existing functionality. |
-| App Center / catalog | Pending. Keep personal/corporate package sources and data external; review privileged installation boundaries. |
+| Settings | Complete source/runtime with all public routes and 305 initial Russian messages. Full 53 native tests pass on both bases at93765d7; installed network observation exposed a real issue under networkd/ifupdown, whose fix is undergoing acceptance. |
+| App Center / catalog | External validated catalog and APT/Flatpak/conda model migrated with native/unprivileged regressions. Widgets/pages/window and installed runtime acceptance remain. |
 | Optional greeter | Pending as optional component. Keep existing display manager authoritative. |
 | Compositor layout extension / optional integrations | Separate reviewed packages and explicit capability gates; no mandatory VPN/VMware/Wine services in the base DE. |
 | OS defaults, browser/boot/installer, ISO generation | Owned by Karyo Linux/Builder stages, outside the DE migration scope. |
@@ -91,3 +91,41 @@ The stock compositor still lacks the window-snapshot and keyboard-control
 extensions, whose separate package/acceptance work remains in this goal.
 
 No commits have been pushed during this goal. All remaining scope stays active.
+
+
+## Settings and software-management checkpoint
+
+Thirteen application families now have independent source/runtime components;
+App Center is the remaining family. Settings includes display/audio/notification,
+storage, Bluetooth/input, network, personalization, defaults/accounts, language/
+time/privacy, updates and system information. It retains compatible user
+preferences and a complete Russian catalog. Shared software jobs survive page
+closure and hold normal application quit until completion; a separate optional
+runtime owns the narrow authorized APT helper and polkit action.
+
+Exact DE 93765d7c6cb8fb1cb77d5d89b3f52a0b382ba4e1 produced a native 20-package
+set on each base, passing all 53 then-current CTest entries. Nineteen packages
+were reinstalled on Debian (optional RAR omitted); Ubuntu installed all twenty.
+The dpkg audits are empty and the polkit action resolves to the fixed helper
+with administrator authorization. New real Karyo logins after these installations
+succeeded on both disposable VMs. No owner VM, laptop or APT source list changed.
+
+The real Settings network page exposed a previously untested condition: Debian
+showed loopback while Ubuntu reported disconnected despite SSH connectivity.
+Their cloud QA bases use other interface managers. This is a failed network UI
+check, not successful acceptance. The new read-only observation fix selects a
+real interface and supports networkd/ifupdown without reconfiguring them. Its
+parser/radio/window regressions pass on both bases; live fix acceptance and a
+new package containing it remain explicit gates.
+
+App Center's external catalog and software/environment model pass native and
+unprivileged fixtures on both bases. Miniforge bootstrap testing substitutes
+all downloads and installers; no real conda installation is claimed. The model
+retains APT, per-user Flatpak and conda behavior with bounded queries, visible
+errors, APT serialization and safely quoted environment scripts. The optional
+catalog retains 58 reviewed public package descriptions and no private endpoints.
+
+All local commit trailers and substantive body paragraphs were audited through
+DE 4d75dab and Builder c356323 (50 and 15 local commits respectively). Nothing
+has been pushed. The compositor, greeter, profile/system integration and Plex
+packaging/acceptance work remain part of the active goal.

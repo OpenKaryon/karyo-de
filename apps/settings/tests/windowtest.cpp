@@ -6,6 +6,7 @@
 #include <QFile>
 #include <QLineEdit>
 #include <QPointer>
+#include <QProcess>
 #include <QStackedWidget>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -52,6 +53,14 @@ private Q_SLOTS:
     }
     void cleanup()
     {
+        auto reaped = []
+        {
+            for (auto *process : QCoreApplication::instance()->findChildren<QProcess *>())
+                if (process->state() != QProcess::NotRunning)
+                    return false;
+            return true;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(reaped(), 3000);
         qputenv("PATH", m_path);
         qputenv("HOME", m_home);
     }
