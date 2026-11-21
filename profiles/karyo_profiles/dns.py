@@ -276,13 +276,10 @@ class ResolverFiles:
             self.captured[name] = (info.st_dev, info.st_ino, data)
         return self
 
-    def close(self):
+    def verify(self, *, complete=True):
         self._guard()
-        self.network._empty()
-        if self.fd is None:
-            raise NetworkError("The private resolver directory was not captured")
-        if any(os.path.lexists(path) for path in self.plan.runtime_paths):
-            raise NetworkError("Private DNS services or retained runtime directories still exist")
+        if self.fd is None or (complete and set(self.captured) != set(self.plan.files())):
+            raise NetworkError("The private resolver files were not completely captured")
         current = trusted_directory(self.plan.config)
         try:
             info = os.fstat(current)
@@ -298,6 +295,19 @@ class ResolverFiles:
                         raise NetworkError("A private resolver configuration file changed")
                 finally:
                     os.close(fd)
+        finally:
+            os.close(current)
+
+    def close(self):
+        self._guard()
+        self.network._empty()
+        if self.fd is None:
+            raise NetworkError("The private resolver directory was not captured")
+        if any(os.path.lexists(path) for path in self.plan.runtime_paths):
+            raise NetworkError("Private DNS services or retained runtime directories still exist")
+        self.verify(complete=False)
+        current = trusted_directory(self.plan.config)
+        try:
             for name in self.captured:
                 os.unlink(name, dir_fd=current)
         finally:

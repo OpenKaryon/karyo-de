@@ -21,6 +21,7 @@ from karyo_profiles.dns import ResolverFiles, discover_dns, seed_private_dns
 from karyo_profiles.forwarding import ProfileForwarding
 from karyo_profiles.networks import NetworkCommand, NetworkError, create_network
 from karyo_profiles.storage import ConfigStore
+from karyo_profiles.services import OwnedUnit, ResolverServices, ServiceError, ServiceRetained
 from karyo_profiles.underlay import discover_underlay
 
 
@@ -185,9 +186,11 @@ sudo=subprocess.run(['/usr/bin/sudo','-n','/bin/sh','-c','id -u'],capture_output
 host_bus=subprocess.run(['/usr/bin/busctl','--system','--timeout=2s','call','org.freedesktop.login1','/org/freedesktop/login1','org.freedesktop.DBus.Peer','Ping'],capture_output=True,timeout=3)
 private_query=subprocess.run(['/usr/bin/busctl','--address='+address,'--timeout=2s','--json=short','get-property','org.freedesktop.resolve1',link,'org.freedesktop.resolve1.Link','DNS'],capture_output=True,timeout=3)
 denied=subprocess.run(['/usr/bin/busctl','--address='+address,'--timeout=2s','call','org.freedesktop.resolve1',link,'org.freedesktop.resolve1.Link','SetDefaultRoute','b','false'],capture_output=True,timeout=3)
+scope_code = "import os,sys;assert os.getuid()==0 and os.geteuid()==0;sys.path.insert(0,'/usr/libexec/karyo/profiles');from karyo_profiles.services import host_controller\ntry:host_controller()\nexcept PermissionError:sys.exit(0)\nsys.exit(1)"
+scope=subprocess.run(['/usr/bin/sudo','-n','/bin/sh','-c','exec /usr/bin/python3 -I -c "$1"','karyo-qa-scope',scope_code],capture_output=True,timeout=3)
 status=Path('/proc/self/status').read_text()
 nnp=next(row.split()[1] for row in status.splitlines() if row.startswith('NoNewPrivs:'))
-write('public-result',{'uid':os.getuid(),'public':public,'sudo':sudo.returncode==0 and sudo.stdout.strip()=='0','host_bus':host_bus.returncode==0,'private_query':private_query.returncode==0,'private_change_denied':denied.returncode!=0,'nnp':nnp})
+write('public-result',{'uid':os.getuid(),'public':public,'sudo':sudo.returncode==0 and sudo.stdout.strip()=='0','host_bus':host_bus.returncode==0,'private_query':private_query.returncode==0,'private_change_denied':denied.returncode!=0,'nnp':nnp,'root_context_refused':scope.returncode==0})
 wait('host-file-go')
 second=sorted({row[4][0] for row in socket.getaddrinfo('example.net',443,socket.AF_INET,socket.SOCK_STREAM)})
 write('host-file-result',{'public_after_host_file':second,'resolver_hash':__import__('hashlib').sha256(Path('/etc/resolv.conf').read_bytes()).hexdigest()})
@@ -267,15 +270,32 @@ def main():
             files = ResolverFiles(network, seed);files.create();plan=files.plan
             require(not any(os.path.lexists(p) for p in plan.runtime_paths), "Private resolver runtime already exists")
             stage=Path("/run/karyo-qa-dns-"+network.spec.token);stage.mkdir(mode=0o755)
-            unit=Unit(command,plan.bus_name+".service","/usr/bin/dbus-daemon",0)
-            units.append(unit);unit.start(plan.bus_properties(),"--nofork","--nopidfile","--nosyslog","--config-file="+plan.config+"/bus.conf")
-            wait_for(lambda:bus(command,plan.bus_address,"call","org.freedesktop.DBus","/org/freedesktop/DBus","org.freedesktop.DBus.Peer","Ping"))
-            resolver=Unit(command,plan.runtime_name+".service","/usr/lib/systemd/systemd-resolved",plan.service_uid,network.identity)
-            units.append(resolver);resolver.start(plan.resolver_properties())
-            wait_for(lambda:bus(command,plan.bus_address,"call","org.freedesktop.resolve1","/org/freedesktop/resolve1","org.freedesktop.DBus.Peer","Ping"))
-            owner=json.loads(bus(command,plan.bus_address,"call","org.freedesktop.DBus","/org/freedesktop/DBus","org.freedesktop.DBus","GetConnectionUnixProcessID","s","org.freedesktop.resolve1"))
-            require(owner=={"type":"u","data":[resolver.pid]},"Private resolved bus owner mismatch")
-            seed_private_dns(files)
+            services=ResolverServices(files)
+            units.append(services);services.start()
+            resolver=services.resolver
+            # A new controller must neither adopt nor stop these running units.
+            collision=OwnedUnit(store,network.spec,"dns-bus",0,command)
+            try:
+                collision.start(plan.bus_properties(),"--nofork")
+            except ServiceError:
+                pass
+            else:
+                raise RuntimeError("Existing private service was adopted")
+            collision.close()
+            services.verify()
+            # A stale invocation lease cannot stop the current real daemon.
+            from dataclasses import replace
+            captured=resolver.identity
+            resolver.identity=replace(captured,invocation="0"*32)
+            try:
+                resolver.close()
+            except ServiceRetained:
+                pass
+            else:
+                raise RuntimeError("A stale invocation stopped the live resolver")
+            finally:
+                resolver.identity=captured
+            services.verify()
             private_link=json.loads(bus(command,plan.bus_address,"call","org.freedesktop.resolve1","/org/freedesktop/resolve1","org.freedesktop.resolve1.Manager","GetLink","i","2"))["data"][0]
             for name,uid in (("public-result",1000),("host-file-result",1000),("private-result",1000),("mock-ready",0)):
                 tracked_file(name,uid)
@@ -285,7 +305,14 @@ def main():
             tracked_file("public-go")
             public=wait_for(lambda:read_result("public-result"))
             require(public["uid"]==1000 and public["public"] and public["sudo"] and public["host_bus"]
-                    and public["private_query"] and public["private_change_denied"] and public["nnp"]=="0", "Private libc/sudo/bus client failed")
+                    and public["private_query"] and public["private_change_denied"] and public["root_context_refused"] and public["nnp"]=="0", "Private libc/sudo/bus client failed")
+            try:
+                services.close()
+            except ServiceRetained:
+                pass
+            else:
+                raise RuntimeError("DNS shutdown accepted while the desktop client was live")
+            services.verify()
             host_fixture=HostResolverFixture(network.spec.token,plan.service_uid)
             host_fixture.replace("/run/systemd/resolve/stub-resolv.conf", b"# Karyo QA host-only resolver replacement\nnameserver 192.0.2.254\n")
             tracked_file("host-file-go")
@@ -312,8 +339,9 @@ def main():
             require(host_dns(command,physical)==seed,"Host physical DNS changed")
             client.verify();resolver.verify()
             evidence={"public_client":public,"private_client":private,"same_client_pid":client.pid,
-                      "private_resolver_pid":resolver.pid,"namespace":network.name,"atomic_alias_refresh":True,
-                      "host_atomic_replacement_isolated":True,"host_alias_retarget_isolated":True}
+                      "private_resolver_pid":resolver.identity.pid,"namespace":network.name,"atomic_alias_refresh":True,
+                      "host_atomic_replacement_isolated":True,"host_alias_retarget_isolated":True,
+                      "collision_refused":True,"stale_invocation_refused":True,"live_client_shutdown_refused":True}
     finally:
         signal.alarm(0)
         errors=[]
@@ -321,7 +349,10 @@ def main():
             try:host_fixture.close()
             except Exception as error:errors.append(str(error))
         for unit in reversed(units):
-            try:unit.stop()
+            try:
+                if isinstance(unit,ResolverServices):
+                    with store.locked():unit.close()
+                else:unit.stop()
             except Exception as error:errors.append(str(error))
         with store.locked():
             for resource in (files,gateway,network):

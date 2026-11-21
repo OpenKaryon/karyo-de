@@ -298,3 +298,17 @@ snapshots are restored; both existing graphical shells keep their PIDs. Builder
 VALIDATION-PROFILE-DNS.md records native inputs, failed attempts and limitations.
 This closes a resolver-library gate, not stopped-profile/session supervision or
 actual NetBird integration. Unsupported resolver layouts/transports are refused.
+
+## Owned private resolver controller acceptance
+
+ResolverServices now consumes the private network/configuration leases and owns
+the native bus/resolver units by InvocationID plus pinned process identities.
+It proves the private bus owner before bootstrap, rejects existing/stale unit
+identities and refuses shutdown while namespace clients remain. It requires the
+host user/network/mount context even after a profile client elevates with sudo.
+
+Clean packages from b08ce4d pass the extended installed DNS gate on Debian and
+Ubuntu. Duplicate/stale leases leave actual services running; the same client
+continues DNS through atomic host/private resolver changes. No service is
+enabled automatically. Root runtime persistence/recovery, actual stopped-profile
+startup/teardown and user-manager/network/VPN orchestration remain open.

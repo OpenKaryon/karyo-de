@@ -688,3 +688,28 @@ This covers the two supported canonical resolved targets, not arbitrary resolver
 backends or arbitrary global symlink destinations. Installation enables no
 service. The full controller, user-manager scope, physical-change reconciliation,
 real NetBird authentication/daemon and supervisor recovery remain open.
+
+### Owned private resolver units
+
+The internal services library starts only fresh UUID-named transient DNS bus
+and resolver units from the held root configuration lock and host user/network/
+mount namespaces. It pins native PID descriptors and executable device/inode,
+start time, credentials, cgroup, namespace and systemd InvocationID. Existing
+units are refused; a lost launch acknowledgement retains resources rather than
+adopting a later name match. Stopping requires the same invocation and process
+identity; no reset-failed, foreign-unit replacement or process-name kill occurs.
+
+ResolverServices consumes prepared, reverified resolver files, waits for the
+private bus, proves resolve1's process owner before seeding and refuses shutdown
+while other namespace clients remain. Installation still activates no services.
+The source regressions pass on both native bases; installed acceptance of this
+new controller is separate from the earlier private-resolver fixture acceptance.
+Persistent recovery and stopped-session/user-manager supervision remain open.
+
+Installed controller acceptance now also passes both QA bases against packages
+from b08ce4d. The full resolver replacement/libc/sudo test consumes ResolverServices
+rather than the earlier fixture controller. A duplicate lease and stale real
+InvocationID are refused without stopping the daemons. Shutdown with a live
+client is refused. A verified root process inside the private client namespace
+cannot manage host services. Accounts/PAM, host snapshots and shell PIDs remain
+unchanged. See Builder VALIDATION-PROFILE-SERVICES.md for exact inputs and limits.
