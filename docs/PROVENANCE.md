@@ -210,3 +210,9 @@ Privileged package transactions are not delegated to this query adapter.
 Settings personalization and its background/taskbar/font subpages come from the
 same donor, with existing preference keys retained. The public UI continues to
 write ordinary per-user choices; no system theme or font files are overwritten.
+
+The read-only desktop-account ownership parser and its tests come from the same
+application donor's shared UI source. They are an internal account-integration
+target, not part of the painting SDK. Public system configuration takes precedence
+with a legacy fallback; malformed/unreadable records are explicitly invalid.
+This display model never grants privileges or replaces PAM/helper authorization.

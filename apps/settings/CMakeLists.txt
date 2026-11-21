@@ -26,3 +26,5 @@ if(BUILD_TESTING)
     add_test(NAME settings-personalization COMMAND karyo-settings-personalization-test)
     set_tests_properties(settings-personalization PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 45)
 endif()
+
+include(${PROJECT_SOURCE_DIR}/cmake/DesktopAccounts.cmake)
