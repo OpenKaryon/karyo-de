@@ -18,15 +18,12 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QSysInfo>
+#include <algorithm>
 
 namespace
 {
 
-QString shellQuote(QString text)
-{
-    text.replace(QLatin1Char('\''), QStringLiteral("'\"'\"'"));
-    return QLatin1Char('\'') + text + QLatin1Char('\'');
-}
+using Karyo::Apps::shellQuote;
 bool validPackage(const CatalogApp &app)
 {
     QString pattern;
@@ -47,9 +44,9 @@ QString terminalProgram()
     return own.isEmpty() ? QStringLiteral("x-terminal-emulator") : own;
 }
 
-void terminal(const QString &commandLine)
+bool terminal(const QString &commandLine)
 {
-    QProcess::startDetached(terminalProgram(),
+    return QProcess::startDetached(terminalProgram(),
         { QStringLiteral("-e"), QStringLiteral("sh"), QStringLiteral("-c"),
             commandLine + QStringLiteral("; exec \"${SHELL:-/bin/bash}\"") },
         QDir::homePath());
@@ -498,12 +495,19 @@ void PackageManager::searchFlatpak(const QString &query)
 
 void PackageManager::checkUpdates()
 {
-    // A simulation needs no root and no lock.
-    runQuery(QStringLiteral("apt-get"),
+    // A simulation needs no root and no lock. Never turn a failed read into
+    // an apparently successful, empty update list.
+    const auto generation = ++m_updatesGeneration;
+    m_checkingUpdates = true;
+    m_updatesError.clear();
+    Q_EMIT updatesChanged();
+    Karyo::Apps::runCommand(this, QStringLiteral("apt-get"),
         { QStringLiteral("-s"), QStringLiteral("-o"), QStringLiteral("Debug::NoLocking=1"),
             QStringLiteral("dist-upgrade") },
-        [this](const QString &out)
+        [this, generation](const QString &out)
         {
+            if (generation != m_updatesGeneration)
+                return;
             m_updates.clear();
             const QRegularExpression inst(QStringLiteral("^Inst (\\S+) (?:\\[([^\\]]+)\\] )?\\((\\S+)"));
             for (const QString &line : out.split(QLatin1Char('\n')))
@@ -513,8 +517,19 @@ void PackageManager::checkUpdates()
                     m_updates.append({ match.captured(1), upstreamVersion(match.captured(2)),
                         upstreamVersion(match.captured(3)) });
             }
+            m_checkingUpdates = false;
+            m_updatesKnown = true;
             Q_EMIT updatesChanged();
-        });
+        },
+        [this, generation](const QString &error)
+        {
+            if (generation != m_updatesGeneration)
+                return;
+            m_checkingUpdates = false;
+            m_updatesError = error;
+            Q_EMIT updatesChanged();
+            Q_EMIT queryFailed(error);
+        }, 60000);
 }
 
 void PackageManager::updateAll()
@@ -708,4 +723,71 @@ QStringList PackageManager::sources() const
     if (!condaRoot().isEmpty())
         list << QStringLiteral("bioconda") << QStringLiteral("conda-forge");
     return list;
+}
+
+void PackageManager::importEnvironment(const QString &file)
+{
+    if (condaTool().isEmpty() || !QFileInfo(file).isFile())
+    {
+        Q_EMIT queryFailed(tr("Choose an environment file and set up conda first."));
+        return;
+    }
+    if (!terminal(shellQuote(condaTool()) + QStringLiteral(" env create -f ") + shellQuote(file)))
+        Q_EMIT queryFailed(tr("Could not open Terminal."));
+}
+
+void PackageManager::createEnvironment(const QString &name)
+{
+    const QRegularExpression valid(QStringLiteral("\\A[A-Za-z0-9][A-Za-z0-9_.-]{0,63}\\z"));
+    if (condaTool().isEmpty() || !valid.match(name).hasMatch())
+    {
+        Q_EMIT queryFailed(tr("Use a name starting with a letter or digit, up to 64 characters."));
+        return;
+    }
+    if (!terminal(shellQuote(condaTool()) + QStringLiteral(" create -y -n ") + shellQuote(name)
+            + QStringLiteral(" python=3.12")))
+        Q_EMIT queryFailed(tr("Could not open Terminal."));
+}
+
+void PackageManager::removeEnvironment(const QString &envPath)
+{
+    const auto envs = condaEnvs();
+    const auto found = std::find_if(envs.begin(), envs.end(), [&envPath](const CondaEnv &env)
+        { return env.path == envPath && env.name != QLatin1String("base"); });
+    if (condaTool().isEmpty() || found == envs.end())
+    {
+        Q_EMIT queryFailed(tr("Choose an existing environment other than base."));
+        return;
+    }
+    if (!terminal(shellQuote(condaTool()) + QStringLiteral(" env remove -y -p ") + shellQuote(envPath)))
+        Q_EMIT queryFailed(tr("Could not open Terminal."));
+}
+
+void PackageManager::exportEnvironment(const QString &envPath, const QString &file)
+{
+    if (condaRoot().isEmpty() || file.isEmpty())
+    {
+        Q_EMIT queryFailed(tr("Choose an export file and set up conda first."));
+        return;
+    }
+    runQuery(condaRoot() + QStringLiteral("/bin/conda"),
+        { QStringLiteral("env"), QStringLiteral("export"), QStringLiteral("-p"), envPath },
+        [this, file](const QString &output)
+        {
+            const auto bytes = output.toUtf8();
+            QSaveFile target(file);
+            if (bytes.isEmpty())
+            {
+                Q_EMIT queryFailed(tr("conda returned an empty environment export."));
+                return;
+            }
+            if (!target.open(QIODevice::WriteOnly)
+                || !target.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner)
+                || target.write(bytes) != bytes.size() || !target.commit())
+            {
+                Q_EMIT queryFailed(tr("Could not save environment: %1").arg(target.errorString()));
+                return;
+            }
+            Q_EMIT environmentExported(file);
+        });
 }

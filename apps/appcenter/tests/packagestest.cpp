@@ -146,7 +146,7 @@ private Q_SLOTS:
         QVERIFY(calls().contains(QStringList({ "apt-cache", "search", "--", "--option-looking" })));
         QSignalSpy updates(&manager, &PackageManager::updatesChanged);
         manager.checkUpdates();
-        QTRY_COMPARE(updates.size(), 1);
+        QTRY_COMPARE(updates.size(), 2);
         QCOMPARE(manager.updates().size(), 1);
         QCOMPARE(manager.updates().first().to, QString("1.0"));
     }
@@ -234,6 +234,62 @@ private Q_SLOTS:
         QSignalSpy failed(&manager, &PackageManager::queryFailed);
         manager.openEnvTerminal(prefix);
         QVERIFY(!failed.isEmpty());
+    }
+    void failedUpdateReadKeepsPreviousState()
+    {
+        PackageManager manager;
+        QVERIFY(!manager.updatesKnown());
+        manager.checkUpdates();
+        QVERIFY(manager.checkingUpdates());
+        QTRY_VERIFY(manager.updatesKnown());
+        QCOMPARE(manager.updates().size(), 1);
+        put(m_root->filePath("fail-query"), "yes");
+        QSignalSpy failed(&manager, &PackageManager::queryFailed);
+        manager.checkUpdates();
+        QTRY_VERIFY(!manager.checkingUpdates());
+        QCOMPARE(manager.updates().size(), 1);
+        QVERIFY(!manager.updatesError().isEmpty());
+        QCOMPARE(failed.size(), 1);
+    }
+    void environmentExportIsAtomicAndArgumentsStayLiteral()
+    {
+        PackageManager manager;
+        const QString prefix = m_userHome + "/env' $(touch INJECTED)";
+        const QString target = m_userHome + "/export.yml";
+        put(target, "previous export");
+        QSignalSpy failed(&manager, &PackageManager::queryFailed);
+        QSignalSpy saved(&manager, &PackageManager::environmentExported);
+        put(m_root->filePath("deny-job"), "yes");
+        manager.exportEnvironment(prefix, target);
+        QTRY_COMPARE(failed.size(), 1);
+        QFile old(target);
+        QVERIFY(old.open(QIODevice::ReadOnly));
+        QCOMPARE(old.readAll(), QByteArray("previous export"));
+        old.close();
+        QVERIFY(QFile::remove(m_root->filePath("deny-job")));
+        manager.exportEnvironment(prefix, target);
+        QTRY_COMPARE(saved.size(), 1);
+        QVERIFY(old.open(QIODevice::ReadOnly));
+        QCOMPARE(old.readAll(), QByteArray("name: qa-env\ndependencies: [python]\n"));
+        QVERIFY(calls().contains(QStringList({"conda", "env", "export", "-p", prefix})));
+        manager.exportEnvironment(prefix, m_userHome + "/missing/target.yml");
+        QTRY_COMPARE(failed.size(), 2);
+        const QString input = m_userHome + "/a' $(touch INJECTED).yml";
+        put(input, "name: qa-env");
+        manager.importEnvironment(input);
+        QTRY_VERIFY(calls().contains(QStringList({"conda", "env", "create", "-f", input})));
+        const auto before = calls().size();
+        manager.createEnvironment("--unsafe");
+        QCOMPARE(failed.size(), 3);
+        QCOMPARE(calls().size(), before);
+        manager.createEnvironment("qa-project_1");
+        QTRY_VERIFY(calls().contains(QStringList({"conda", "create", "-y", "-n", "qa-project_1", "python=3.12"})));
+        auto terminalCount = [this] {
+            QFile file(m_root->filePath("terminal-finished"));
+            return file.open(QIODevice::ReadOnly) ? file.readAll().count('\n') : 0;
+        };
+        QTRY_COMPARE(terminalCount(), 2);
+        QVERIFY(!QFileInfo::exists(m_userHome + "/INJECTED"));
     }
     void bootstrapChecksChecksumBeforeUserInstaller()
     {

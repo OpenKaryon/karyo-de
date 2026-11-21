@@ -6,6 +6,7 @@
 #include "pages.h"
 #include "storageusage.h"
 #include "filemanager.h"
+#include "command.h"
 #include "fileops.h"
 #include "widgets.h"
 
@@ -115,11 +116,7 @@ void showInFiles(const QString &path)
     if (QFileInfo(path).isDir()) Karyo::Apps::openFolder(path);
     else Karyo::Apps::showInFiles(path);
 }
-QString shellQuote(QString value)
-{
-    value.replace(QLatin1Char('\''), QStringLiteral("'\"'\"'"));
-    return QLatin1Char('\'') + value + QLatin1Char('\'');
-}
+using Karyo::Apps::shellQuote;
 
 class StoragePage : public SettingsPage
 {

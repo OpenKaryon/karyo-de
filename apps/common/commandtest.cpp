@@ -12,6 +12,15 @@ class CommandTest : public QObject
 {
     Q_OBJECT
 private Q_SLOTS:
+    void shellArgumentsAreLiteral()
+    {
+        const QString value = QStringLiteral("path with ' quotes; $(exit 8)\nnext line");
+        QProcess process;
+        process.start("/bin/sh", {"-c", "printf '%s' " + Karyo::Apps::shellQuote(value)});
+        QVERIFY(process.waitForFinished(2000));
+        QCOMPARE(process.exitCode(), 0);
+        QCOMPARE(QString::fromUtf8(process.readAllStandardOutput()), value);
+    }
     void successAndExitFailure()
     {
         QObject context;

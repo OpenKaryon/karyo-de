@@ -77,6 +77,9 @@ public:
 
     // Upgradable packages from apt's cached lists (no root needed).
     void checkUpdates();
+    bool updatesKnown() const { return m_updatesKnown; }
+    bool checkingUpdates() const { return m_checkingUpdates; }
+    QString updatesError() const { return m_updatesError; }
     const QList<Upgrade> &updates() const { return m_updates; }
     void updateAll();
     // apt-get update through pkexec, then checkUpdates().
@@ -92,11 +95,17 @@ public:
     // Opens Terminal with the environment active, optionally running command.
     void openEnvTerminal(const QString &envPath, const QString &command = { });
     QString installMiniforgeCommand() const;
+    void importEnvironment(const QString &file);
+    void createEnvironment(const QString &name);
+    void removeEnvironment(const QString &envPath);
+    // Query first, publish atomically only after success; preserves the old file on failure.
+    void exportEnvironment(const QString &envPath, const QString &file);
 
     QStringList sources() const;
 
 Q_SIGNALS:
     void queryFailed(const QString &message);
+    void environmentExported(const QString &file);
     void changed();
     void jobChanged(const CatalogApp &app);
     void jobFailed(const CatalogApp &app, const QString &message);
@@ -116,6 +125,9 @@ private:
     QString m_catalogError;
     quint64 m_refreshGeneration = 0;
     bool m_candidatesLoaded = false;
+    bool m_updatesKnown = false, m_checkingUpdates = false;
+    QString m_updatesError;
+    quint64 m_updatesGeneration = 0;
     void runJob(const CatalogApp &app, const QString &program, const QStringList &args);
 
     QList<CatalogApp> m_catalog;

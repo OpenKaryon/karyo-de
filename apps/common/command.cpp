@@ -8,6 +8,12 @@
 #include <memory>
 namespace Karyo::Apps
 {
+QString shellQuote(QString value)
+{
+    value.replace(QLatin1Char('\''), QStringLiteral("'\"'\"'"));
+    return QLatin1Char('\'') + value + QLatin1Char('\'');
+}
+
 void runCommand(QObject *context, const QString &program, const QStringList &args,
     const std::function<void(const QString &)> &done, const std::function<void(const QString &)> &failed,
     int timeoutMs)

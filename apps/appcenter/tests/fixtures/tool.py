@@ -32,6 +32,9 @@ elif program in {"pkexec", "conda"}:
     if (root / "deny-job").exists():
         print("Package denied by QA", file=sys.stderr)
         sys.exit(2)
+    if program == "conda" and args[:2] == ["env", "export"]:
+        print("name: qa-env\ndependencies: [python]")
+        sys.exit(0)
     print("pmstatus:qa:50:Installing\n")
     (root / "job-completed").write_text("done")
 elif program == "flatpak":
@@ -49,7 +52,13 @@ elif program == "du":
 elif program == "karyo-terminal":
     (root / "terminal-started").write_text("yes")
     # Source only the generated rcfile, without starting an interactive shell.
-    sys.exit(subprocess.run(["/bin/bash", "--noprofile", "--norc", "-c", '. "$1"', "fixture", args[-1]]).returncode)
+    if "--rcfile" in args:
+        sys.exit(subprocess.run(["/bin/bash", "--noprofile", "--norc", "-c", '. "$1"', "fixture", args[-1]]).returncode)
+    command = args[-1].split('; exec ', 1)[0]
+    result = subprocess.run(["/bin/sh", "-c", command]).returncode
+    with (root / "terminal-finished").open("a") as finished:
+        finished.write("done\n")
+    sys.exit(result)
 elif program == "curl":
     if "-w" in args:
         print("https://github.com/conda-forge/miniforge/releases/tag/26.9.4-2", end="")

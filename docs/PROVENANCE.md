@@ -313,3 +313,16 @@ observation now skips loopback, prefers a default-route interface and falls back
 to read-only Qt interface/kernel-route/resolver data in the caller's namespace.
 It does not replace or reconfigure an existing network manager. Regression
 fixtures cover loopback/bridge precedence, escaped IPv6/DNS and route metrics.
+
+App Center cards, source tags, responsive grids, action/progress pills and
+headings are adapted from the same application donor with public UI targets.
+External label text is plain text. The card/model regression verifies details,
+transaction busy feedback and recovery after a failed install using fake tools.
+
+App Center discovery, categories, installed apps, package search/details, updates
+and environment pages are adapted from the same application donor. Optional
+catalog absence has an explicit empty state; unavailable/failed update reads do
+not claim the system is current. Actions track active transactions. Environment
+exports query before atomic publication, and imported paths and environment names
+pass through validated model operations. Shared literal shell argument quoting
+is exercised with apostrophes, shell substitutions and newlines.
