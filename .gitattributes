@@ -1,3 +1,6 @@
 * text=auto eol=lf
 *.png binary
 *.zip binary
+*.ttf binary
+# Preserve upstream OFL files, including their original line-end spaces.
+resources/fonts/*-OFL.txt whitespace=-blank-at-eol

@@ -341,3 +341,11 @@ details navigation with back, plain-text operation feedback, and theme rebuilds
 that retain the model and active jobs. Public launcher names use Karyo and the
 catalog remains external optional data. Native route/search/theme regressions
 substitute package tools and require no authorization or real package changes.
+
+The independent font runtime contains the prototype's 16 unmodified complete IBM
+Plex Sans/Mono TTFs, verified against its recorded upstream payload hashes.
+Upstream revision is 71f558992315a12ca1f06a2215d57962a1992162. Fonts retain their
+IBM copyright, Reserved Font Name Plex and SIL OFL 1.1 notices; they are not
+relicensed under GPL. The component supplies files without global font aliases,
+and native Qt tests verify every hash, font family and Latin/Cyrillic coverage.
+Upstream license: https://github.com/IBM/plex/blob/71f558992315a12ca1f06a2215d57962a1992162/LICENSE.txt .

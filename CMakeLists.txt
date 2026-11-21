@@ -75,6 +75,8 @@ if(KARYO_BUILD_DESKTOP_INTEGRATION)
     include(cmake/FileOperations.cmake)
 endif()
 
+include(cmake/Fonts.cmake)
+
 include(cmake/Session.cmake)
 
 include(cmake/Lock.cmake)

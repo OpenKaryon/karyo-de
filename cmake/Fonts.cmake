@@ -1,0 +1,21 @@
+option(KARYO_BUILD_FONTS "Provide the independent IBM Plex font component" ON)
+if(KARYO_BUILD_FONTS)
+    set(karyo_plex_fonts)
+    foreach(family IBMPlexSans IBMPlexMono)
+        foreach(style Regular Italic Medium MediumItalic SemiBold SemiBoldItalic Bold BoldItalic)
+            list(APPEND karyo_plex_fonts "${PROJECT_SOURCE_DIR}/resources/fonts/${family}-${style}.ttf")
+        endforeach()
+    endforeach()
+    install(FILES ${karyo_plex_fonts}
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/fonts/truetype/karyo-plex COMPONENT fonts-runtime)
+    install(FILES resources/fonts/IBM-Plex-Sans-OFL.txt resources/fonts/IBM-Plex-Mono-OFL.txt
+        resources/fonts/README.md resources/fonts/SHA256SUMS
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-fonts COMPONENT fonts-runtime)
+    if(BUILD_TESTING)
+        add_executable(karyo-font-payload-test tests/fontpayloadtest.cpp)
+        target_link_libraries(karyo-font-payload-test PRIVATE Qt6::Widgets Qt6::Test)
+        target_compile_definitions(karyo-font-payload-test PRIVATE KARYO_FONT_DIR="${PROJECT_SOURCE_DIR}/resources/fonts")
+        add_test(NAME fonts-payload COMMAND karyo-font-payload-test)
+        set_tests_properties(fonts-payload PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    endif()
+endif()
