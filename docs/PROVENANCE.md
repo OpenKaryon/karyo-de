@@ -216,3 +216,8 @@ application donor's shared UI source. They are an internal account-integration
 target, not part of the painting SDK. Public system configuration takes precedence
 with a legacy fallback; malformed/unreadable records are explicitly invalid.
 This display model never grants privileges or replaces PAM/helper authorization.
+
+The reviewed NetworkManager activation helper is extracted unchanged from the
+shell into an internal Qt Core/D-Bus target shared with Settings. Existing Wi-Fi
+security classification, password validation and activation feedback remain one
+implementation rather than diverging copies in the two interfaces.
