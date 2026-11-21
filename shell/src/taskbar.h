@@ -24,6 +24,8 @@ class NightLight;
 class NotificationBanner;
 class NotificationServer;
 class QuickButton;
+class ProfileControl;
+class QMenu;
 class QScreen;
 class StartButton;
 class StartMenu;
@@ -37,7 +39,7 @@ class Taskbar : public QWidget
     Q_OBJECT
 public:
     Taskbar(QScreen *screen, ToplevelManager *toplevels, TrayHost *tray, NetworkStatus *network,
-            AppIndex *apps, NotificationServer *notifications, NightLight *nightLight);
+            AppIndex *apps, NotificationServer *notifications, NightLight *nightLight, ProfileControl *profiles);
 
     ~Taskbar() override;
     // Close transient output-bound views before retiring this panel.
@@ -74,8 +76,9 @@ private:
     void layoutButtons();
     void activateSlot(Slot &slot);
     void showSlotMenu(Slot &slot, const QPoint &globalPos);
-    // The person's Karyo desktops (openkaryon-desktops): switch, or add one.
+    // Public own-family profile API: switch, or add a child desktop.
     void showDesktopsMenu();
+    void showAddDesktop();
     // Opens the flyout made by create, or closes the open one. The first
     // button shows as highlighted while it is open; all of them toggle it.
     void toggleFlyout(QPointer<Flyout> &flyout, const QList<QWidget *> &buttons,
@@ -91,6 +94,8 @@ private:
     AppIndex *m_apps;
     NotificationServer *m_notifications;
     NightLight *m_nightLight;
+    ProfileControl *m_profiles;
+    QPointer<QMenu> m_desktopMenu;
     QPointer<Flyout> m_startMenu;
     QPointer<Flyout> m_quickSettings;
     QPointer<Flyout> m_notificationCenter;

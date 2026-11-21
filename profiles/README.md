@@ -443,3 +443,32 @@ contexts remain denied. Accounts, common PAM and the default manager are
 unchanged; known QA scripts/JSON are removed. This is current-desktop noop
 acceptance, not a claim of switching between two distinct sessions. Exact
 artifacts and checks are in Builder VALIDATION-PROFILE-FRONTEND.md.
+
+
+## Installed distinct-session switching
+
+The profile-accounts package from bf831b0 and shell from bb46dfc pass actual
+switches between two different graphical users on Debian and Ubuntu. The
+fixed-host tests/installed-two-sessions.py fixture creates one proven new shared
+child through AccountProvisioner, captures its UID/home identity and protects
+root metadata/account/PAM restoration. LightDM starts both native Karyo sessions
+on VT8 and VT9; this deliberately does not stand in for owned session startup
+or per-profile networking, which are still separate required integrations.
+
+Actual GUI terminals call the installed public CLI/native pkexec in each user
+session. With both policies unprotected, Home and Work switch in both directions
+without a locker. The fixture then changes only the child's root-owned protection
+to home. Inactive target locking confirms before activation; the actual password
+form is visible, a wrong password fails and the shared Home password opens the
+same session. Leaving that protected source locks it before showing Home, and
+returning again requires fresh authentication. Shell PIDs remain unchanged for
+both users throughout, including output replacement on Ubuntu.
+
+The fixture is restricted to the two disposable hostnames and exact QA account
+names. Cleanup requires the absent-before child identity/home inode and no child
+processes/session, removes only unchanged test metadata, and uses non-forced
+native userdel. Original passwd/shadow/group/gshadow and common PAM bytes match
+afterward; dpkg checks are clean. QA command scripts/JSON are removed explicitly.
+See Builder VALIDATION-TWO-SESSIONS.md for installed artifact references, actual
+sessions/PIDs, observed password forms and the distinction from stopped-session
+startup, shell menu integration and network/clipboard isolation.

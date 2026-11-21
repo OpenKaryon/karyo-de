@@ -10,6 +10,18 @@ endif()
 find_package(LayerShellQt REQUIRED)
 find_package(PolkitQt6-1 REQUIRED)
 set(shell_dir "${PROJECT_SOURCE_DIR}/shell/src")
+add_library(karyo-profile-control STATIC
+    ${shell_dir}/profilecontrol.cpp ${shell_dir}/profilecontrol.h)
+target_include_directories(karyo-profile-control PUBLIC ${shell_dir})
+target_link_libraries(karyo-profile-control PUBLIC Qt6::Core)
+if(BUILD_TESTING)
+    add_executable(karyo-profile-control-test tests/profilecontroltest.cpp)
+    target_link_libraries(karyo-profile-control-test PRIVATE karyo-profile-control Qt6::Test)
+    add_test(NAME profile-command-lifecycle COMMAND karyo-profile-control-test)
+    set_tests_properties(profile-command-lifecycle PROPERTIES TIMEOUT 20)
+endif()
+
+
 add_library(karyo-shell-core STATIC
     ${shell_dir}/buttons.cpp ${shell_dir}/buttons.h
     ${shell_dir}/flyout.cpp ${shell_dir}/flyout.h
@@ -92,7 +104,7 @@ endif()
 qt_add_executable(karyo-shell
     ${shell_dir}/main.cpp ${shell_dir}/taskbar.cpp ${shell_dir}/taskbar.h
     ${shell_dir}/shellservice.cpp ${shell_dir}/shellservice.h)
-target_link_libraries(karyo-shell PRIVATE karyo-appearance-publisher karyo-shell-core karyo-shell-start
+target_link_libraries(karyo-shell PRIVATE karyo-profile-control karyo-appearance-publisher karyo-shell-core karyo-shell-start
     karyo-shell-tray karyo-shell-services karyo-shell-quick karyo-shell-desktop)
 install(TARGETS karyo-shell RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT shell-runtime)
 install(FILES LICENSE docs/PROVENANCE.md

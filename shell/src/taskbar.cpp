@@ -7,6 +7,7 @@
 #include "keyboardlayout.h"
 #include "layersurface.h"
 #include "networkstatus.h"
+#include "profilecontrol.h"
 #include "notify/notificationbanner.h"
 #include "notify/notificationcenter.h"
 #include "notify/notificationserver.h"
@@ -34,17 +35,15 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QJsonArray>
-#include <QJsonDocument>
 #include <QJsonObject>
 #include <QLocale>
 #include <QMenu>
 #include <QMouseEvent>
-#include <QProcess>
+#include <QMessageBox>
 #include <QPainter>
 #include <QScreen>
 #include <QSettings>
 #include <QWindow>
-#include <QStandardPaths>
 
 #include <algorithm>
 
@@ -94,13 +93,14 @@ QString layoutCode(int group)
 
 Taskbar::Taskbar(QScreen *screen, ToplevelManager *toplevels, TrayHost *tray,
                  NetworkStatus *network, AppIndex *apps, NotificationServer *notifications,
-                 NightLight *nightLight)
+                 NightLight *nightLight, ProfileControl *profiles)
     : QWidget(nullptr, Qt::FramelessWindowHint)
     , m_toplevels(toplevels)
     , m_network(network)
     , m_apps(apps)
     , m_notifications(notifications)
     , m_nightLight(nightLight)
+    , m_profiles(profiles)
     , m_start(new StartButton(this))
     , m_desktops(new DockButton(desktopsStyle(), this))
     , m_chevron(new GlyphButton(QStringLiteral("chevron-up"), 16, QSize(32, 40), 6, this))
@@ -121,7 +121,7 @@ Taskbar::Taskbar(QScreen *screen, ToplevelManager *toplevels, TrayHost *tray,
     m_start->setHint(tr("Start"));
     m_desktops->setHint(tr("Desktops (Ctrl+Alt+Left/Right)"));
     // Isolated user desktops are an optional system integration.
-    m_desktops->setVisible(!QStandardPaths::findExecutable(QStringLiteral("openkaryon-desktops")).isEmpty());
+    m_desktops->setVisible(m_profiles->available());
     m_chevron->setHint(tr("Show hidden icons"));
     // The active layout: Alt+Shift and the like switch it, and labwc keeps one
     // per window where configured.
@@ -223,6 +223,8 @@ void Taskbar::hideForOutputLoss()
     }
     m_trayFlyout->hide();
     m_banner->hide();
+    for (auto *menu : findChildren<QMenu *>())
+        menu->close();
     for (auto *dialog : findChildren<QDialog *>())
         dialog->reject();
 }
@@ -476,149 +478,166 @@ void Taskbar::toggleFlyout(QPointer<Flyout> &flyout, const QList<QWidget *> &but
 
 void Taskbar::showDesktopsMenu()
 {
+    if (m_desktopMenu) {
+        m_desktopMenu->close();
+        return;
+    }
     auto *menu = new QMenu(this);
+    m_desktopMenu = menu;
     menu->setAttribute(Qt::WA_DeleteOnClose);
     Ui::styleMenu(menu);
-
-    QProcess list;
-    list.start(QStringLiteral("openkaryon-desktops"), {QStringLiteral("list"), QStringLiteral("--json")});
-    const QJsonArray desktops =
-        list.waitForFinished(3000) ? QJsonDocument::fromJson(list.readAllStandardOutput()).array() : QJsonArray();
-    for (const QJsonValue &value : desktops) {
-        const QJsonObject desktop = value.toObject();
-        const QString user = desktop.value(QStringLiteral("user")).toString();
-        QString text = desktop.value(QStringLiteral("label")).toString();
-        if (!desktop.value(QStringLiteral("running")).toBool())
-            text += QStringLiteral(" · ") + tr("not started");
-        QAction *action = menu->addAction(text, this, [user] {
-            QProcess::startDetached(QStringLiteral("openkaryon-desktops"), {QStringLiteral("switch"), user});
-        });
-        action->setCheckable(true);
-        action->setChecked(desktop.value(QStringLiteral("current")).toBool());
-    }
-    if (!desktops.isEmpty())
-        menu->addSeparator();
-    menu->addAction(tr("Add desktop…"), this, [this] {
-        auto *dialog = new QDialog(this);
-        dialog->setAttribute(Qt::WA_DeleteOnClose);
-        dialog->setWindowTitle(tr("Add desktop"));
-        dialog->setMinimumWidth(420);
-        auto *layout = new QVBoxLayout(dialog);
-        auto *fields = new QWidget(dialog);
-        auto *form = new QFormLayout(fields);
-        form->setContentsMargins(0, 0, 0, 0);
-        layout->addWidget(fields);
-        auto *name = new QLineEdit(dialog);
-        name->setMaxLength(160);
-        name->setPlaceholderText(tr("Experiments"));
-        form->addRow(tr("Desktop name"), name);
-        auto *protect = new QCheckBox(tr("Require a password each time"), dialog);
-        form->addRow(protect);
-        auto *mode = new QComboBox(dialog);
-        mode->addItem(tr("Use the Home password"), QStringLiteral("home"));
-        mode->addItem(tr("Use a separate password"), QStringLiteral("separate"));
-        form->addRow(tr("Password source"), mode);
-        auto passwordRow = [dialog, form](const QString &label) {
-            auto *row = new QWidget(dialog);
-            auto *layout = new QHBoxLayout(row);
-            layout->setContentsMargins(0, 0, 0, 0);
-            auto *password = new QLineEdit(row);
-            password->setEchoMode(QLineEdit::Password);
-            password->setMaxLength(256);
-            auto *eye = new QToolButton(row);
-            eye->setIcon(QIcon(Ui::icon(QStringLiteral("eye"), 18, Ui::Theme::current().text,
-                                        dialog->devicePixelRatioF())));
-            eye->setAccessibleName(tr("Hold to show password"));
-            eye->setToolTip(eye->accessibleName());
-            connect(eye, &QToolButton::pressed, password, [password] {
-                password->setEchoMode(QLineEdit::Normal);
-            });
-            connect(eye, &QToolButton::released, password, [password] {
-                password->setEchoMode(QLineEdit::Password);
-            });
-            layout->addWidget(password, 1);
-            layout->addWidget(eye);
-            form->addRow(label, row);
-            return password;
-        };
-        auto *password = passwordRow(tr("Password"));
-        auto *confirm = passwordRow(tr("Repeat password"));
-        auto *status = new QLabel(dialog);
-        status->setWordWrap(true);
-        status->hide();
-        layout->addWidget(status);
-        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dialog);
-        buttons->button(QDialogButtonBox::Ok)->setText(tr("Create"));
-        layout->addWidget(buttons);
-        const auto separate = [protect, mode] { return protect->isChecked() && mode->currentIndex() == 1; };
-        const auto refresh = [=] {
-            form->setRowVisible(mode, protect->isChecked());
-            form->setRowVisible(password->parentWidget(), separate());
-            form->setRowVisible(confirm->parentWidget(), separate());
-            if (!separate()) {
-                password->clear();
-                confirm->clear();
+    auto *loading = menu->addAction(tr("Loading desktops…"));
+    loading->setEnabled(false);
+    auto *separator = menu->addSeparator();
+    auto *add = menu->addAction(tr("Add desktop…"), this, &Taskbar::showAddDesktop);
+    add->setEnabled(!m_profiles->changing());
+    const auto place = [this, menu] {
+        menu->adjustSize();
+        menu->move(m_desktops->mapToGlobal(QPoint(0, -menu->sizeHint().height() - 6)));
+    };
+    auto *job = m_profiles->list();
+    connect(job, &ProfileCommand::finished, menu, [=](ProfileCommand::Result result) {
+        if (result != ProfileCommand::Success) {
+            loading->setText(job->message());
+        } else {
+            menu->removeAction(loading);
+            loading->deleteLater();
+            for (const auto &value : job->response().array()) {
+                const auto desktop = value.toObject();
+                const auto user = desktop.value(QStringLiteral("user")).toString();
+                auto text = desktop.value(QStringLiteral("label")).toString();
+                if (!desktop.value(QStringLiteral("running")).toBool())
+                    text += QStringLiteral(" · ") + tr("not started");
+                auto *action = new QAction(text, menu);
+                action->setCheckable(true);
+                action->setChecked(desktop.value(QStringLiteral("current")).toBool());
+                action->setEnabled(!m_profiles->changing());
+                connect(action, &QAction::triggered, this, [this, user] {
+                    auto *switching = m_profiles->switchTo(user);
+                    connect(switching, &ProfileCommand::finished, this, [this, switching](ProfileCommand::Result result) {
+                        if (result == ProfileCommand::Success)
+                            return;
+                        auto *error = new QMessageBox(QMessageBox::Warning, tr("Could not switch desktop"),
+                            switching->message(), QMessageBox::Ok, this);
+                        error->setAttribute(Qt::WA_DeleteOnClose);
+                        error->open();
+                    });
+                });
+                menu->insertAction(separator, action);
             }
-        };
-        const auto setCreating = [fields, buttons](bool creating) {
-            fields->setEnabled(!creating);
-            buttons->setEnabled(!creating);
-        };
-        connect(protect, &QCheckBox::toggled, dialog, refresh);
-        connect(mode, &QComboBox::currentIndexChanged, dialog, refresh);
-        connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
-        connect(buttons, &QDialogButtonBox::accepted, dialog, [=] {
-            const QString label = name->text().trimmed();
-            QString error;
-            if (label.isEmpty() || label.contains(QLatin1Char(':')) || label.contains(QLatin1Char(',')))
-                error = tr("Enter a desktop name without colons or commas.");
-            else if (separate() && (password->text().isEmpty() || password->text() != confirm->text()))
-                error = tr("Enter the same non-empty password twice.");
-            if (!error.isEmpty()) {
-                status->setText(error);
-                status->show();
+        }
+        place();
+    });
+    menu->popup(m_desktops->mapToGlobal(QPoint(0, -menu->sizeHint().height() - 6)));
+}
+
+void Taskbar::showAddDesktop()
+{
+    auto *dialog = new QDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowTitle(tr("Add desktop"));
+    dialog->setMinimumWidth(420);
+    auto *layout = new QVBoxLayout(dialog);
+    auto *fields = new QWidget(dialog);
+    auto *form = new QFormLayout(fields);
+    form->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(fields);
+    auto *name = new QLineEdit(dialog);
+    name->setMaxLength(80);
+    name->setPlaceholderText(tr("Experiments"));
+    form->addRow(tr("Desktop name"), name);
+    auto *protect = new QCheckBox(tr("Require a password each time"), dialog);
+    form->addRow(protect);
+    auto *mode = new QComboBox(dialog);
+    mode->addItem(tr("Use the Home password"), QStringLiteral("home"));
+    mode->addItem(tr("Use a separate password"), QStringLiteral("separate"));
+    form->addRow(tr("Password source"), mode);
+    auto passwordRow = [dialog, form](const QString &label) {
+        auto *row = new QWidget(dialog);
+        auto *layout = new QHBoxLayout(row);
+        layout->setContentsMargins(0, 0, 0, 0);
+        auto *password = new QLineEdit(row);
+        password->setEchoMode(QLineEdit::Password);
+        password->setMaxLength(256);
+        auto *eye = new QToolButton(row);
+        eye->setIcon(QIcon(Ui::icon(QStringLiteral("eye"), 18, Ui::Theme::current().text,
+                                    dialog->devicePixelRatioF())));
+        eye->setAccessibleName(tr("Hold to show password"));
+        eye->setToolTip(eye->accessibleName());
+        connect(eye, &QToolButton::pressed, password, [password] {
+            password->setEchoMode(QLineEdit::Normal);
+        });
+        connect(eye, &QToolButton::released, password, [password] {
+            password->setEchoMode(QLineEdit::Password);
+        });
+        layout->addWidget(password, 1);
+        layout->addWidget(eye);
+        form->addRow(label, row);
+        return password;
+    };
+    auto *password = passwordRow(tr("Password"));
+    auto *confirm = passwordRow(tr("Repeat password"));
+    auto *status = new QLabel(dialog);
+    status->setWordWrap(true);
+    status->hide();
+    layout->addWidget(status);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dialog);
+    buttons->button(QDialogButtonBox::Ok)->setText(tr("Create"));
+    layout->addWidget(buttons);
+    const auto separate = [protect, mode] { return protect->isChecked() && mode->currentIndex() == 1; };
+    const auto refresh = [=] {
+        form->setRowVisible(mode, protect->isChecked());
+        form->setRowVisible(password->parentWidget(), separate());
+        form->setRowVisible(confirm->parentWidget(), separate());
+        if (!separate()) {
+            password->clear();
+            confirm->clear();
+        }
+    };
+    const auto setCreating = [fields, buttons](bool creating) {
+        fields->setEnabled(!creating);
+        buttons->setEnabled(!creating);
+    };
+    connect(protect, &QCheckBox::toggled, dialog, refresh);
+    connect(mode, &QComboBox::currentIndexChanged, dialog, refresh);
+    connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
+    connect(buttons, &QDialogButtonBox::accepted, dialog, [=] {
+        const QString label = name->text().trimmed();
+        QString error;
+        if (label.isEmpty() || label.contains(QLatin1Char(':')) || label.contains(QLatin1Char(',')))
+            error = tr("Enter a desktop name without colons or commas.");
+        else if (separate() && (password->text().isEmpty() || password->text() != confirm->text()))
+            error = tr("Enter the same non-empty password twice.");
+        if (!error.isEmpty()) {
+            status->setText(error);
+            status->show();
+            return;
+        }
+        const QString protection = protect->isChecked() ? mode->currentData().toString()
+                                                        : QStringLiteral("none");
+        auto *job = m_profiles->add(label, protection, separate() ? password->text().toUtf8() : QByteArray());
+        password->clear();
+        confirm->clear();
+        setCreating(true);
+        status->setText(tr("Creating desktop…"));
+        status->show();
+        connect(job, &ProfileCommand::finished, dialog, [=](ProfileCommand::Result result) {
+            if (result == ProfileCommand::Success) {
+                dialog->accept();
                 return;
             }
-            QStringList args{QStringLiteral("add"), QStringLiteral("--label"), label};
-            if (protect->isChecked())
-                args << QStringLiteral("--protection") << mode->currentData().toString();
-            if (separate())
-                args << QStringLiteral("--password-stdin");
-            auto *process = new QProcess(dialog);
-            connect(process, &QProcess::started, dialog, [=] {
-                if (separate())
-                    process->write(password->text().toUtf8() + '\n');
-                password->clear();
-                confirm->clear();
-                process->closeWriteChannel();
-            });
-            connect(process, &QProcess::errorOccurred, dialog, [=](QProcess::ProcessError failure) {
-                if (failure == QProcess::FailedToStart) {
-                    setCreating(false);
-                    status->setText(tr("Could not start the desktop setup."));
-                    status->show();
-                    process->deleteLater();
-                }
-            });
-            connect(process, &QProcess::finished, dialog, [=](int code, QProcess::ExitStatus exit) {
-                if (exit == QProcess::NormalExit && code == 0) {
-                    dialog->accept();
-                    return;
-                }
-                process->deleteLater();
-                setCreating(false);
-                status->setText(tr("Could not create the desktop. Check the name and try again."));
-                status->show();
-            });
-            setCreating(true);
-            process->start(QStringLiteral("openkaryon-desktops"), args);
+            setCreating(false);
+            status->setText(job->message());
+            status->show();
+            if (result == ProfileCommand::Retained || result == ProfileCommand::Uncertain) {
+                fields->setEnabled(false);
+                buttons->button(QDialogButtonBox::Ok)->setEnabled(false);
+            }
         });
-        refresh();
-        name->setFocus();
-        dialog->open();
     });
-    const QSize size = menu->sizeHint();
-    menu->popup(m_desktops->mapToGlobal(QPoint(0, -size.height() - 6)));
+    refresh();
+    name->setFocus();
+    dialog->open();
 }
 
 void Taskbar::toggleStart()

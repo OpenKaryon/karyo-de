@@ -1259,6 +1259,18 @@
         <source>Network settings</source>
         <translation>Настройки сети</translation>
     </message>
+    <message>
+        <source>Loading desktops…</source>
+        <translation>Загрузка рабочих столов…</translation>
+    </message>
+    <message>
+        <source>Creating desktop…</source>
+        <translation>Создание рабочего стола…</translation>
+    </message>
+    <message>
+        <source>Could not switch desktop</source>
+        <translation>Не удалось переключить рабочий стол</translation>
+    </message>
 </context>
 <context>
     <name>TrayFlyout</name>
@@ -1359,6 +1371,33 @@
     <message>
         <source>Use 8–63 ASCII characters or a 64-digit hexadecimal key.</source>
         <translation>Введите 8–63 символа ASCII или 64 шестнадцатеричные цифры.</translation>
+    </message>
+</context>
+<context>
+    <name>ProfileCommand</name>
+    <message>
+        <source>This desktop is not running yet.</source>
+        <translation>Этот рабочий стол ещё не запущен.</translation>
+    </message>
+    <message>
+        <source>Desktop setup needs administrator review. Account data was retained.</source>
+        <translation>Настройку рабочего стола должен проверить администратор. Данные учётной записи сохранены.</translation>
+    </message>
+    <message>
+        <source>The operation did not finish. Check the desktop list before trying again.</source>
+        <translation>Операция не завершилась. Проверьте список рабочих столов перед повторной попыткой.</translation>
+    </message>
+    <message>
+        <source>Another desktop operation is still running.</source>
+        <translation>Другая операция с рабочими столами ещё выполняется.</translation>
+    </message>
+    <message>
+        <source>Could not load desktops. Check the profile service and try again.</source>
+        <translation>Не удалось загрузить рабочие столы. Проверьте службу профилей и попробуйте снова.</translation>
+    </message>
+    <message>
+        <source>The desktop operation failed or was not authorized.</source>
+        <translation>Операция с рабочим столом завершилась ошибкой или не была разрешена.</translation>
     </message>
 </context>
 </TS>

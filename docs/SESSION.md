@@ -225,3 +225,31 @@ survive. Input hashes, GUI captures and unchanged account/PAM/package checks
 are recorded in Builder VALIDATION-INSTALLED-SHELL-HOTPLUG.md. This closes the
 reproduced installed shell output-lifecycle regression for one virtual display;
 physical multi-monitor and actual two-profile switching remain separate gates.
+
+
+## Public profile menu
+
+The optional desktop button now uses karyo-desktops, without a private prototype
+binary. A session-owned ProfileControl runs bounded asynchronous commands,
+coalesces list requests and serializes mutations. It survives output-bound
+panel/dialog replacement; stdin-only separate passwords are cleared after
+handoff, and responses/diagnostics have a combined 256 KiB bound. List calls
+have an eight-second deadline; mutations have a three-minute watchdog. An
+interrupted or malformed mutation is reported as uncertain instead of safe to
+repeat. Retained-account errors likewise disable retry in the current form.
+
+The menu shows loading/error states, current/running profiles and the creation
+form. Switching and creation report failures without blocking the shell event
+loop. Root helpers remain the authority for family, local caller and password
+policy. The existing-only backend reports stopped profiles visibly; owned
+startup and per-profile networking are still required rather than silently
+launching an unisolated child.
+
+Native source-overlay QA on Debian and Ubuntu passes list/current display,
+empty-name rejection, real unprotected child creation from the form, refreshed
+list, visible stopped-target error and actual running-profile menu roundtrips.
+The application-owned job survives panel retirement and both shell PIDs remain
+unchanged. All 17 controller cases pass as ordinary UID on both bases, covering
+event-loop progress, input/argument separation, consumer removal, double starts,
+malformed/wrong/oversized responses, result classes and timeouts. Four targeted
+CTest regressions pass per base. Final native package acceptance remains separate.

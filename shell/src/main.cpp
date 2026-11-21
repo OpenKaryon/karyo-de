@@ -6,6 +6,7 @@
 #include "layersurface.h"
 #include "notify/notificationserver.h"
 #include "polkit/polkitagent.h"
+#include "profilecontrol.h"
 #include "quick/systemcontrols.h"
 #include "sessionlocker.h"
 #include "shellservice.h"
@@ -120,6 +121,7 @@ int main(int argc, char **argv)
     if (!notifications->registerOnBus())
         std::fputs("karyo-shell: another notification daemon runs; notifications go there\n", stderr);
     auto *nightLight = new NightLight(&app);
+    auto *profiles = new ProfileControl(&app);
     // Administrator prompts (pkexec, timedated, NetworkManager) come here.
     auto *polkit = new PolkitAgent(&app);
     if (!polkit->registerForSession())
@@ -181,7 +183,7 @@ int main(int argc, char **argv)
         if (panelScreen != primary || (primary && !taskbar)) {
             retirePanel();
             if (primary) {
-                taskbar = new Taskbar(primary, toplevels, tray, network, apps, notifications, nightLight);
+                taskbar = new Taskbar(primary, toplevels, tray, network, apps, notifications, nightLight, profiles);
                 panelScreen = primary;
                 service->setTaskbar(taskbar);
                 taskbar->show();
