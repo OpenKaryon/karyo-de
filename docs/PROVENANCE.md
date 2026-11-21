@@ -432,3 +432,10 @@ the original XML with its full notice. The independent request/fixture code is
 GPL-3.0-or-later. QtGui's private native surface interface is compiled separately
 on the supported Qt 6.8/6.10 bases; tokens and callback correlation use independent
 Wayland resources rather than concrete private QtWayland window classes.
+
+The optional profiles model reviews the donor's desktop-helper/desktop CLI
+ownership, protection and /30 address rules at the same application donor
+revision. It preserves main/child semantics and legacy read compatibility while
+rewriting parsing as immutable, bounded literal policy. Its tests do not create
+accounts, invoke PAM, start sessions or configure networks. Privileged mutation,
+network, VPN and clipboard runtime migration remains separate.
