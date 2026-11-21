@@ -107,9 +107,10 @@ def stat_start(pid):
 
 
 class JournalSession:
-    def __init__(self,journal,dns,manager,graph=None):
+    def __init__(self,journal,dns,manager,graph=None,*,forwarding=None):
         self.journal,self.dns,self.manager,self.graph=journal,dns,manager,graph
         self.network=dns.network;self.token=dns.token
+        self.forwarding=forwarding
 
     def update(self,**values):
         before=self.journal.record(self.token)
@@ -121,9 +122,11 @@ class JournalSession:
         if "session" in record or record["dns"]["pending"] is not None:
             raise JournalRetained("Session startup requires its acknowledged DNS resources")
         dns.services.verify()
+        from .journal_forwarding import JournalForwarding
+        forwarding=JournalForwarding.restore(journal,dns.network) if "forwarding" in record else None
         journal.change(record,dict(record,session={"pending":"manager-prepare","manager":None,"graphical":None}))
         manager=UserManagerScope(dns.files)
-        scope=cls(journal,dns,manager)
+        scope=cls(journal,dns,manager,forwarding=forwarding)
         try:
             manager.prepare()
             scope.update(pending=None,manager=manager_receipt(manager))
@@ -153,7 +156,9 @@ class JournalSession:
             dns=JournalDNS.restore_observers(journal,wrapped,accounts=accounts)
             manager=restore_manager(dns.files,value["manager"])
             graph=restore_graph(manager,value["graphical"])
-            scope=cls(journal,dns,manager,graph)
+            from .journal_forwarding import JournalForwarding
+            forwarding=JournalForwarding.restore(journal,wrapped) if "forwarding" in record else None
+            scope=cls(journal,dns,manager,graph,forwarding=forwarding)
             scope.verify_consumers()
             if value["pending"]=="enter" or value["graphical"]["entered"]!=graph.entered:
                 scope.update(pending=None,graphical=graphical_receipt(graph))
@@ -170,6 +175,7 @@ class JournalSession:
 
     def verify_consumers(self):
         self.manager.verify();self.graph.verify();self.dns.services.verify()
+        if self.forwarding is not None:self.forwarding.verify()
         session=self.graph.identity.cgroup
         user=self.manager.identity.cgroup.removesuffix("/init.scope")
         service="/system.slice/"+self.graph.name
@@ -197,6 +203,7 @@ class JournalSession:
                         if stat_start(pid)!=start or select.select([fd],[],[],0)[0]:raise ProcessLookupError()
                     finally:os.close(fd)
                 self.manager.verify();self.graph.verify();self.dns.services.verify()
+                if self.forwarding is not None:self.forwarding.verify()
                 return
             except (FileNotFoundError,ProcessLookupError):
                 if attempt==2 or time.monotonic()>=deadline:raise JournalRetained("Namespace process churn did not settle") from None
@@ -293,7 +300,9 @@ class SessionRegistry:
                     self.returned.add(token)
                 try:scope.close()
                 except (GraphicalPending,ManagerPending):continue
-                scope.dns.close();scope.network.close()
+                scope.dns.close()
+                if scope.forwarding is not None:scope.forwarding.close()
+                scope.network.close()
                 scope.release_handles()
                 del self.profiles[token];self.returned.discard(token)
 

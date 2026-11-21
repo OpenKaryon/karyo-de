@@ -237,8 +237,11 @@ def recover_profiles(journal,store,*,accounts=None,sessions=None,command=None,ex
             try:
                 wrapped=JournalNetwork(journal,network)
                 scope=JournalDNS.restore(journal,wrapped,accounts=accounts)
-                scope.close();wrapped.close()
+                scope.close()
+                if "forwarding" not in journal.record(wrapped.token):wrapped.close()
             finally:
                 if scope is not None:scope.release_handles()
                 if network.fd is not None:os.close(network.fd);network.fd=None
+    from .journal_forwarding import recover_forwarding
+    recover_forwarding(journal,store,accounts=accounts,sessions=sessions,command=command,exclude=exclude)
     recover_networks(journal,store,accounts=accounts,sessions=sessions,command=command,exclude=exclude)

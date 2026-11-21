@@ -1084,3 +1084,38 @@ probes pass again. All 344 source cases pass root/ordinary on both bases, and fi
 package/resource checks are clean. See Builder VALIDATION-PROFILE-SUPERVISION.md;
 source-tested greeter/protected-Home boundaries and still-pending startup replay/
 public allocation are distinguished from the installed Home-return scenarios.
+
+
+Schema 4 adds an optional forwarding layer before DNS. Fixed physical topology,
+priorities, ordered captured route/rule rows and comparison-only nft snapshots
+with the original UUID comment/table handle are validated. Route deletion argv
+is reconstructed from the fixed spec/physical plan, never taken from the journal.
+A close intent precedes native deletion; every acknowledged rule, table and route
+removal checkpoints its receipt. Restart may reconcile exactly one next fixed
+teardown step before resuming, while changed or replaced objects are retained.
+
+Living session observers verify their forwarding lease when present. Cleanup is
+GUI/manager, DNS, forwarding, namespace; old schema1-3 records remain accepted.
+All 357 profile cases pass on Debian/Ubuntu as root and ordinary users. This
+layer changes no global sysctl: explicit forwarding setup and public allocation
+remain separate integration work. Installed forwarding journal acceptance follows.
+
+
+Installed tests/installed-journal-forwarding.py now accepts schema4 on both QA
+bases: normal close, living reattachment, all seven real SIGKILL-before-journal-
+ACK delete boundaries and actual host startup recovery. A synthetic blocking Home
+route/DNS policy remains active while the restored namespace exchanges validated
+DNS replies and real external TCP through its captured physical forwarding path.
+Only the QA fixture temporarily enables forwarding and restores original sysctls.
+
+Installed tests/installed-supervision-forwarding.py additionally combines NAT,
+private mounted NSS/DNS and a living PAM compositor under that same synthetic
+Home block. All four logout/crash/background/initial-lock scenarios pass through
+the actual host, restore Home and close GUI/manager, DNS, NAT and namespace in
+order. Original source state and package verification remain clean. The synthetic
+policy is not an authenticated personal VPN. A first three-second UDP probe lost
+cold replies; a diagnostic retry worked without route changes. The final fixture
+allows at most six one-second attempts with fresh sockets and still requires a
+correct response; the underlying transient cause is not claimed as fixed.
+See Builder VALIDATION-PROFILE-FORWARDING-JOURNAL.md for exact artifacts, failed
+attempts and retained explicit setup/public-allocation/reconciliation gates.

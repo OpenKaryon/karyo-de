@@ -141,6 +141,7 @@ class PollTest(unittest.TestCase):
     def fixture(self):
         store=Mock();store.locked.side_effect=lambda:nullcontext(store)
         registry=SessionRegistry(Mock(),store);scope=Mock();scope.graph.closed=False
+        scope.forwarding=None
         registry.profiles={"token":scope}
         return registry,scope
 
@@ -157,6 +158,15 @@ class PollTest(unittest.TestCase):
             registry.poll();returned.return_value.run.assert_called_once_with(scope)
         self.assertFalse(registry.profiles);scope.release_handles.assert_called_once()
         scope.dns.close.assert_called_once();scope.network.close.assert_called_once()
+
+    def test_forwarding_closes_after_dns_and_before_namespace(self):
+        registry,scope=self.fixture();scope.graph.process.exited.return_value=True
+        scope.forwarding=Mock();order=Mock()
+        for name,value in (("dns",scope.dns),("forwarding",scope.forwarding),("network",scope.network)):
+            order.attach_mock(value,name)
+        with patch("karyo_profiles.returning.ReturnAfterExit"):registry.poll()
+        closes=[str(call).split("(",1)[0] for call in order.mock_calls if str(call).endswith(".close()")]
+        self.assertEqual(closes,["call.dns.close","call.forwarding.close","call.network.close"])
 
     def test_unknown_close_failure_preserves_lower_resources(self):
         registry,scope=self.fixture();scope.graph.process.exited.return_value=True;scope.close.side_effect=RuntimeError("Unknown")

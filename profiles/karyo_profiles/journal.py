@@ -69,7 +69,8 @@ def validate_network(value):
 
 def validate_record(value):
     base={"token","account","source","pending","network"}
-    if not isinstance(value,dict) or set(value) not in (base,base|{"dns"},base|{"dns","session"}):
+    if (not isinstance(value,dict) or not base<=set(value) or set(value)-base-{"dns","session","forwarding"}
+            or "session" in value and "dns" not in value):
         raise ValueError("Invalid host journal profile record")
     account = validate_account(value["account"])
     NetworkSpec(account.uid, value["token"])
@@ -89,11 +90,20 @@ def validate_record(value):
         if value["pending"] == "create":
             raise ValueError("Ambiguous host journal creation receipt")
         validate_network(value["network"])
+    if "forwarding" in value:
+        if value["pending"] is not None or value["network"] is None:
+            raise ValueError("Forwarding requires its acknowledged network")
+        from .journal_forwarding_record import validate_forwarding
+        validate_forwarding(value["forwarding"],NetworkSpec(account.uid,value["token"]))
+        if "dns" in value and value["forwarding"]["pending"] is not None:
+            raise ValueError("DNS cannot coexist with a forwarding mutation")
     if "dns" in value:
         if value["pending"] is not None or value["network"] is None:
             raise ValueError("DNS requires an acknowledged live network receipt")
         from .journal_dns_record import validate_dns
         validate_dns(value["dns"], NetworkSpec(account.uid,value["token"]),account.gid)
+        if "forwarding" in value and value["dns"]["seed"]["physical"]!=value["forwarding"]["physical"]:
+            raise ValueError("Forwarding and DNS require the same physical seed")
     if "session" in value:
         if value["dns"]["pending"] is not None or value["dns"]["bus"] is None or value["dns"]["resolver"] is None:
             raise ValueError("A session requires acknowledged private DNS services")
@@ -158,17 +168,19 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or data["schema"] not in {1, 2, 3} or data["boot"] != self.boot
+                or type(data["schema"]) is not int or data["schema"] not in {1, 2, 3, 4} or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
-            if "dns" in record and data["schema"] not in {2,3}:
-                raise ValueError("DNS ownership requires journal schema 2 or 3")
-            if "session" in record and data["schema"]!=3:
-                raise ValueError("Session ownership requires journal schema 3")
+            if "dns" in record and data["schema"] not in {2,3,4}:
+                raise ValueError("DNS ownership requires journal schema 2 or later")
+            if "session" in record and data["schema"] not in {3,4}:
+                raise ValueError("Session ownership requires journal schema 3 or later")
+            if "forwarding" in record and data["schema"]!=4:
+                raise ValueError("Forwarding ownership requires journal schema 4")
             account = record["account"]
             if account["name"] in names or account["uid"] in uids or record["token"] in tokens:
                 raise ValueError("Duplicate host journal profile identity")
@@ -235,7 +247,8 @@ class RuntimeJournal:
         data = self.snapshot()
         if any(record["token"] not in self.known or record["pending"] is not None
                 or ("dns" in record and record["dns"]["pending"] is not None)
-                or ("session" in record and record["session"]["pending"] is not None) for record in data["profiles"]):
+                or ("session" in record and record["session"]["pending"] is not None)
+                or ("forwarding" in record and record["forwarding"]["pending"] is not None) for record in data["profiles"]):
             # Complete current leases may coexist; unresolved mutation intent
             # blocks new allocation even when this controller created it.
             raise JournalRetained("Existing profile resources require reconciliation")
@@ -264,7 +277,9 @@ class RuntimeJournal:
         if replacement is not None and "dns" in replacement:
             data["schema"] = max(data["schema"],2)
         if replacement is not None and "session" in replacement:
-            data["schema"] = 3
+            data["schema"] = max(data["schema"],3)
+        if replacement is not None and "forwarding" in replacement:
+            data["schema"] = 4
         self.save(data)
         if replacement is None:
             self.known.discard(expected["token"])

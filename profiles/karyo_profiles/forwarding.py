@@ -184,6 +184,17 @@ class ProfileForwarding:
                 f'  iifname {host} oifname {device} ip saddr {guest} masquerade\n'
                 ' }\n}\n').encode("ascii")
 
+    def route_plan(self):
+        return (
+            (("unreachable","default","metric","32767"),{"type":"unreachable","dst":"default","metric":32767}),
+            ((self.physical.subnet,"dev",self.physical.interface,"scope","link","src",self.physical.address),
+                {"dst":self.physical.subnet,"dev":self.physical.interface,"scope":"link","prefsrc":self.physical.address}),
+            ((str(self.network.spec.subnet),"dev",self.network.spec.interface,"scope","link","src",self.network.spec.host),
+                {"dst":str(self.network.spec.subnet),"dev":self.network.spec.interface,"scope":"link","prefsrc":self.network.spec.host}),
+            (("default","via",self.physical.gateway,"dev",self.physical.interface,"src",self.physical.address,"metric","100"),
+                {"dst":"default","gateway":self.physical.gateway,"dev":self.physical.interface,"prefsrc":self.physical.address,"metric":100}),
+        )
+
     def create(self):
         self._guard()
         if self.attempted:
@@ -218,20 +229,7 @@ class ProfileForwarding:
             raise NetworkError("The requested profile firewall table already exists")
         self.attempted = True
         try:
-            self._add_route(("unreachable", "default", "metric", "32767"),
-                            {"type": "unreachable", "dst": "default", "metric": 32767})
-            self._add_route((self.physical.subnet, "dev", self.physical.interface,
-                             "scope", "link", "src", self.physical.address),
-                            {"dst": self.physical.subnet, "dev": self.physical.interface,
-                             "scope": "link", "prefsrc": self.physical.address})
-            self._add_route((str(self.network.spec.subnet), "dev", self.network.spec.interface,
-                             "scope", "link", "src", self.network.spec.host),
-                            {"dst": str(self.network.spec.subnet), "dev": self.network.spec.interface,
-                             "scope": "link", "prefsrc": self.network.spec.host})
-            self._add_route(("default", "via", self.physical.gateway, "dev", self.physical.interface,
-                             "src", self.physical.address, "metric", "100"),
-                            {"dst": "default", "gateway": self.physical.gateway,
-                             "dev": self.physical.interface, "prefsrc": self.physical.address, "metric": 100})
+            for args,fields in self.route_plan():self._add_route(args,fields)
             self.uncertain = True
             self._nft("-f", "-", input_data=self._script())
             self.firewall_snapshot, self.firewall_handle = self._firewall()
@@ -268,7 +266,7 @@ class ProfileForwarding:
                 raise ForwardingRetained(self) from error
             raise
 
-    def close(self):
+    def close(self,*,after=None):
         self._guard()
         self.network._empty()
         try:
@@ -285,12 +283,14 @@ class ProfileForwarding:
                     raise NetworkError("The removed profile rule still has an owner")
                 self.rule_snapshots.pop()
                 self.uncertain = False
+                if after is not None:after()
             if self.firewall_snapshot is not None:
                 self.uncertain = True
                 self._nft("delete", "table", "inet", "handle", str(self.firewall_handle))
                 self.firewall_snapshot = None
                 self.firewall_handle = None
                 self.uncertain = False
+                if after is not None:after()
             while self.route_records:
                 self._verify_owned()
                 args, row = self.route_records[-1]
@@ -303,6 +303,7 @@ class ProfileForwarding:
                 self.route_records.pop()
                 self.route_snapshot = expected
                 self.uncertain = False
+                if after is not None:after()
         except BaseException as error:
             raise ForwardingRetained(self) from error
         self.closed = True

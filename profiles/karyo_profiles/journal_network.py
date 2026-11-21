@@ -67,7 +67,7 @@ class JournalNetwork:
         if self.network.closed:
             return
         expected = self.journal.record(self.token)
-        if "dns" in expected or expected["pending"] is not None or expected["network"] != receipt(self.network):
+        if "dns" in expected or "forwarding" in expected or expected["pending"] is not None or expected["network"] != receipt(self.network):
             raise JournalRetained("The captured network journal receipt changed")
         closing = dict(expected, pending="remove")
         self.journal.change(expected, closing)
@@ -138,7 +138,7 @@ def recover_networks(journal, store, *, accounts=None, sessions=None, command=No
     accounts = LocalAccounts() if accounts is None else accounts
     sessions = Sessions() if sessions is None else sessions
     records = [r for r in journal.snapshot()["profiles"] if r["token"] not in exclude]
-    if any("dns" in record or record["pending"] == "create" or record["network"] is None for record in records):
+    if any("dns" in record or "forwarding" in record or record["pending"] == "create" or record["network"] is None for record in records):
         raise JournalRetained("An unacknowledged profile creation requires administrator review")
     for expected in records:
         with store.locked():
