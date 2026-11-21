@@ -116,6 +116,49 @@ class Session:
                    values["Active"] == "yes", values["LockedHint"] == "yes")
 
 
+OWNER_PROPERTIES = ("Id", "Name", "User", "Leader", "Class", "Scope", "Service", "State")
+
+
+@dataclass(frozen=True)
+class LoginOwner:
+    id: str
+    name: str
+    uid: int
+    leader: int
+    kind: str
+    scope: str
+    service: str
+    state: str
+
+    @property
+    def identity(self):
+        return (self.id, self.name, self.uid, self.leader, self.kind, self.scope, self.service)
+
+    @classmethod
+    def parse(cls, text, expected):
+        rows = {}
+        for line in text.splitlines():
+            key, separator, value = line.partition("=")
+            if not separator or key not in OWNER_PROPERTIES or key in rows:
+                raise ValueError("Ambiguous logind process ownership")
+            rows[key] = value
+        if set(rows) != set(OWNER_PROPERTIES) or rows["Id"] != session_id(expected):
+            raise ValueError("Incomplete logind process ownership")
+        for key in ("User", "Leader"):
+            value = rows[key]
+            if not value.isascii() or not value.isdecimal() or str(int(value)) != value:
+                raise ValueError("Invalid logind process owner identifier")
+        if int(rows["User"]) >= 2**32 or int(rows["Leader"]) >= 2**31:
+            raise ValueError("Logind process owner identifier is out of range")
+        if (re.fullmatch("[a-z][a-z-]{0,31}", rows["Class"]) is None
+                or re.fullmatch("[A-Za-z0-9_.@+-]{0,128}", rows["Service"]) is None
+                or rows["Scope"] not in {"", "session-" + expected + ".scope"}
+                or rows["State"] not in {"opening", "active", "online", "closing"}):
+            raise ValueError("Invalid logind owner class, scope or state")
+        return cls(expected, account_name(rows["Name"]), int(rows["User"]), int(rows["Leader"]),
+                   rows["Class"], rows["Scope"], rows["Service"], rows["State"])
+
+
 class Sessions:
     def __init__(self, command=None, clock=time.monotonic):
         self.command = command if command is not None else LoginCommand()
@@ -170,6 +213,20 @@ class Sessions:
             if int(vt):
                 occupied.add(int(vt))
         return frozenset(occupied)
+
+    def owners(self, uid):
+        """Include remote, TTY, closing and user-manager sessions, not just GUI."""
+        if type(uid) is not int or not 1000 <= uid < 65534:
+            raise ValueError("Invalid desktop owner UID")
+        deadline = self.clock() + 5
+        found = []
+        for identifier in self._identifiers():
+            text = self.command.run("show-session", identifier, "--all",
+                *("--property=" + name for name in OWNER_PROPERTIES), timeout=deadline - self.clock())
+            owner = LoginOwner.parse(text, identifier)
+            if owner.uid == uid:
+                found.append(owner)
+        return tuple(found)
 
     def all(self):
         deadline = self.clock() + 5

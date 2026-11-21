@@ -713,3 +713,54 @@ InvocationID are refused without stopping the daemons. Shutdown with a live
 client is refused. A verified root process inside the private client namespace
 cannot manage host services. Accounts/PAM, host snapshots and shell PIDs remain
 unchanged. See Builder VALIDATION-PROFILE-SERVICES.md for exact inputs and limits.
+
+### Offline user-manager network scope
+
+UserManagerScope prepares one fresh root-owned per-UID runtime drop-in only for
+an offline profile: no login of any type, matching process, runtime directory,
+linger entry or existing private manager policy may be present. It changes
+only the network/resolver view; the host system bus and normal sudo policy stay
+intact. Full logind owner inventory includes remote, TTY, closing and manager
+sessions rather than treating the absence of a selectable GUI as absence.
+
+After the controlled PAM starter creates its one expected login, capture requires
+exactly that login and the matching native systemd-user manager record. The
+manager's invocation, pidfd, executable/start/UID, init.scope, network namespace
+and actual resolver directory mount are checked. Extra logins or stale identities
+are refused. This library does not stop user@UID: logind owns its lifetime.
+Release waits for the captured manager and all UID logins/processes to end,
+then removes only unchanged owned drop-in data and rechecks after daemon-reload.
+A concurrent/restarted manager retains the graph rather than losing its network.
+
+Native source regressions pass 223 cases on Debian and Ubuntu in both privilege
+roles. Installed acceptance of this scope remains separate. Controlled graphical
+session launch, host dispatcher, persistent recovery and normal logout integration
+are still required; installing library files activates no profile service.
+
+The first installed scope check finds a native PAM capability leak: a job
+started by user@UID retains CAP_WAKE_ALARM in its inheritable set, although its
+permitted/effective/ambient sets are empty and normal password sudo works.
+The scope now wraps only the verified native default user-manager ExecStart
+with setpriv --inh-caps=-all --ambient-caps=-all. It does not set NoNewPrivileges
+or shrink the bounding set. Typed systemd D-Bus command records must match the
+supported default exactly; custom commands are refused before file creation
+rather than silently replaced. Native source regressions now pass 226 cases;
+installed acceptance of the corrected capability boundary remains separate.
+
+Installed scope acceptance now passes Debian 13 and Ubuntu 26.04 with source
+db70d67. The fixed-host tests/installed-user-manager.py creates a captured new
+QA child and inactive PAM session on reserved VT9. Its real user-manager and
+activated application share the private network and resolver directory inode.
+The activated job has zero inheritable/permitted/effective/ambient capabilities,
+NoNewPrivs=0, host logind access and successful normal password sudo. The probe
+generates a temporary child password only in memory/stdin and restores the
+captured original hash; it saves no test credential in source or evidence.
+
+After the captured PAM session ends, the manager stops through normal logind
+lifetime in about ten seconds; the product sends it no stop command. Known QA
+account/home/metadata and runtime drop-in disappear, original account/PAM and
+network snapshots match, and main graphical shell PIDs remain unchanged.
+The probe deliberately uses sleep as the session process, so this does not
+claim a complete owned graphical launcher or protected initial-entry gate.
+The original PAM session's capabilities still require the separate GUI entry
+wrapper; the accepted manager wrapper covers manager-activated applications.

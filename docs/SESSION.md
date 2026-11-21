@@ -312,3 +312,26 @@ Ubuntu. Duplicate/stale leases leave actual services running; the same client
 continues DNS through atomic host/private resolver changes. No service is
 enabled automatically. Root runtime persistence/recovery, actual stopped-profile
 startup/teardown and user-manager/network/VPN orchestration remain open.
+
+## Installed offline user-manager scope
+
+The native PAM experiment confirms that a session process belongs to a separate
+session.scope while its user manager belongs to user@UID/init.scope. Complete
+logind ownership includes manager, remote, TTY and closing sessions. The new
+scope uses those native identities, a fresh drop-in and actual resolver mount
+identity rather than treating a missing GUI session as an offline account.
+
+Installed packages from db70d67 pass Debian/Ubuntu acceptance: reserved VT9 stays
+inactive, manager and activated child share private network/DNS, ordinary
+password sudo and host logind work, and the child has zero inherited/ambient
+capabilities. The first native run reveals PAM's residual CAP_WAKE_ALARM in a
+manager job's inheritable set; a verified default ExecStart wrapper fixes it
+without reducing the bounding set or adding NoNewPrivileges. Custom manager
+commands are refused. Native LoadUnit permits typed inspection of idle units
+without starting them.
+
+Normal logind shutdown releases the captured manager in about ten seconds.
+Accounts, PAM, network and main GUI state are restored. This is a real
+user-manager/PAM scope acceptance gate using a sleep process, not yet the
+controlled graphical starter, startup authentication or complete session
+supervisor. Builder VALIDATION-PROFILE-USER-MANAGER.md records exact evidence.

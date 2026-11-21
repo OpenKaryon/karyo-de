@@ -84,6 +84,22 @@ PROPERTIES = frozenset(("User", "Group", "RuntimeDirectory", "RuntimeDirectoryMo
     "BindPaths", "BindReadOnlyPaths", "InaccessiblePaths"))
 
 
+def program_identity(program):
+    path = Path(os.path.realpath(program))
+    fd = trusted_directory(path.parent)
+    try:
+        child = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+        try:
+            info = os.fstat(child)
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022 or not info.st_mode & 0o111:
+                raise ServiceError("Unsafe private service executable")
+            return info.st_dev, info.st_ino
+        finally:
+            os.close(child)
+    finally:
+        os.close(fd)
+
+
 class OwnedUnit:
     def __init__(self, store, spec, role, uid, command=None, *, network=None,
                  process=None, host_guard=host_controller):
@@ -143,19 +159,7 @@ class OwnedUnit:
         return tuple(values)
 
     def capture_executable(self):
-        path = Path(os.path.realpath(self.program))
-        fd = trusted_directory(path.parent)
-        try:
-            child = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
-            try:
-                info = os.fstat(child)
-                if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022 or not info.st_mode & 0o111:
-                    raise ServiceError("Unsafe private service executable")
-                return info.st_dev, info.st_ino
-            finally:
-                os.close(child)
-        finally:
-            os.close(fd)
+        return program_identity(self.program)
 
     def start(self, properties, *arguments):
         self.guard()

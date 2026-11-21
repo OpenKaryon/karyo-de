@@ -462,3 +462,9 @@ v0.82.1 DNS sources and systemd resolve1/D-Bus documentation. No NetBird
 implementation, account, private server configuration or credential is imported.
 The QA fixture uses synthetic .test names and a local DNS responder. Native
 systemd-resolved and dbus-daemon remain separately packaged upstream programs.
+
+The offline user-manager scope and complete logind owner inventory are new own
+GPL-3.0-or-later code. Upstream systemd.exec PAMName documentation and disposable
+native PAM/session experiments inform the process/cgroup model; no upstream
+implementation or unchecked prototype lifecycle script is copied. Native
+user-manager termination remains owned by logind rather than a forced stop.
