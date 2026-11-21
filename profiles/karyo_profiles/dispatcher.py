@@ -188,10 +188,10 @@ def main():
         return 1
     try:
         from .journal import RuntimeJournal
-        from .journal_network import recover_networks
+        from .journal_dns import recover_profiles
         with activated_listener(os.environ) as listener, RuntimeJournal() as journal:
             dispatcher = HostDispatcher()
-            recover_networks(journal, dispatcher.store)
+            recover_profiles(journal, dispatcher.store)
             while True:
                 connection, unused = listener.accept()
                 with connection:

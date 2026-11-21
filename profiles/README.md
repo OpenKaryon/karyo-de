@@ -914,3 +914,54 @@ no-mutation fixture record is cleared by the QA driver; no generic forget/adopt
 endpoint is added. Private permissions, controller exclusion, original accounts/
 common PAM, network/DNS/forwarding and the main login all pass restoration checks.
 The installed host/private-net/mount transport probe also passes after the update.
+
+
+Journal schema 2 adds typed private DNS configuration and unit receipts while
+retaining readable/recoverable schema-1 network records. DNS paths, filenames,
+service names and cgroups are derived from the captured profile token; no recorded
+program/path is executed. The physical seed and native resolver/profile IDs are
+validated, configuration bytes are reconstructed from the fixed ResolverPlan,
+and directory/file inodes must match the captured receipt.
+
+ResolverServices exposes internal before/after hooks around its fixed bus and
+resolver start/stop operations. JournalDNS uses them to publish intent first,
+then capture InvocationID, PID/start, executable/namespace identity and runtime
+directory inodes. Restoration opens new observer descriptors and verifies the
+same live units without restarting them. Offline startup recovery closes DNS
+in dependency order before its captured network; interrupted stop/file cleanup
+can finish only under the matching removal intent. Unknown creation, changed
+proofs or extra consumers are retained. Later live GUI reattachment remains open.
+
+The low-level host transport does not install or reconfigure a host DNS backend.
+The private DNS integration consumes an already configured systemd-resolved
+backend with its supported root resolver symlink, dbus-daemon and service account.
+An explicit integration dependency/setup package remains separate from the
+transport. A missing/unsupported backend is refused before DNS creation.
+
+298 profile cases pass on Debian and Ubuntu in root (skip3) and ordinary roles
+(skip87). New cases cover typed DNS state, actual configuration inode/byte
+reattachment, partial removal and native-unit identity replacement. The first
+fixture attempted chown inside capability-dropped test containers; it now checks
+the real current group and wrong-group rejection without requesting capabilities.
+Installed DNS journal reattachment/crash acceptance is the next gate.
+
+The new-allocation gate also rejects unresolved create/remove or DNS mutation
+intent from the current controller, not only records from an older controller.
+Complete current leases still coexist. This prevents a failed write-ahead step
+from being bypassed by starting another profile. The regression fixture now
+captures its first network receipt before testing a second concurrent lease.
+All 300 profile cases pass in root and ordinary roles on both native bases.
+
+Installed tests/installed-journal-dns.py now accepts the DNS journal on both
+native QA bases. It creates fixed private DNS resources in a captured child
+controller and checks normal close, SIGKILL plus reattachment to the same bus/
+resolver PIDs and configuration inodes, completed resolver stop, partial/full
+configuration removal and actual socket-activated host startup recovery.
+The private D-Bus resolve1 name still belongs to the captured resolver PID;
+reattachment performs no service restart. Original accounts/common PAM,
+network/DNS/forwarding state and the main login pass restoration checks.
+
+The old network-only crash probe and host/private-net/mount transport also pass
+against the final schema-2-capable runtime. This proves DNS-layer observers and
+offline cleanup, not complete live GUI reattachment or Internet/VPN forwarding.
+See Builder VALIDATION-PROFILE-DNS-JOURNAL.md for exact revisions and artifacts.

@@ -68,7 +68,8 @@ def validate_network(value):
 
 
 def validate_record(value):
-    if not isinstance(value, dict) or set(value) != {"token", "account", "source", "pending", "network"}:
+    if not isinstance(value, dict) or set(value) not in ({"token", "account", "source", "pending", "network"},
+            {"token", "account", "source", "pending", "network", "dns"}):
         raise ValueError("Invalid host journal profile record")
     account = validate_account(value["account"])
     NetworkSpec(account.uid, value["token"])
@@ -88,6 +89,11 @@ def validate_record(value):
         if value["pending"] == "create":
             raise ValueError("Ambiguous host journal creation receipt")
         validate_network(value["network"])
+    if "dns" in value:
+        if value["pending"] is not None or value["network"] is None:
+            raise ValueError("DNS requires an acknowledged live network receipt")
+        from .journal_dns_record import validate_dns
+        validate_dns(value["dns"], NetworkSpec(account.uid,value["token"]),account.gid)
 
 
 class RuntimeJournal:
@@ -147,13 +153,15 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or data["schema"] != 1 or data["boot"] != self.boot
+                or type(data["schema"]) is not int or data["schema"] not in {1, 2} or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
+            if "dns" in record and data["schema"] != 2:
+                raise ValueError("DNS ownership requires journal schema 2")
             account = record["account"]
             if account["name"] in names or account["uid"] in uids or record["token"] in tokens:
                 raise ValueError("Duplicate host journal profile identity")
@@ -218,8 +226,10 @@ class RuntimeJournal:
 
     def begin(self, account, source):
         data = self.snapshot()
-        if any(record["token"] not in self.known for record in data["profiles"]):
-            # Current leases may coexist, but old receipts must first reconcile.
+        if any(record["token"] not in self.known or record["pending"] is not None
+                or ("dns" in record and record["dns"]["pending"] is not None) for record in data["profiles"]):
+            # Complete current leases may coexist; unresolved mutation intent
+            # blocks new allocation even when this controller created it.
             raise JournalRetained("Existing profile resources require reconciliation")
         token = uuid.uuid4().hex
         data["profiles"].append({"token": token, "account": asdict(account),
@@ -243,6 +253,8 @@ class RuntimeJournal:
         data["profiles"].remove(expected)
         if replacement is not None:
             data["profiles"].append(replacement)
+        if replacement is not None and "dns" in replacement:
+            data["schema"] = 2
         self.save(data)
         if replacement is None:
             self.known.discard(expected["token"])

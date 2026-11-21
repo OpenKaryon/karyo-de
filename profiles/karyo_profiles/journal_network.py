@@ -67,7 +67,7 @@ class JournalNetwork:
         if self.network.closed:
             return
         expected = self.journal.record(self.token)
-        if expected["pending"] is not None or expected["network"] != receipt(self.network):
+        if "dns" in expected or expected["pending"] is not None or expected["network"] != receipt(self.network):
             raise JournalRetained("The captured network journal receipt changed")
         closing = dict(expected, pending="remove")
         self.journal.change(expected, closing)
@@ -88,7 +88,7 @@ def namespace_processes(identity):
     return False
 
 
-def restore_network(store, record, command=None):
+def restore_network(store, record, command=None, *, require_empty=True):
     """Pin a receipt, never acquire a replacement just because its name matches."""
     account = validate_account(record["account"])
     proof = record["network"]
@@ -120,7 +120,8 @@ def restore_network(store, record, command=None):
         network.pair_attempted = True
         if receipt(network) != proof:
             raise JournalRetained("The journal link pair or address identity changed")
-        network._empty()
+        if require_empty:
+            network._empty()
         return network
     except BaseException:
         os.close(network.fd)
@@ -137,7 +138,7 @@ def recover_networks(journal, store, *, accounts=None, sessions=None, command=No
     accounts = LocalAccounts() if accounts is None else accounts
     sessions = Sessions() if sessions is None else sessions
     records = journal.snapshot()["profiles"]
-    if any(record["pending"] == "create" or record["network"] is None for record in records):
+    if any("dns" in record or record["pending"] == "create" or record["network"] is None for record in records):
         raise JournalRetained("An unacknowledged profile creation requires administrator review")
     for expected in records:
         with store.locked():

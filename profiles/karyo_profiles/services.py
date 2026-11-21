@@ -262,16 +262,24 @@ class ResolverServices:
         self.bus.verify()
         self.resolver.verify()
 
-    def start(self):
+    def start(self, *, before=None, after=None):
         from .dns import seed_private_dns
         self.files.network.verify()
         self.files.network._empty()
         plan = self.files.plan
         self.files.verify()
+        if before is not None:
+            before("bus")
         self.bus.start(plan.bus_properties(), "--nofork", "--nopidfile", "--nosyslog",
             "--config-file=" + plan.config + "/bus.conf")
+        if after is not None:
+            after("bus")
         self.wait_for_bus()
+        if before is not None:
+            before("resolver")
         self.resolver.start(plan.resolver_properties())
+        if after is not None:
+            after("resolver")
         import json
         import time
         deadline = time.monotonic() + 5
@@ -311,7 +319,7 @@ class ResolverServices:
                     raise ServiceRetained(self.bus)
                 time.sleep(0.05)
 
-    def close(self):
+    def close(self, *, before=None, after=None):
         if self.closed:
             return
         self.files.network.verify()
@@ -320,6 +328,11 @@ class ResolverServices:
         consumers = self.files.network._ip("netns", "pids", self.files.network.name).splitlines()
         if set(consumers) - expected:
             raise ServiceRetained(self.resolver)
-        self.resolver.close()
-        self.files.network._empty()
-        self.bus.close()
+        for role, unit in (("resolver", self.resolver), ("bus", self.bus)):
+            if not unit.closed:
+                if before is not None:
+                    before(role)
+                unit.close()
+                if after is not None:
+                    after(role)
+            self.files.network._empty()

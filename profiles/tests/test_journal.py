@@ -56,16 +56,32 @@ raise SystemExit(2)
         result=subprocess.run([sys.executable,"-I","-c",code,str(Path(__file__).resolve().parents[1]),str(self.path)],capture_output=True,timeout=5)
         self.assertEqual(result.returncode,0,result.stderr)
 
-    def test_new_intent_precedes_capture_and_multiple_current_profiles_can_coexist(self):
+    def test_complete_current_profile_can_coexist_with_a_new_intent(self):
         first=self.journal.begin(WORK,SOURCE)
+        captured=self.journal.record(first)
+        self.journal.change(captured,dict(captured,pending=None,network={"namespace":[4,100],"indices":[9,2],"macs":["02:00:00:00:00:01","02:00:00:00:00:02"]}))
         second=self.journal.begin(replace(WORK,name="experiments",uid=1003),SOURCE)
         self.assertNotEqual(first,second)
         self.assertEqual(len(self.journal.snapshot()["profiles"]),2)
-        self.assertEqual(self.journal.record(first)["pending"],"create")
-        self.assertIsNone(self.journal.record(first)["network"])
+        self.assertEqual(self.journal.record(second)["pending"],"create")
+        self.assertIsNone(self.journal.record(second)["network"])
         before=(self.path/"state.json").read_bytes()
         self.reopen()
         with self.assertRaises(JournalRetained):self.journal.begin(replace(WORK,name="third",uid=1004),SOURCE)
+        self.assertEqual((self.path/"state.json").read_bytes(),before)
+
+    def test_unacknowledged_current_creation_blocks_another_profile(self):
+        self.journal.begin(WORK,SOURCE);before=(self.path/"state.json").read_bytes()
+        with self.assertRaises(JournalRetained):self.journal.begin(replace(WORK,name="experiments",uid=1003),SOURCE)
+        self.assertEqual((self.path/"state.json").read_bytes(),before)
+
+    def test_pending_current_dns_mutation_blocks_another_profile(self):
+        from test_journal_dns import configuration
+        token=self.journal.begin(WORK,SOURCE);record=self.journal.record(token)
+        self.journal.change(record,dict(record,pending=None,network={"namespace":[4,100],"indices":[9,2],"macs":["02:00:00:00:00:01","02:00:00:00:00:02"]}))
+        record=self.journal.record(token);self.journal.change(record,dict(record,dns=configuration()))
+        before=(self.path/"state.json").read_bytes()
+        with self.assertRaises(JournalRetained):self.journal.begin(replace(WORK,name="experiments",uid=1003),SOURCE)
         self.assertEqual((self.path/"state.json").read_bytes(),before)
 
     def test_returned_snapshots_cannot_change_live_journal(self):
@@ -74,7 +90,9 @@ raise SystemExit(2)
         self.assertEqual(self.journal.record(token)["account"]["name"],"work")
 
     def test_duplicate_account_and_unknown_or_invalid_records_are_not_published(self):
-        self.journal.begin(WORK,SOURCE);before=(self.path/"state.json").read_bytes()
+        token=self.journal.begin(WORK,SOURCE);record=self.journal.record(token)
+        self.journal.change(record,dict(record,pending=None,network={"namespace":[4,100],"indices":[9,2],"macs":["02:00:00:00:00:01","02:00:00:00:00:02"]}))
+        before=(self.path/"state.json").read_bytes()
         with self.assertRaises(ValueError):self.journal.begin(WORK,SOURCE)
         for field,value in (("pending",[]),("network",{}),("token","../unknown")):
             data=self.journal.snapshot();data["profiles"][0][field]=value
@@ -83,7 +101,7 @@ raise SystemExit(2)
 
     def test_foreign_boot_unknown_schema_and_duplicate_json_fields_are_retained(self):
         original=(self.path/"state.json").read_bytes();self.journal.close()
-        values=[original.replace(b'"schema":1',b'"schema":2'),original.replace(b'"schema":1',b'"schema":1,"schema":1')]
+        values=[original.replace(b'"schema":1',b'"schema":999'),original.replace(b'"schema":1',b'"schema":1,"schema":1')]
         data=json.loads(original);data["boot"]="00000000-0000-0000-0000-000000000000";values.append(json.dumps(data).encode())
         for raw in values:
             (self.path/"state.json").write_bytes(raw)
