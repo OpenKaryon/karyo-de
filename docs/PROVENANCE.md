@@ -143,3 +143,8 @@ optional and is never claimed by the stock session merely because the client bui
 The donor's headless wlroots input fixture is retained as test-only source, not
 a runtime dependency or installed interposer. It requires an explicitly supplied
 QA FIFO and matching wlroots build; real-VM checks use isolated virtual input.
+
+The file-type presentation previously embedded in the shell now has one internal
+shared target for shell, Files and Archive. Its existing format classification,
+labels and palette behavior are retained, including bioinformatics formats.
+Virtual archive entries remain name-only and never sniff filesystem contents.
