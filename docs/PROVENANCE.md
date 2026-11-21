@@ -103,3 +103,9 @@ Editor window, Russian catalog and launch metadata are now adapted from that
 same donor. Existing recovery paths and the session-bus wire contract are kept
 to prevent competing instances. The new window validates recovery metadata and
 IDs, preserves unknown caches and exposes explicit UTF-8 conversion on save.
+
+PDF Reader sources and Russian translations are adapted from
+`distro/desktop/apps/reader` at the same application donor revision. Qt PDF is
+an external native distribution dependency. The migrated app preserves user
+positions/preferences and its existing session-bus contract; file selection
+uses standard FileManager1 rather than a private-monorepository executable.

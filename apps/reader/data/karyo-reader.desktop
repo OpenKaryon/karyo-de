@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=PDF Reader
+Name[ru]=Просмотр PDF
+GenericName=PDF document viewer
+GenericName[ru]=Просмотр документов PDF
+Comment=Read papers, protocols and reports: thumbnails, contents and search
+Comment[ru]=Статьи, протоколы и отчёты: миниатюры, оглавление и поиск
+Exec=karyo-reader %F
+Icon=application-pdf
+Terminal=false
+Categories=Office;Viewer;
+MimeType=application/pdf;
+Keywords=pdf;document;reader;viewer;paper;article;
+Keywords[ru]=pdf;документ;просмотр;статья;публикация;
+StartupWMClass=karyo-reader

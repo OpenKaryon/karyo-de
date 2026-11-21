@@ -104,3 +104,18 @@ The editor window test restores a prototype-format unsaved tab, keeps its undo,
 retains orphan recovery through corrupt metadata and a second reopening, drives
 both encoding-dialog choices, and verifies a real second process reuses the
 session-bus window. All twenty-one current tests pass on both native bases.
+
+## PDF Reader
+
+karyo-reader (short command: pdf) retains tabbed documents, thumbnails, contents,
+text search, selectable page text, password prompts and remembered page/zoom.
+Existing reader preferences and the org.openkaryon.Reader wire endpoint remain
+compatible so a second process forwards files to one window. Show in Files uses
+freedesktop FileManager1.ShowItems, falling back to the default folder opener.
+
+A real two-page PDF is generated in the regression. The test renders it, extracts
+text, replaces searches while results are pending, restores page/zoom/sidebar and
+rejects missing/non-PDF inputs. A real second process reuses the window without
+duplicating tabs. All twenty-two tests pass on native Debian 13 and Ubuntu 26.04.
+Encrypted-document interaction and graphical package checks remain separate
+acceptance items; the automated fixture does not establish those results.
