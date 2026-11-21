@@ -171,3 +171,14 @@ Foreign-toplevel observation is now an internal shared target, unchanged from
 the reviewed shell source. Files can observe application launch completion
 without linking the shell or requiring its session to be built. The upstream
 protocol XML keeps its original copyright and MIT license notice.
+
+Files folder views, inline rename and details/cache are adapted from
+`distro/desktop/apps/files` at the same application donor revision. The
+hierarchical size cache remains selection-driven, interruption-aware and bounded;
+symlinks are never followed during recursive size accounting. Existing F2
+compound-suffix selection and rounded selection visuals retain regression tests.
+
+Files breadcrumb and Places/UDisks2 integration come from the same donor.
+Mounting remains an explicit, asynchronous request authorized by the existing
+system service. The regression uses an isolated fake system bus and never
+registers fake devices on the host or mounts real hardware.
