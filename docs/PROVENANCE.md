@@ -288,3 +288,21 @@ launcher metadata and Russian catalog are adapted from the same application
 donor. Public executable/desktop/translation names use Karyo; explicit compatible
 user preference locations remain unchanged. The optional software runtime owns
 the APT helper rather than embedding privilege policy in the application UI.
+
+App Center's curated catalog entries are reviewed from the same application
+donor: 58 public package descriptions with no private endpoints or profiles.
+They are installed only by an optional external data component. Code reads the
+same XDG karyo/catalog.json path as Start, validates bounded inputs and executable/
+package fields, and refuses malformed or duplicate records without silently
+replacing a higher-priority personal catalog with system data.
+
+The App Center package/environment model is adapted from the same application
+donor. It uses shared bounded queries and application-owned software jobs,
+serializes APT changes, preserves known state on failed reads and reports errors.
+Flatpak operations stay per-user; conda prefixes and generated terminal scripts
+are quoted, with atomic checked publication. Explicit Miniforge bootstrap now
+uses a private temporary directory and the versioned official installer/checksum
+assets before running as the current user. See the upstream release asset index:
+https://github.com/conda-forge/miniforge/releases/expanded_assets/26.9.4-2 .
+Tests substitute every package manager/downloader and never install conda or
+contact a real repository during source-level acceptance.
