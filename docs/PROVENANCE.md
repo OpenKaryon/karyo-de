@@ -195,3 +195,18 @@ same donor. The private `org.openkaryon.Files` wire contract and explicit legacy
 user settings remain compatible; public executable/desktop/translation names
 use Karyo. FileManager1 is claimed by the optional Files server only in a running
 Karyo session, without installing a generic activation override for other DEs.
+
+Settings configuration starts from the application donor's config.cpp/h.
+Desktop/shell preference locations remain compatible. Session configuration
+now follows the public launcher's path precedence, preserves unknown legacy
+lines on the first public edit and atomically writes safely quoted literals.
+It never executes a profile while reading it and reports validation/write errors.
+
+Settings row/toggle/segment/fact-card/page widgets are adapted from the same
+application donor. The local command adapter now delivers exactly one bounded
+asynchronous success/failure, limits buffered output and cancels with its page.
+Privileged package transactions are not delegated to this query adapter.
+
+Settings personalization and its background/taskbar/font subpages come from the
+same donor, with existing preference keys retained. The public UI continues to
+write ordinary per-user choices; no system theme or font files are overwritten.
