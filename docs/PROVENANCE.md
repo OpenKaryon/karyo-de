@@ -241,3 +241,9 @@ hard links once and retains allocated-block accounting for sparse files. Cache
 cleanup is explicit and asynchronous, rejects redirected roots and reports
 errors; conda command paths are shell quoted. Folder/file handoff uses the shared
 FileManager1 client, retaining the active desktop's manager.
+
+Settings System is adapted from the application donor. It uses the public shell
+D-Bus contract, asynchronous reads and authoritative readback after display,
+audio and notification changes. Display preferences are saved only after the
+compositor accepts the command; malformed replies and failed changes remain
+visible. Private-bus and fake-executable tests never change host displays/audio.
