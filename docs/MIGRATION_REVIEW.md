@@ -28,7 +28,7 @@ and verified; this checklist must not be read as a completion claim.
 | Snipping | Complete canvas/window/overlay migrated with public shortcut routes and compatible preferences. Native tests pass on both bases (28/28 total). Real overlay/clipboard and optional compositor window-snapshot integration follow. |
 | Settings | Complete source/runtime with all public routes and 305 initial Russian messages. All routes/runtime migrated. Real authorization and APT refresh accepted on both VMs; networkd/ifupdown observation fix accepted as a native overlay, updated DEB acceptance remains. |
 | App Center / catalog | Complete independent runtime, pages/window, external validated catalog and APT/Flatpak/conda model migrated. Full native suite is 59/59 on both bases; installed App Center package/GUI acceptance remains. |
-| Optional greeter | Pending as optional component. Keep existing display manager authoritative. |
+| Optional greeter | Bounded greetd IPC transport migrated and natively tested. UI/runtime and real greetd login remain; existing display manager stays authoritative. |
 | Compositor layout extension / optional integrations | Separate reviewed packages and explicit capability gates; no mandatory VPN/VMware/Wine services in the base DE. |
 | OS defaults, browser/boot/installer, ISO generation | Owned by Karyo Linux/Builder stages, outside the DE migration scope. |
 
@@ -155,3 +155,20 @@ verified native package wave and real VM acceptance. Greeter, optional composito
 extensions, profile/system integrations, actual Plex font packaging and existing-
 window Files activation remain separate integration gates. Physical device
 acceptance cannot be inferred from these virtual machines. No commits are pushed.
+
+
+## Font and greetd preparation
+
+The font runtime now carries the original 16 complete IBM Plex Sans/Mono files
+with hash records and original SIL OFL notices. Eighteen native Qt cases verify
+families and Latin/Cyrillic glyphs on both bases, also as UID 65534; staged
+fontconfig resolves the supplied files. No global family aliases are installed.
+Native DEB and real VM font acceptance remain pending.
+
+The optional greetd transport is migrated with bounded native-endian JSON framing,
+validated reply types and safe teardown when a receiver destroys the client.
+Private-socket tests cover fragmented/coalesced messages, null acknowledgements,
+literal command/environment fields, malformed/oversized/truncated inputs and
+receiver teardown. Fourteen Qt cases pass as root and UID 65534 on both bases.
+The complete current native suite passes 61/61. This does not yet establish a
+working greeter UI, real greetd authentication or a display-manager replacement.

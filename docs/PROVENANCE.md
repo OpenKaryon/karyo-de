@@ -349,3 +349,10 @@ IBM copyright, Reserved Font Name Plex and SIL OFL 1.1 notices; they are not
 relicensed under GPL. The component supplies files without global font aliases,
 and native Qt tests verify every hash, font family and Latin/Cyrillic coverage.
 Upstream license: https://github.com/IBM/plex/blob/71f558992315a12ca1f06a2215d57962a1992162/LICENSE.txt .
+
+The optional greetd IPC transport is adapted from the application's sign-in
+prototype at the same donor revision. Native-endian length/JSON framing now has
+a bounded payload, validates documented reply shapes and fails closed for
+malformed/truncated input. Tests use a private local socket only; no real PAM or
+session is started. Protocol reference:
+https://manpages.debian.org/trixie/greetd/greetd-ipc.7.en.html .

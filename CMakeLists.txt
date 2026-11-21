@@ -81,6 +81,8 @@ include(cmake/Session.cmake)
 
 include(cmake/Lock.cmake)
 
+include(cmake/Greeter.cmake)
+
 include(cmake/Shell.cmake)
 
 option(KARYO_BUILD_APPS "Build the independently packaged desktop applications" ${KARYO_BUILD_DESKTOP_INTEGRATION})
