@@ -234,3 +234,10 @@ on success or failure instead of assuming a queued request succeeded. Locale,
 layout and shortcut edits check atomic profile writes, and clearing recent-file
 history now publishes atomically with visible retryable errors. Regression tests
 use a private timedated service and disposable user data, never the host clock.
+
+Settings Storage is adapted from the application donor. Its background physical
+walk now reports incomplete reads, assigns overlapping categories once, counts
+hard links once and retains allocated-block accounting for sparse files. Cache
+cleanup is explicit and asynchronous, rejects redirected roots and reports
+errors; conda command paths are shell quoted. Folder/file handoff uses the shared
+FileManager1 client, retaining the active desktop's manager.
