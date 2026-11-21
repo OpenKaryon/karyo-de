@@ -14,7 +14,7 @@ and verified; this checklist must not be read as a completion claim.
 | Shared UI, shell, lock, selectable session | Migrated. Clean Debian and Ubuntu VM login/lock/sleep/portal/auth/upgrade/removal and Xfce coexistence accepted; later app/integration checks remain. |
 | Debian/Ubuntu native package stage | Added Ubuntu 26.04 build environment and exact base identity validation. Both native fixture packages built successfully; host tests 17/17. |
 | Qt compatibility | Explicit private Wayland import for Qt 6.10; Debian Qt 6.8 path retained. |
-| Terminal | Public UI targets and independent runtime component migrated. PTY execution and Ctrl+link regression pass on both bases; package/GUI acceptance follows. |
+| Terminal | Independent runtime migrated. Native PTY/Ctrl+link and real installed command execution accepted on both bases; the later tooltip close-button fix also passes with installed packages. |
 | Camera | Migrated with independent runtime and public UI. No-device controls/close pass on both bases (14/14 total tests); physical photo/video/audio acceptance pending. |
 | Photos | Migrated with atomic rotation publication and FileManager1. PNG pixels and failed-write preservation pass on both bases (15/15 total). GUI/package checks follow. |
 | PDF Reader | Migrated tabs, search, remembered positions and compatible IPC; native real-PDF/render/second-process tests pass on both bases (22/22 total). Graphical/encrypted-file checks follow. |
@@ -27,10 +27,16 @@ and verified; this checklist must not be read as a completion claim.
 | Archive | Complete backend/window migrated with real ZIP/7z/encrypted RAR, compression, cancellation and atomic publication. Password retry/cancel and creation/browsing GUI cases pass on both bases (31 current CTest entries). Native package/VM checks follow. |
 | Snipping | Complete canvas/window/overlay migrated with public shortcut routes and compatible preferences. Native tests pass on both bases (28/28 total). Real overlay/clipboard and optional compositor window-snapshot integration follow. |
 | Settings | Complete source/runtime with all public routes and 305 initial Russian messages. All routes/runtime migrated. Real authorization, APT refresh and networkd/ifupdown observation accepted from native DEBs on both VMs. |
-| App Center / catalog | Complete independent runtime, pages/window, external validated catalog and APT/Flatpak/conda model migrated. Installed native DEBs accepted for discovery/search, authorized ncdu install/open/remove and Russian environments UI on both VMs. Later retry-notice fix awaits packaging. |
-| Optional greeter | Bounded greetd IPC transport migrated and natively tested. UI/runtime and real greetd login remain; existing display manager stays authoritative. |
+| App Center / catalog | Complete independent runtime, pages/window, external validated catalog and APT/Flatpak/conda model migrated. Installed native DEBs accepted for discovery/search, authorized ncdu install/open/remove and Russian environments UI on both VMs. The later retry-notice fix is accepted from installed dc0ddfe packages on both guests. |
+| Optional greeter | Complete independent frontend. Installed dc0ddfe packages pass real wrong/correct password, Karyo login and GUI logout on both guests; LightDM restored. Public appearance publication and adoption are also accepted from installed 4726565 packages on both bases. |
+| IBM Plex | Original 16-file payload with OFL notices, native hash/family/glyph regressions, native DEBs and installed Sans/Mono fontconfig resolution accepted on both bases. |
 | Compositor layout extension / optional integrations | Separate reviewed packages and explicit capability gates; no mandatory VPN/VMware/Wine services in the base DE. |
 | OS defaults, browser/boot/installer, ISO generation | Owned by Karyo Linux/Builder stages, outside the DE migration scope. |
+
+Installed application checkpoints and later common fixes are detailed in Builder
+VALIDATION-APPLICATION-WAVE.md and VALIDATION-GREETER.md. Earlier per-application
+test totals below are historical checkpoints, not the current suite size; the
+latest source suite passes 67/67 on both native bases.
 
 ## Validation policy and retained evidence
 
@@ -251,3 +257,38 @@ from a correctly owned public fixture. Both VMs were restored to their original
 LightDM and have clean dpkg verification/audit. This frontend is a named overlay;
 the installed 90df39b package wave precedes the kiosk and cleanup fixes. A final
 native package refresh remains required. No owner VM or physical laptop changed.
+
+The shell now publishes only its theme/accent at startup and after desktop
+configuration changes. Its effective account is resolved through passwd, not
+USER. Writes are bounded and atomic relative to a no-follow directory descriptor;
+symlinks, special files, another owner's publication and non-sticky writable
+shared directories are refused. The optional greeter supplies only a tmpfiles
+data-directory declaration; missing publication infrastructure never prevents
+starting the base session. A real UID 65534 test first reproduced the unlistable
+1733 directory failure with O_RDONLY; O_PATH fixes it on both bases. All eight
+reported publisher Qt cases pass as root and UID 65534, including writer/reader
+interoperability and a root-owned foreign publication that must stay unchanged.
+Real installed-session publication still needs its own runtime package refresh.
+The full current suite passes 67/67 on each native base. Isolated tmpfiles
+processing creates a root-owned 1733 directory, and the publisher also builds
+and passes without enabling the optional greeter.
+
+
+The corrected dc0ddfe native 24-component wave is now installed and accepted on
+both disposable guests. Actual /usr/bin greeters pass denial/retry, successful
+session start and GUI Sign out returning to a new greeter. Installed terminal
+close and App Center cancellation/retry-notice behavior also pass on both bases.
+Original LightDM and display-manager symlinks were restored; package verification
+and dpkg audits are clean. This supersedes the prior QA-overlay-only gate for
+those fixes. Later appearance publication remains distinct until its new shell/
+greeter packages are installed and exercised.
+
+
+The installed shell/greeter pair from 4726565 now passes the remaining public
+appearance integration: ordinary LightDM login publishes light/terracotta with
+UID1001/mode0644 in a root-owned 1733 directory; actual Settings changes publish
+dark/moss (Debian) and dark/sage (Ubuntu). The installed greeter adopts those
+exact publications in a fresh real greetd session. No manual publication fixture
+is used in this scenario. LightDM was restored and package verification/audits
+remain clean on both disposable guests. This supersedes the pending runtime
+gate for appearance publication; compositor/profile/Files gates remain open.

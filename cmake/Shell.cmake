@@ -69,10 +69,25 @@ add_library(karyo-shell-desktop STATIC
     ${shell_dir}/wallpaper.cpp ${shell_dir}/wallpaper.h)
 target_link_libraries(karyo-shell-desktop PUBLIC karyo-shell-core)
 
+add_library(karyo-appearance-publisher STATIC
+    ${shell_dir}/appearancepublisher.cpp ${shell_dir}/appearancepublisher.h)
+target_include_directories(karyo-appearance-publisher PUBLIC ${shell_dir})
+target_link_libraries(karyo-appearance-publisher PUBLIC Qt6::Core)
+if(BUILD_TESTING)
+    add_executable(karyo-appearance-publisher-test tests/appearancepublishertest.cpp)
+    target_link_libraries(karyo-appearance-publisher-test PRIVATE karyo-appearance-publisher Qt6::Test)
+    if(KARYO_BUILD_GREETER)
+        target_link_libraries(karyo-appearance-publisher-test PRIVATE karyo-greeter-appearance)
+        target_compile_definitions(karyo-appearance-publisher-test PRIVATE KARYO_GREETER_INTEROP)
+    endif()
+    add_test(NAME appearance-publication COMMAND karyo-appearance-publisher-test)
+    set_tests_properties(appearance-publication PROPERTIES TIMEOUT 30)
+endif()
+
 qt_add_executable(karyo-shell
     ${shell_dir}/main.cpp ${shell_dir}/taskbar.cpp ${shell_dir}/taskbar.h
     ${shell_dir}/shellservice.cpp ${shell_dir}/shellservice.h)
-target_link_libraries(karyo-shell PRIVATE karyo-shell-core karyo-shell-start
+target_link_libraries(karyo-shell PRIVATE karyo-appearance-publisher karyo-shell-core karyo-shell-start
     karyo-shell-tray karyo-shell-services karyo-shell-quick karyo-shell-desktop)
 install(TARGETS karyo-shell RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT shell-runtime)
 install(FILES LICENSE docs/PROVENANCE.md

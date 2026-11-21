@@ -31,8 +31,20 @@ is reported to stderr without preventing an already authorized session.
 The initial appearance can adopt the last selected user's public theme/accent
 from `/var/lib/karyo/appearance/USER.conf`, with legacy fallback only when the
 new path is absent. The file must be a small regular file owned by that user;
-symlinks are rejected. No user's private home preferences are read. Publishing
-these files belongs to a separate system integration.
+symlinks are rejected. No user's private home preferences are read. The shell publishes these two values at startup and when desktop preferences
+change, deriving its account from the effective UID rather than USER. It writes
+atomically relative to a no-follow directory descriptor and refuses another
+owner's existing file, symlinks, special files and unsafe shared directories.
+No password, token or arbitrary preferences are published.
+
+The greeter component provides /usr/lib/tmpfiles.d/karyo-greeter.conf. Normal
+tmpfiles boot processing creates the optional root-owned 1733 publication
+directory; for immediate explicit integration run
+sudo systemd-tmpfiles --create /usr/lib/tmpfiles.d/karyo-greeter.conf.
+This creates only a data directory and does not activate greetd. A missing
+publication directory is harmless: the base session still runs without a greeter.
+The directory permits creating known per-user files but not listing it or
+replacing another account's files; the greeter also checks the file owner.
 
 `--help` works without a graphical display. Other arguments are rejected. The
 runtime uses Qt Wayland, the Karyo style, IBM Plex when installed and embedded

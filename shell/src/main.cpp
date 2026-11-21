@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // karyo-shell: wallpaper and taskbar of the Karyo desktop on wlroots
 // compositors (labwc). Start, flyouts and notifications join this process.
+#include "appearancepublisher.h"
 #include "networkstatus.h"
 #include "notify/notificationserver.h"
 #include "polkit/polkitagent.h"
@@ -80,6 +81,18 @@ int main(int argc, char **argv)
     Karyo::Ui::applyStyle();
     // Theme, accent, wallpaper and taskbar options change live from Settings.
     Karyo::Ui::Theme::followConfiguration();
+    auto publishAppearance = []
+    {
+        Karyo::Session::publishAppearance(
+            Karyo::Ui::Theme::schemeSetting(), Karyo::Ui::Theme::accentSetting());
+    };
+    publishAppearance();
+    QObject::connect(Karyo::Ui::ThemeNotifier::instance(), &Karyo::Ui::ThemeNotifier::configurationChanged,
+        &app, [publishAppearance](const QString &name)
+        {
+            if (name == QLatin1String("desktop"))
+                publishAppearance();
+        });
     if (QGuiApplication::platformName() != QLatin1String("wayland")) {
         std::fputs("karyo-shell: a Wayland session (labwc) is required\n", stderr);
         return 1;

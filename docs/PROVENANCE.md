@@ -405,3 +405,11 @@ and the session worker interface. The controller performs only one extra cleanup
 request after explicit authentication denial, then still requires positive
 cancellation before another attempt; it does not treat a cleanup error as login
 success. Native regressions and actual PAM sessions on both bases verify this.
+
+Public appearance publication adapts the donor shell/main.cpp behavior, rewritten
+to derive the account from getpwuid_r, validate public keys and use openat/renameat
+through a no-follow directory descriptor. It preserves a previous publication on
+failure and never follows a destination symlink. The optional greeter's tmpfiles
+data directory is independent of service activation and PAM. Native tests verify
+writer/reader interoperability, atomic replacement and unprivileged publication
+into a root-owned sticky directory without listing permission.

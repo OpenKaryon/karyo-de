@@ -65,3 +65,6 @@ if(BUILD_TESTING)
     add_test(NAME greeter-command-help COMMAND karyo-greeter --help)
     set_tests_properties(greeter-command-help PROPERTIES TIMEOUT 10 PASS_REGULAR_EXPRESSION "Usage: karyo-greeter")
 endif()
+
+install(FILES greeter/data/karyo-greeter.conf
+    DESTINATION lib/tmpfiles.d COMPONENT greeter-runtime)
