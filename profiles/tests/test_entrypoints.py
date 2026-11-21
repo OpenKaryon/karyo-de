@@ -7,11 +7,13 @@ import sys
 import subprocess
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from karyo_profiles.credentials import LocalAccount
-from karyo_profiles.entrypoints import add, execute, main, read_password
+from karyo_profiles.entrypoints import add, execute, list_desktops, main, read_password, switch_existing
+from karyo_profiles.switching import DesktopStopped
 from karyo_profiles.provision import CreationError
 
 HOME = LocalAccount("home", 1000, 1000, "/home/home", "/bin/bash")
@@ -89,6 +91,80 @@ class EntrypointTest(unittest.TestCase):
             self.assertIn(allowed, stderr.getvalue())
             self.assertNotIn("secret", stderr.getvalue())
             self.assertNotIn("private native", stderr.getvalue())
+
+
+class DesktopControlEntrypointTest(unittest.TestCase):
+    def test_switch_passes_only_valid_target_and_authenticated_caller(self):
+        backend = Mock()
+        backend.return_value.switch.return_value = {"user": "work", "vt": 8, "changed": True}
+        authorize = Mock(return_value=HOME)
+        environment = {"PKEXEC_UID": "1000", "USER": "forged"}
+        result = switch_existing(["work"], environment=environment, store="store",
+                                 authorize=authorize, switcher=backend)
+        authorize.assert_called_once_with(environment)
+        backend.assert_called_once_with("store")
+        backend.return_value.switch.assert_called_once_with(HOME, "work")
+        self.assertEqual(result["user"], "work")
+
+    def test_switch_has_no_arbitrary_owner_session_command_or_option_abbreviation(self):
+        for arguments in ([], ["work", "other"], ["--owner", "other", "work"],
+                          ["--session", "c2"], ["--command", "/bin/sh"], ["../work"],
+                          ["--help", "work"], ["work\n"]):
+            with self.subTest(arguments=arguments):
+                backend, authorize = Mock(), Mock(return_value=HOME)
+                with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit):
+                    switch_existing(arguments, environment={}, store="store", authorize=authorize, switcher=backend)
+                backend.assert_not_called()
+                authorize.assert_not_called()
+
+    def test_switch_authentication_failure_never_constructs_privileged_controller(self):
+        backend = Mock()
+        with self.assertRaises(PermissionError):
+            switch_existing(["work"], environment={}, store="store",
+                            authorize=Mock(side_effect=PermissionError("Inactive")), switcher=backend)
+        backend.assert_not_called()
+
+    def test_listing_uses_own_family_under_configuration_lock(self):
+        store = Mock()
+        store.locked.return_value = contextlib.nullcontext(store)
+        authorize = Mock(return_value=HOME)
+        accounts, sessions = Mock(), Mock()
+        with patch("karyo_profiles.entrypoints.listing", return_value=[{"user": "home"}]) as listing:
+            result = list_desktops([], environment={}, store=store, authorize=authorize,
+                                   accounts=accounts, sessions=sessions)
+        self.assertEqual(result, [{"user": "home"}])
+        store.locked.assert_called_once_with()
+        listing.assert_called_once_with(HOME, store, accounts.return_value, sessions.return_value)
+
+    def test_listing_rejects_selection_arguments_and_inactive_callers(self):
+        accounts, sessions, store = Mock(), Mock(), Mock()
+        for args in (["other"], ["--owner", "other"], ["--json"]):
+            with self.assertRaises(ValueError):
+                list_desktops(args, environment={}, store=store, accounts=accounts, sessions=sessions)
+        with self.assertRaises(PermissionError):
+            list_desktops([], environment={}, store=store, accounts=accounts, sessions=sessions,
+                          authorize=Mock(side_effect=PermissionError("Inactive")))
+        accounts.assert_not_called()
+        sessions.assert_not_called()
+        store.locked.assert_not_called()
+
+    def test_policy_binds_only_fixed_helpers_to_active_local_callers(self):
+        source = Path(__file__).resolve().parents[1]
+        actions = ET.parse(source / "org.karyo.desktops.policy.in").getroot().findall("action")
+        self.assertEqual({value.attrib["id"] for value in actions},
+                         {"org.karyo.desktops." + role for role in ("add", "list", "switch")})
+        for action in actions:
+            role = action.attrib["id"].rsplit(".", 1)[1]
+            paths = [item.text for item in action.findall("annotate")
+                     if item.attrib.get("key") == "org.freedesktop.policykit.exec.path"]
+            self.assertEqual(paths, ["@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/desktop-" + role])
+            self.assertEqual({item.tag: item.text for item in action.find("defaults")},
+                             {"allow_any": "no", "allow_inactive": "no", "allow_active": "yes"})
+
+    def test_stopped_session_has_distinct_exit_without_implicit_start(self):
+        with patch("karyo_profiles.entrypoints.execute", side_effect=DesktopStopped("No running session")), contextlib.redirect_stderr(io.StringIO()) as error:
+            self.assertEqual(main("switch"), 3)
+        self.assertIn("No running session", error.getvalue())
 
 
 class PasswordPipeTest(unittest.TestCase):

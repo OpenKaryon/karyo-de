@@ -37,9 +37,9 @@ are removed with exact hash checks and package verification stays clean. The
 new final lock package is still a separate gate; installed 156d1aa alone retains
 the documented output-lifecycle bug.
 
-The existing-session switch core is source-tested (113 Python cases on each
-base, including ordinary UID runs), but has no published privileged entrypoint
-or shell wiring yet. Controlled startup of stopped sessions, VT allocation,
+The existing-session switch core and fixed active-caller list/switch helpers
+are source-tested (120 Python cases on each base, including ordinary UID runs).
+Installed two-session authorization and shell wiring remain separate gates. Controlled startup of stopped sessions, VT allocation,
 network namespaces/DNS/VPN/capability reset and family clipboard remain required.
 The compatibility backlog also includes actual Win32 and experimental macOS
 launchers/MIME/runtime integration, VMware session/clipboard/DnD/hgfs agents,

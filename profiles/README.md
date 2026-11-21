@@ -2,8 +2,9 @@
 
 These are reviewed account-management slices of the prototype's independent
 desktop sessions. The optional profile-accounts-runtime component packages fixed
-privileged account helpers and its creation policy. That base component does not
-create users, enable a PAM hook, start/switch sessions or change networking. The separate optional password-sync component
+privileged account/list/existing-switch helpers and their active-user policies.
+Installing that component does not create users, enable a PAM hook, start/switch
+sessions automatically or change networking. The separate optional password-sync component
 registers the PAM integration described in the latest lifecycle section. Logind/VT
 switching, protected entry, per-profile network/VPN/DNS and family clipboard
 services follow as separately reviewed runtime slices. The current combined test
@@ -395,9 +396,17 @@ shared deadline bounds preparation and confirmation. Missing/ambiguous sessions,
 vanishing locks, changed identities and nonfunctional lockers fail without an
 activation request; a successful method call alone is not a successful switch.
 
-Both native bases pass all 113 Python cases as root and UID 65534. This is the
-internal switch core and native logind read/control adapter, not a published
-privileged switch entrypoint or completed GUI/runtime acceptance. Creation of
+The low-level desktop-list and desktop-switch entrypoints now expose that core
+through isolated fixed-path launchers. Both require the actual active local
+logind caller, ignoring forged identity environment. Listing accepts no arbitrary
+owner/path and reads only the authenticated family under the store lock. Switch
+accepts one validated account name, never a chosen session ID, command or owner.
+Polkit permits only active local requests; the helper independently checks kernel
+session membership. A stopped target returns exit 3 without implicit startup.
+
+Both native bases pass all 120 Python cases as root and UID 65534. This closes
+the source entrypoint boundary, not installed authorization or GUI/runtime
+acceptance. Creation of
 stopped sessions, owned systemd units, VT allocation, protected runtime QA and
 network/clipboard integration remain separate stages. No unattended process
 launch is added by this component.

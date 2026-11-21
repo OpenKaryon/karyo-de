@@ -7,10 +7,12 @@ import select
 import sys
 import time
 
-from .credentials import AccountOperationError, PasswordSync
-from .logind import SessionError, authorized_caller
+from .credentials import AccountOperationError, LocalAccounts, PasswordSync
+from .logind import SessionError, Sessions, authorized_caller, listing
+from .model import account_name
 from .provision import AccountProvisioner, CreationError
 from .storage import ConfigStore
+from .switching import DesktopStopped, ExistingSwitcher
 
 
 def read_password(fd=0, *, timeout=10):
@@ -48,11 +50,33 @@ def add(arguments, *, environment, store, authorize=authorized_caller, provision
     return {"user": account.name}
 
 
+def list_desktops(arguments, *, environment, store, authorize=authorized_caller,
+                  accounts=LocalAccounts, sessions=Sessions):
+    if arguments:
+        raise ValueError("Desktop listing accepts no owner, path or session arguments")
+    caller = authorize(environment)
+    with store.locked():
+        return listing(caller, store, accounts(), sessions())
+
+
+def switch_existing(arguments, *, environment, store, authorize=authorized_caller,
+                    switcher=ExistingSwitcher):
+    parser = argparse.ArgumentParser(prog="karyo-desktop-switch", allow_abbrev=False)
+    parser.add_argument("name", type=account_name)
+    args = parser.parse_args(arguments)
+    caller = authorize(environment)
+    return switcher(store).switch(caller, args.name)
+
+
 def execute(operation, arguments, *, environment=None, store=None):
     environment = os.environ if environment is None else environment
     store = ConfigStore() if store is None else store
     if operation == "add":
         return add(arguments, environment=environment, store=store)
+    if operation == "list":
+        return list_desktops(arguments, environment=environment, store=store)
+    if operation == "switch":
+        return switch_existing(arguments, environment=environment, store=store)
     if operation in {"sync", "password-changed"}:
         if arguments:
             raise ValueError("This system operation accepts no arguments")
@@ -71,6 +95,9 @@ def main(operation):
         if result is not None:
             print(json.dumps(result))
         return 0
+    except DesktopStopped as error:
+        print("karyo-desktop: " + str(error), file=sys.stderr)
+        return 3
     except CreationError as error:
         print("karyo-desktop: " + str(error), file=sys.stderr)
         return 2 if error.retained else 1

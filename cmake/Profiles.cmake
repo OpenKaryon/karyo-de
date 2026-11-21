@@ -1,7 +1,7 @@
 # Low-level optional accounts component. Installing it does not enable PAM,
 # create users, start sessions or replace a display manager.
 get_filename_component(profile_source "${CMAKE_CURRENT_LIST_DIR}/../profiles" ABSOLUTE)
-foreach(operation IN ITEMS add sync password-changed)
+foreach(operation IN ITEMS add list switch sync password-changed)
     set(KARYO_PROFILE_OPERATION "${operation}")
     configure_file("${profile_source}/entrypoint.in" "${CMAKE_CURRENT_BINARY_DIR}/desktop-${operation}" @ONLY)
     install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/desktop-${operation}"
