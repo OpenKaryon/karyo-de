@@ -392,3 +392,11 @@ survived package installation. Original LightDM remained active after ending
 fixture sessions. Builder docs/VALIDATION-FILEMANAGER-ACTIVATION.md retains exact
 hashes and before/after evidence. This closes the source-and-installed activation
 gate; optional profile/PAM/network helpers and other compositor patches remain.
+
+
+Shell output recovery now passes native source-overlay acceptance on both QA
+VMs. Two real VT roundtrips, including retirement of an open Start flyout, retain
+shell and Terminal PIDs, visible returned panels, working Start and DND state.
+The shell skips Qt placeholder outputs and recreates only output-bound views;
+shared models and DBus services persist. Exact clean native shell packages still
+need installation acceptance before closing the installed gate.

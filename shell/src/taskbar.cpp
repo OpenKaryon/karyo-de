@@ -204,6 +204,29 @@ Taskbar::Taskbar(QScreen *screen, ToplevelManager *toplevels, TrayHost *tray,
     });
 }
 
+Taskbar::~Taskbar()
+{
+    // These layer-shell toplevels have no QWidget parent. Shared service/model
+    // objects belong to the application and deliberately survive this panel.
+    delete m_startMenu.data();
+    delete m_quickSettings.data();
+    delete m_notificationCenter.data();
+    delete m_banner;
+}
+
+void Taskbar::hideForOutputLoss()
+{
+    hide();
+    for (const auto &flyout : { m_startMenu, m_quickSettings, m_notificationCenter }) {
+        if (flyout)
+            flyout->hide();
+    }
+    m_trayFlyout->hide();
+    m_banner->hide();
+    for (auto *dialog : findChildren<QDialog *>())
+        dialog->reject();
+}
+
 void Taskbar::readOptions()
 {
     const QSettings shell = shellSettings();
@@ -476,26 +499,27 @@ void Taskbar::showDesktopsMenu()
     if (!desktops.isEmpty())
         menu->addSeparator();
     menu->addAction(tr("Add desktop…"), this, [this] {
-        QDialog dialog(this);
-        dialog.setWindowTitle(tr("Add desktop"));
-        dialog.setMinimumWidth(420);
-        auto *layout = new QVBoxLayout(&dialog);
-        auto *fields = new QWidget(&dialog);
+        auto *dialog = new QDialog(this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->setWindowTitle(tr("Add desktop"));
+        dialog->setMinimumWidth(420);
+        auto *layout = new QVBoxLayout(dialog);
+        auto *fields = new QWidget(dialog);
         auto *form = new QFormLayout(fields);
         form->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(fields);
-        auto *name = new QLineEdit(&dialog);
+        auto *name = new QLineEdit(dialog);
         name->setMaxLength(160);
         name->setPlaceholderText(tr("Experiments"));
         form->addRow(tr("Desktop name"), name);
-        auto *protect = new QCheckBox(tr("Require a password each time"), &dialog);
+        auto *protect = new QCheckBox(tr("Require a password each time"), dialog);
         form->addRow(protect);
-        auto *mode = new QComboBox(&dialog);
+        auto *mode = new QComboBox(dialog);
         mode->addItem(tr("Use the Home password"), QStringLiteral("home"));
         mode->addItem(tr("Use a separate password"), QStringLiteral("separate"));
         form->addRow(tr("Password source"), mode);
-        auto passwordRow = [&dialog, form](const QString &label) {
-            auto *row = new QWidget(&dialog);
+        auto passwordRow = [dialog, form](const QString &label) {
+            auto *row = new QWidget(dialog);
             auto *layout = new QHBoxLayout(row);
             layout->setContentsMargins(0, 0, 0, 0);
             auto *password = new QLineEdit(row);
@@ -503,7 +527,7 @@ void Taskbar::showDesktopsMenu()
             password->setMaxLength(256);
             auto *eye = new QToolButton(row);
             eye->setIcon(QIcon(Ui::icon(QStringLiteral("eye"), 18, Ui::Theme::current().text,
-                                        dialog.devicePixelRatioF())));
+                                        dialog->devicePixelRatioF())));
             eye->setAccessibleName(tr("Hold to show password"));
             eye->setToolTip(eye->accessibleName());
             connect(eye, &QToolButton::pressed, password, [password] {
@@ -519,11 +543,11 @@ void Taskbar::showDesktopsMenu()
         };
         auto *password = passwordRow(tr("Password"));
         auto *confirm = passwordRow(tr("Repeat password"));
-        auto *status = new QLabel(&dialog);
+        auto *status = new QLabel(dialog);
         status->setWordWrap(true);
         status->hide();
         layout->addWidget(status);
-        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dialog);
         buttons->button(QDialogButtonBox::Ok)->setText(tr("Create"));
         layout->addWidget(buttons);
         const auto separate = [protect, mode] { return protect->isChecked() && mode->currentIndex() == 1; };
@@ -540,10 +564,10 @@ void Taskbar::showDesktopsMenu()
             fields->setEnabled(!creating);
             buttons->setEnabled(!creating);
         };
-        connect(protect, &QCheckBox::toggled, &dialog, refresh);
-        connect(mode, &QComboBox::currentIndexChanged, &dialog, refresh);
-        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-        connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
+        connect(protect, &QCheckBox::toggled, dialog, refresh);
+        connect(mode, &QComboBox::currentIndexChanged, dialog, refresh);
+        connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
+        connect(buttons, &QDialogButtonBox::accepted, dialog, [=] {
             const QString label = name->text().trimmed();
             QString error;
             if (label.isEmpty() || label.contains(QLatin1Char(':')) || label.contains(QLatin1Char(',')))
@@ -560,15 +584,15 @@ void Taskbar::showDesktopsMenu()
                 args << QStringLiteral("--protection") << mode->currentData().toString();
             if (separate())
                 args << QStringLiteral("--password-stdin");
-            auto *process = new QProcess(&dialog);
-            connect(process, &QProcess::started, &dialog, [=] {
+            auto *process = new QProcess(dialog);
+            connect(process, &QProcess::started, dialog, [=] {
                 if (separate())
                     process->write(password->text().toUtf8() + '\n');
                 password->clear();
                 confirm->clear();
                 process->closeWriteChannel();
             });
-            connect(process, &QProcess::errorOccurred, &dialog, [=](QProcess::ProcessError failure) {
+            connect(process, &QProcess::errorOccurred, dialog, [=](QProcess::ProcessError failure) {
                 if (failure == QProcess::FailedToStart) {
                     setCreating(false);
                     status->setText(tr("Could not start the desktop setup."));
@@ -576,9 +600,9 @@ void Taskbar::showDesktopsMenu()
                     process->deleteLater();
                 }
             });
-            connect(process, &QProcess::finished, &dialog, [&, process](int code, QProcess::ExitStatus exit) {
+            connect(process, &QProcess::finished, dialog, [=](int code, QProcess::ExitStatus exit) {
                 if (exit == QProcess::NormalExit && code == 0) {
-                    dialog.accept();
+                    dialog->accept();
                     return;
                 }
                 process->deleteLater();
@@ -591,7 +615,7 @@ void Taskbar::showDesktopsMenu()
         });
         refresh();
         name->setFocus();
-        dialog.exec();
+        dialog->open();
     });
     const QSize size = menu->sizeHint();
     menu->popup(m_desktops->mapToGlobal(QPoint(0, -size.height() - 6)));

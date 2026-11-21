@@ -3,6 +3,7 @@
 // compositors (labwc). Start, flyouts and notifications join this process.
 #include "appearancepublisher.h"
 #include "networkstatus.h"
+#include "layersurface.h"
 #include "notify/notificationserver.h"
 #include "polkit/polkitagent.h"
 #include "quick/systemcontrols.h"
@@ -26,10 +27,14 @@
 #include <QProcess>
 #include <QSaveFile>
 #include <QScreen>
+#include <QHash>
+#include <QPointer>
+#include <QTimer>
 #include <QSettings>
 #include <QTranslator>
 
 #include <cstdio>
+#include <memory>
 
 namespace {
 
@@ -124,24 +129,88 @@ int main(int argc, char **argv)
 
     applySavedDisplays();
 
-    // One wallpaper per screen; the taskbar and the desktop icons sit on the primary screen.
-    QList<Wallpaper *> wallpapers;
-    for (QScreen *screen : QGuiApplication::screens()) {
-        auto *wallpaper = new Wallpaper(screen, screen == QGuiApplication::primaryScreen());
-        wallpaper->show();
-        wallpapers.append(wallpaper);
-    }
-    QObject::connect(&app, &QGuiApplication::screenAdded, &app, [](QScreen *screen) {
-        (new Wallpaper(screen, false))->show();
-    });
-
-    Taskbar taskbar(QGuiApplication::primaryScreen(), toplevels, tray, network, apps, notifications, nightLight);
-    taskbar.show();
-    auto *service = new ShellService(&taskbar, notifications, &app);
+    // Services and application models outlive transient output-bound windows.
+    auto *service = new ShellService(nullptr, notifications, &app);
     if (!service->registerOnBus())
         std::fputs("karyo-shell: org.karyo.Shell is taken; the Start key will not work\n", stderr);
 
+    QHash<QScreen *, Wallpaper *> wallpapers;
+    QPointer<Taskbar> taskbar;
+    QPointer<QScreen> panelScreen;
+    QPointer<QScreen> iconsScreen;
+    auto outputContext = std::make_unique<QObject>();
+    const auto retirePanel = [&] {
+        service->setTaskbar(nullptr);
+        if (taskbar) {
+            taskbar->hideForOutputLoss();
+            taskbar->deleteLater();
+            taskbar.clear();
+        }
+        panelScreen.clear();
+    };
+    const auto retireWallpaper = [&](QScreen *screen) {
+        if (auto *view = wallpapers.take(screen)) {
+            view->hide();
+            view->deleteLater();
+        }
+    };
+    const auto reconcile = [&] {
+        QList<QScreen *> screens;
+        for (auto *screen : QGuiApplication::screens()) {
+            if (LayerSurface::outputAvailable(screen))
+                screens.append(screen);
+        }
+        QScreen *primary = QGuiApplication::primaryScreen();
+        if (!screens.contains(primary))
+            primary = screens.value(0);
+        // The desktop icons follow the real primary output, including when a
+        // temporary Qt placeholder was the only screen during a VT change.
+        const bool iconsMoved = iconsScreen != primary;
+        for (auto *screen : wallpapers.keys()) {
+            if (iconsMoved || !screens.contains(screen))
+                retireWallpaper(screen);
+        }
+        iconsScreen = primary;
+        for (auto *screen : screens) {
+            if (!wallpapers.contains(screen)) {
+                auto *view = new Wallpaper(screen, screen == primary);
+                wallpapers.insert(screen, view);
+                view->show();
+            }
+        }
+        if (panelScreen != primary || (primary && !taskbar)) {
+            retirePanel();
+            if (primary) {
+                taskbar = new Taskbar(primary, toplevels, tray, network, apps, notifications, nightLight);
+                panelScreen = primary;
+                service->setTaskbar(taskbar);
+                taskbar->show();
+            }
+        }
+    };
+    bool scheduled = false;
+    const auto schedule = [&] {
+        if (scheduled)
+            return;
+        scheduled = true;
+        QTimer::singleShot(0, outputContext.get(), [&] {
+            scheduled = false;
+            reconcile();
+        });
+    };
+    QObject::connect(&app, &QGuiApplication::screenAdded, outputContext.get(), schedule);
+    QObject::connect(&app, &QGuiApplication::primaryScreenChanged, outputContext.get(), schedule);
+    QObject::connect(&app, &QGuiApplication::screenRemoved, outputContext.get(), [&](QScreen *screen) {
+        if (panelScreen == screen)
+            retirePanel();
+        retireWallpaper(screen);
+        schedule();
+    });
+    reconcile();
     const int status = QApplication::exec();
+    outputContext.reset(); // Cancel callbacks before captured window state is destroyed.
+    service->setTaskbar(nullptr);
+    delete taskbar.data();
     qDeleteAll(wallpapers);
     return status;
 }

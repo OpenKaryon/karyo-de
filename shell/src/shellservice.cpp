@@ -30,7 +30,13 @@ bool ShellService::call(const QString &method)
     return reply.type() == QDBusMessage::ReplyMessage;
 }
 
-void ShellService::ToggleStart() { m_taskbar->toggleStart(); }
+void ShellService::setTaskbar(Taskbar *taskbar) { m_taskbar = taskbar; }
+
+void ShellService::ToggleStart()
+{
+    if (m_taskbar)
+        m_taskbar->toggleStart();
+}
 
 bool ShellService::DoNotDisturb() { return m_notifications->doNotDisturb(); }
 

@@ -4,6 +4,9 @@ endif()
 include(${CMAKE_CURRENT_LIST_DIR}/DesktopAccounts.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/Toplevels.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/Wifi.cmake)
+if(NOT TARGET Qt6::WaylandClientPrivate)
+    find_package(Qt6 REQUIRED COMPONENTS WaylandClientPrivate)
+endif()
 find_package(LayerShellQt REQUIRED)
 find_package(PolkitQt6-1 REQUIRED)
 set(shell_dir "${PROJECT_SOURCE_DIR}/shell/src")
@@ -17,6 +20,7 @@ add_library(karyo-shell-core STATIC
 )
 target_include_directories(karyo-shell-core PUBLIC ${shell_dir} ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(karyo-shell-core PUBLIC karyo-desktop-accounts Karyo::Style karyo-file-presentation karyo-file-operations karyo-toplevels karyo-wifi Qt6::DBus Qt6::WaylandClient LayerShellQt::Interface)
+target_link_libraries(karyo-shell-core PRIVATE Qt6::WaylandClientPrivate)
 qt6_generate_wayland_protocol_client_sources(karyo-shell-core FILES
     ${PROJECT_SOURCE_DIR}/shell/protocols/openkaryon-keyboard-layout-v1.xml)
 

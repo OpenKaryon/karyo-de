@@ -2,6 +2,7 @@
 #include "layersurface.h"
 
 #include <LayerShellQt/Window>
+#include <QtWaylandClient/private/qwaylandscreen_p.h>
 
 #include <QMargins>
 #include <QScreen>
@@ -10,13 +11,19 @@
 
 namespace LayerSurface {
 
+bool outputAvailable(QScreen *screen)
+{
+    auto *native = screen ? dynamic_cast<QtWaylandClient::QWaylandScreen *>(screen->handle()) : nullptr;
+    return native && native->output();
+}
+
 void configure(QWidget *widget, QScreen *screen, Layer layer, Anchors anchors, int exclusiveZone,
                bool keyboardOnDemand)
 {
     // The platform window must exist, but not be mapped, when the role is assigned.
+    widget->setScreen(screen);
     widget->winId();
     QWindow *window = widget->windowHandle();
-    window->setScreen(screen);
 
     auto *surface = LayerShellQt::Window::get(window);
     surface->setScope(QStringLiteral("karyo-shell"));

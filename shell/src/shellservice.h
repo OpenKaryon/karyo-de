@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QObject>
+#include <QPointer>
 
 class NotificationServer;
 class Taskbar;
@@ -17,6 +18,8 @@ public:
     static constexpr const char *ObjectPath = "/org/karyo/Shell";
 
     ShellService(Taskbar *taskbar, NotificationServer *notifications, QObject *parent);
+    // The service survives temporary loss of every real output.
+    void setTaskbar(Taskbar *taskbar);
     // Claims the bus name; false if another shell holds it.
     bool registerOnBus();
 
@@ -31,6 +34,6 @@ public Q_SLOTS:
     Q_SCRIPTABLE void SetDoNotDisturb(bool on);
 
 private:
-    Taskbar *m_taskbar;
+    QPointer<Taskbar> m_taskbar;
     NotificationServer *m_notifications;
 };

@@ -39,6 +39,10 @@ public:
     Taskbar(QScreen *screen, ToplevelManager *toplevels, TrayHost *tray, NetworkStatus *network,
             AppIndex *apps, NotificationServer *notifications, NightLight *nightLight);
 
+    ~Taskbar() override;
+    // Close transient output-bound views before retiring this panel.
+    void hideForOutputLoss();
+
     // Opens Start above the taskbar, or closes it when it is open.
     void toggleStart();
     void toggleQuickSettings(bool network = false);

@@ -192,3 +192,26 @@ The same full-session inspection reveals a distinct Ubuntu panel defect after
 output replacement: the shell is alive and can open its menu and applications,
 but the existing taskbar is invisible. That shell surface lifecycle is a separate
 open regression; it must be fixed before claiming complete profile VT switching.
+
+
+## Shell output lifetime
+
+The shell keeps its application index, tray host, network model, notification
+server, polkit agent and session locker alive while outputs change. It tracks
+wallpapers by real Wayland output and recreates the primary-output taskbar and
+desktop icons after removal or primary-screen replacement. Qt placeholder
+screens never receive shell layer roles. The DBus service remains available
+without a taskbar and safely ignores Start until a real output returns.
+
+Retired panels hide and destroy their output-bound flyouts and notification
+banner. The add-desktop form uses an asynchronously owned dialog, so output
+removal cannot delete a stack dialog inside a nested event loop. New layer
+windows select their screen before their platform window is created.
+
+Native source-overlay QA on Debian 13 (Qt 6.8) and Ubuntu 26.04 (Qt 6.10) now
+passes two actual VT roundtrips, including one with Start open. The password form
+remains interactive, the returned taskbar and Start are visible, shell and
+Terminal PIDs do not change, and the notification service retains its DND state.
+This fixes the reproduced Ubuntu disappearing-panel case in the tested source
+builds. Clean native DEB installation acceptance and physical multi-monitor
+coverage are separate gates; this is not yet full two-profile switching.
