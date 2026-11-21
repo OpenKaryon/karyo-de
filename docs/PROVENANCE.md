@@ -189,3 +189,9 @@ shared Archive backend for creation/extraction. Worker failures are always
 asynchronous and visible; complete results publish with no-replace rename.
 Unsafe paths, missing engines, protected archives and failed output publication
 cannot leave partial results or erase pre-existing outputs.
+
+Files window/service and retained IPC/archive-handoff regressions come from the
+same donor. The private `org.openkaryon.Files` wire contract and explicit legacy
+user settings remain compatible; public executable/desktop/translation names
+use Karyo. FileManager1 is claimed by the optional Files server only in a running
+Karyo session, without installing a generic activation override for other DEs.

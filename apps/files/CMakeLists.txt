@@ -35,3 +35,33 @@ if(BUILD_TESTING)
     add_test(NAME files-quick-archives COMMAND karyo-files-archives-test)
     set_tests_properties(files-quick-archives PROPERTIES TIMEOUT 60)
 endif()
+
+include(${PROJECT_SOURCE_DIR}/cmake/Toplevels.cmake)
+add_library(karyo-files-window STATIC
+    src/fileswindow.cpp src/fileswindow.h src/filesservice.cpp src/filesservice.h)
+target_link_libraries(karyo-files-window PUBLIC karyo-files-views karyo-files-places
+    karyo-files-archives karyo-toplevels Qt6::DBus)
+qt_add_executable(karyo-files src/main.cpp)
+target_link_libraries(karyo-files PRIVATE karyo-files-window)
+karyo_add_translation(karyo-files "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-files_ru.ts")
+install(TARGETS karyo-files RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT files-runtime)
+install(FILES data/karyo-files.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT files-runtime)
+configure_file(data/files.in "${CMAKE_CURRENT_BINARY_DIR}/files" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/files" DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT files-runtime)
+configure_file(data/org.openkaryon.Files.service.in "${CMAKE_CURRENT_BINARY_DIR}/org.openkaryon.Files.service" @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.openkaryon.Files.service"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/services COMPONENT files-runtime)
+install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
+    ${PROJECT_SOURCE_DIR}/shell/protocols/wlr-foreign-toplevel-management-unstable-v1.xml
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-files COMPONENT files-runtime)
+if(BUILD_TESTING)
+    add_executable(karyo-files-service-test tests/fileservicetest.cpp)
+    target_link_libraries(karyo-files-service-test PRIVATE karyo-files-window Qt6::Test)
+    add_dependencies(karyo-files-service-test karyo-files)
+    add_test(NAME files-service-ipc COMMAND dbus-run-session -- $<TARGET_FILE:karyo-files-service-test>)
+    set_tests_properties(files-service-ipc PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
+    add_executable(karyo-files-handler-test tests/archivehandlertest.cpp)
+    target_link_libraries(karyo-files-handler-test PRIVATE karyo-files-window Qt6::Test)
+    add_test(NAME files-archive-handoff COMMAND karyo-files-handler-test)
+    set_tests_properties(files-archive-handoff PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)
+endif()

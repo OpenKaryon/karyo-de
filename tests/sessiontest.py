@@ -105,6 +105,8 @@ exit 7
     def test_shell_restart_limit(self):
         self.env["SHELL_PROBE"] = str(self.root / "shell-runs")
         self.env["AUTOSTART_PROBE"] = str(self.root / "autostart-runs")
+        self.env["FILES_PROBE"] = str(self.root / "files-runs")
+        self.program("karyo-files", '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FILES_PROBE"\n')
         self.program("dex", '#!/bin/sh\nprintf "%s\\n" "$*" >> "$AUTOSTART_PROBE"\n')
         self.program("karyo-shell", '#!/bin/sh\nprintf "run\\n" >> "$SHELL_PROBE"\nexit 1\n')
         self.program("sleep", "#!/bin/sh\nexit 0\n")
@@ -114,6 +116,7 @@ exit 7
         result = subprocess.run([str(autostart)], env=self.env,
                                 capture_output=True, text=True, timeout=5)
         self.assertEqual(result.returncode, 0)
+        self.assertEqual((self.root / "files-runs").read_text().splitlines(), ["--dbus-service"])
         self.assertEqual((self.root / "shell-runs").read_text().splitlines(), ["run"] * 5)
         self.assertEqual((self.root / "probe").read_text().splitlines()[-1], "--exit")
         self.assertEqual((self.root / "autostart-runs").read_text().splitlines(),

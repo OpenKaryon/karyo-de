@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Files
+Name[ru]=Файлы
+GenericName=File manager
+GenericName[ru]=Файловый менеджер
+Comment=Browse folders, drives and network places
+Comment[ru]=Папки, диски и сетевые расположения
+Exec=karyo-files %U
+Icon=system-file-manager
+Terminal=false
+Categories=System;FileTools;FileManager;Utility;Core;
+MimeType=inode/directory;
+Keywords=folder;explorer;browse;directory;
+Keywords[ru]=папка;проводник;каталог;
+StartupWMClass=karyo-files

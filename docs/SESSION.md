@@ -103,3 +103,13 @@ public application IDs. Qt 6.10's portal registry requires these to resolve the
 calling process. NoDisplay keeps service processes out of the normal app list;
 this is not an autostart registration. Ubuntu VM validation confirms the IDs
 resolve through GIO and the missing-AppInfo portal registration error disappears.
+
+### Optional Files ownership
+
+When `karyo-files` is installed, Karyo autostart launches its headless
+`--dbus-service` mode to provide FileManager1 on demand. It opens no Home window
+and remains available when the last folder window closes. An already-owned
+FileManager1 causes that server to exit; it never replaces another manager.
+The package installs only its compatible private D-Bus activation identity,
+not a generic FileManager1 activation override in existing desktop sessions.
+User/default directory MIME associations remain an OS or user choice.

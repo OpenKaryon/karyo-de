@@ -6,6 +6,10 @@ if command -v dbus-update-activation-environment >/dev/null 2>&1; then
         XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP \
         QT_QPA_PLATFORM QT_STYLE_OVERRIDE >/dev/null 2>&1 || true
 fi
+# Optional Files claims FileManager1 only if another manager does not own it.
+if command -v karyo-files >/dev/null 2>&1; then
+    karyo-files --dbus-service &
+fi
 # Respect freedesktop autostart filtering once per compositor session.
 if command -v dex >/dev/null 2>&1; then
     dex --autostart --environment Karyo &

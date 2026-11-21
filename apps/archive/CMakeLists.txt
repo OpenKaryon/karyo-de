@@ -1,4 +1,6 @@
 find_package(LibArchive REQUIRED)
+# Files reuses this backend from a sibling directory; Qt finalizers walk its imports.
+set_property(TARGET LibArchive::LibArchive PROPERTY IMPORTED_GLOBAL TRUE)
 add_library(karyo-archive-backend STATIC src/archivebackend.cpp src/archivebackend.h
     src/archive7zip.cpp src/archive7zip.h)
 target_include_directories(karyo-archive-backend PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
