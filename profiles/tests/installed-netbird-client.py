@@ -74,7 +74,7 @@ from karyo_profiles.journal_forwarding import JournalForwarding
 from karyo_profiles.journal_network import JournalNetwork
 from karyo_profiles.journal_session import JournalSession
 from karyo_profiles.logind import Sessions
-from karyo_profiles.netbird import NetBirdScope
+from karyo_profiles.journal_netbird import JournalNetBird
 from karyo_profiles.returning import ReturnAfterExit
 from karyo_profiles.services import program_identity
 from karyo_profiles.storage import ConfigStore
@@ -151,15 +151,16 @@ try:
             physical = discover_underlay(network.network.command)
             forwarding = JournalForwarding.start(journal, network, physical)
             dns = JournalDNS.start(journal, network, discover_dns(physical, network.network.command))
+            captured = JournalNetBird.start(journal, dns)
+            state_identity = captured.scope.state.identity
             graph = JournalSession.start(journal, dns)
+            captured.release_handles()
             graph.enter(accounts.account("karyoqa"))
         wait(lambda: Path("/run/user/1002/wayland-0").exists(), "Work compositor did not become ready")
-        provider = NetBirdScope(dns)
+        provider = graph.provider.scope
         name = "karyo-qa-netbird-gui-" + network.token + ".service"
         gui = None
         try:
-            with store.locked():
-                provider.start(); state_identity = provider.state.identity
             env = "KARYO_NETBIRD_ENDPOINT=" + str(provider.endpoint)
             # Direct ordinary client from the host network must fail even for
             # the right UID. The scoped manager is the positive launch path.
@@ -167,7 +168,7 @@ try:
                                       capture_output=True, text=True, timeout=10)
             require(rejected.returncode != 0, "Client accepted the wrong network/resolver context")
             result = subprocess.run(user("/usr/bin/systemd-run", "--user", "--wait", "--pipe", "--collect",
-                "--unit=karyo-qa-netbird-status.service", "--setenv=" + env, "--", "/usr/bin/karyo-netbird-cli", "status", "--json"),
+                "--unit=karyo-qa-netbird-status.service", "--", "/usr/bin/karyo-netbird-cli", "status", "--json"),
                 capture_output=True, text=True, timeout=20)
             require(result.returncode == 0 and isinstance(json.loads(result.stdout), dict), "Scoped CLI failed: " + result.stderr)
             callback = subprocess.run(user("/usr/bin/systemd-run", "--user", "--wait", "--pipe", "--collect",
@@ -177,7 +178,7 @@ try:
             callback_result = json.loads(callback.stdout)
             require(callback_result["network"] == list(network.network.identity), "Callback used a different desktop network")
             run(*user("/usr/bin/systemd-run", "--user", "--quiet", "--collect", "--unit=" + name,
-                "--property=Type=exec", "--setenv=" + env, "--setenv=WAYLAND_DISPLAY=wayland-0",
+                "--property=Type=exec", "--setenv=WAYLAND_DISPLAY=wayland-0",
                 "--setenv=GDK_BACKEND=wayland", "--", "/usr/bin/karyo-netbird-gui"))
             def window():
                 return "netbird" in run(*user("/usr/bin/wlrctl", "toplevel", "list")).lower()
@@ -202,6 +203,7 @@ try:
             if not window_only:
                 wait(lambda: sandbox_renderer(gui), "WebKit renderer sandbox was not observed")
             sandboxed = sandbox_renderer(gui)
+            with store.locked(): graph.verify_consumers()
             ready.write_text(json.dumps({"token": network.token, "pid": int(gui["MainPID"])}))
             print(json.dumps({"qa_gui_ready": network.token, "pid": int(gui["MainPID"])}), flush=True)
             require(select.select([sys.stdin], [], [], 35)[0] and sys.stdin.readline(128).strip() == network.token,
@@ -212,8 +214,6 @@ try:
             if gui is not None:
                 require(unit(name) == gui, "Captured GUI service changed before stop")
                 run(*user("/usr/bin/systemctl", "--user", "stop", name))
-            with store.locked():
-                provider.close()
             ExistingSwitcher(store).switch(accounts.account("kq-switch-work"), "karyoqa")
             deadline = time.monotonic() + 30
             while True:
@@ -224,7 +224,7 @@ try:
                     require(time.monotonic() < deadline, "User manager did not naturally close")
                     time.sleep(.1)
             with store.locked():
-                dns.close(); forwarding.close(); network.close()
+                graph.provider.close(); dns.close(); forwarding.close(); network.close()
             graph.release_handles()
             require(not journal.snapshot()["profiles"], "Client test left runtime receipts")
 finally:

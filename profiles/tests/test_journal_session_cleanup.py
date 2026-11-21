@@ -75,8 +75,8 @@ class ClosingManagerFilesTest(unittest.TestCase):
             item.start();self.addCleanup(item.stop)
         self.scope.prepare();self.proof=manager_receipt(self.scope)
         self.original_directory=self.scope.directory
-        def factory(files):
-            value=UserManagerScope(files,sessions=self.sessions,command=self.kernel,process=self.kernel)
+        def factory(files,**kwargs):
+            value=UserManagerScope(files,sessions=self.sessions,command=self.kernel,process=self.kernel,**kwargs)
             value.directory=self.original_directory
             return value
         item=patch("karyo_profiles.journal_session_cleanup.UserManagerScope",side_effect=factory)

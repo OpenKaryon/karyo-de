@@ -1226,3 +1226,24 @@ PATH includes the asynchronous opener shim. It accepts one HTTP(S) URL and hands
 it to the native browser without waiting, so the provider can start its callback
 listener even when the browser was cold. URL/code values are not logged on failure.
 The complete host provider/tunnel journal and public VPN activation remain separate.
+
+
+### Captured provider and graphical owner
+
+An acknowledged pre-login NetBird provider can now precede `JournalSession`
+startup. The captured session reattaches that exact service and revalidates it
+around namespace consumer inventory; only its verified main PID is accepted
+outside the captured resolver, graphical and user-manager scopes. An unknown
+root process is not accepted merely because a provider exists.
+
+The scoped native user manager and graphical entry receive the same derived
+`KARYO_NETBIRD_ENDPOINT` environment. Plain profiles receive no provider setting.
+Restore reconstructs the exact manager policy from the acknowledged provider
+record. Login/manager closure completes before provider shutdown, which precedes
+DNS, forwarding and network cleanup. Offline prepared/closing session recovery
+can observe that provider while still refusing any unknown consumer.
+
+This joins the pre-login provider to the graphical owner's lifetime. It does not
+yet enable public VPN startup, adopt a connected wt0 or implement catalog/vendor
+packaging. Connected ownership/recovery and real account enrollment remain
+required before the public VPN policy gate is removed.

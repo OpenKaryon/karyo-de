@@ -12,6 +12,7 @@ from .graphical import GraphicalIdentity,GraphicalSession
 from .journal import JournalRetained
 from .journal_dns import JournalDNS,recover_profiles,unit_receipt
 from .journal_network import JournalNetwork,restore_network,offline
+from .journal_netbird import restore_optional,restore_offline_services
 from .journal_session_record import owner,validate_session
 from .logind import Sessions
 from .services import UnitIdentity
@@ -38,8 +39,8 @@ def graphical_receipt(graph):
             "compositor":list(graph.compositor),"entered":graph.entered}
 
 
-def restore_manager(files,proof):
-    manager=UserManagerScope(files)
+def restore_manager(files,proof,*,netbird=False):
+    manager=UserManagerScope(files,netbird=netbird)
     manager.initial_dropins=frozenset(proof["dropins"])
     manager.directory_identity=tuple(proof["directory"]);manager.file_identity=tuple(proof["file"])
     try:
@@ -107,10 +108,10 @@ def stat_start(pid):
 
 
 class JournalSession:
-    def __init__(self,journal,dns,manager,graph=None,*,forwarding=None):
+    def __init__(self,journal,dns,manager,graph=None,*,forwarding=None,provider=None):
         self.journal,self.dns,self.manager,self.graph=journal,dns,manager,graph
         self.network=dns.network;self.token=dns.token
-        self.forwarding=forwarding
+        self.forwarding,self.provider=forwarding,provider
 
     def update(self,**values):
         before=self.journal.record(self.token)
@@ -124,10 +125,11 @@ class JournalSession:
         dns.services.verify()
         from .journal_forwarding import JournalForwarding
         forwarding=JournalForwarding.restore(journal,dns.network) if "forwarding" in record else None
-        journal.change(record,dict(record,session={"pending":"manager-prepare","manager":None,"graphical":None}))
-        manager=UserManagerScope(dns.files)
+        manager=UserManagerScope(dns.files,netbird="provider" in record)
         scope=cls(journal,dns,manager,forwarding=forwarding)
         try:
+            scope.provider=restore_optional(journal,dns)
+            journal.change(record,dict(record,session={"pending":"manager-prepare","manager":None,"graphical":None}))
             manager.prepare()
             scope.update(pending=None,manager=manager_receipt(manager))
             scope.update(pending="login-start")
@@ -150,21 +152,23 @@ class JournalSession:
             raise JournalRetained("An incomplete session transition requires reconciliation")
         network=restore_network(store,record,require_empty=False)
         if network is None:raise JournalRetained("The live session lost its namespace")
-        dns=None;manager=None;graph=None
+        dns=None;manager=None;graph=None;provider=None
         try:
             wrapped=JournalNetwork(journal,network)
             dns=JournalDNS.restore_observers(journal,wrapped,accounts=accounts)
-            manager=restore_manager(dns.files,value["manager"])
+            provider=restore_optional(journal,dns)
+            manager=restore_manager(dns.files,value["manager"],netbird=provider is not None)
             graph=restore_graph(manager,value["graphical"])
             from .journal_forwarding import JournalForwarding
             forwarding=JournalForwarding.restore(journal,wrapped) if "forwarding" in record else None
-            scope=cls(journal,dns,manager,graph,forwarding=forwarding)
+            scope=cls(journal,dns,manager,graph,forwarding=forwarding,provider=provider)
             scope.verify_consumers()
             if value["pending"]=="enter" or value["graphical"]["entered"]!=graph.entered:
                 scope.update(pending=None,graphical=graphical_receipt(graph))
             journal.known.add(record["token"])
             return scope
         except BaseException:
+            if provider is not None:provider.release_handles()
             if graph is not None and graph.pidfd is not None:graph.process.close(graph.pidfd);graph.pidfd=None
             if manager is not None:
                 if manager.pidfd is not None:manager.process.close(manager.pidfd);manager.pidfd=None
@@ -176,10 +180,12 @@ class JournalSession:
     def verify_consumers(self):
         self.manager.verify();self.graph.verify();self.dns.services.verify()
         if self.forwarding is not None:self.forwarding.verify()
+        if self.provider is not None:self.provider.verify()
         session=self.graph.identity.cgroup
         user=self.manager.identity.cgroup.removesuffix("/init.scope")
         service="/system.slice/"+self.graph.name
         resolver=self.dns.services.resolver.identity.pid
+        provider=None if self.provider is None else self.provider.scope.unit.identity.pid
         deadline=time.monotonic()+5
         for attempt in range(3):
             try:
@@ -188,7 +194,7 @@ class JournalSession:
                     if not value.isdecimal() or str(int(value))!=value or int(value)<=1:
                         raise JournalRetained("Invalid private namespace process inventory")
                     pid=int(value)
-                    if pid==resolver:continue
+                    if pid in (resolver,provider):continue
                     fd=os.pidfd_open(pid)
                     try:
                         import select
@@ -204,6 +210,7 @@ class JournalSession:
                     finally:os.close(fd)
                 self.manager.verify();self.graph.verify();self.dns.services.verify()
                 if self.forwarding is not None:self.forwarding.verify()
+                if self.provider is not None:self.provider.verify()
                 return
             except (FileNotFoundError,ProcessLookupError):
                 if attempt==2 or time.monotonic()>=deadline:raise JournalRetained("Namespace process churn did not settle") from None
@@ -226,6 +233,7 @@ class JournalSession:
         self.journal.change(before,updated)
 
     def release_handles(self):
+        if self.provider is not None:self.provider.release_handles()
         if self.graph is not None and self.graph.pidfd is not None:self.graph.process.close(self.graph.pidfd);self.graph.pidfd=None
         if self.manager.pidfd is not None:self.manager.process.close(self.manager.pidfd);self.manager.pidfd=None
         if self.manager.fd is not None:os.close(self.manager.fd);self.manager.fd=None
@@ -245,20 +253,20 @@ def recover_prepared_session(journal,store,record,*,accounts=None,sessions=None)
     offline(account,accounts,sessions)
     network=restore_network(store,record,require_empty=False)
     if network is None:raise JournalRetained("The prepared session lost its namespace")
-    dns=None;manager=None
+    dns=None;manager=None;provider=None
     try:
         wrapped=JournalNetwork(journal,network)
-        # DNS-only inventory rejects any unacknowledged graphical/root consumer.
-        dns=JournalDNS.restore(journal,wrapped,accounts=accounts)
-        manager=restore_manager(dns.files,value["manager"])
+        dns,provider=restore_offline_services(journal,wrapped,accounts=accounts)
+        manager=restore_manager(dns.files,value["manager"],netbird=provider is not None)
         graph=GraphicalSession(manager)
         if graph.info()["LoadState"]!="not-found":
             raise JournalRetained("An unrecorded graphical unit prevents preparation recovery")
         offline(account,accounts,sessions)
-        scope=JournalSession(journal,dns,manager)
+        scope=JournalSession(journal,dns,manager,provider=provider)
         scope.close()  # Record close intent before touching the captured policy.
         return True
     finally:
+        if provider is not None:provider.release_handles()
         if manager is not None:
             if manager.pidfd is not None:manager.process.close(manager.pidfd);manager.pidfd=None
             if manager.fd is not None:os.close(manager.fd);manager.fd=None
@@ -300,6 +308,7 @@ class SessionRegistry:
                     self.returned.add(token)
                 try:scope.close()
                 except (GraphicalPending,ManagerPending):continue
+                if scope.provider is not None:scope.provider.close()
                 scope.dns.close()
                 if scope.forwarding is not None:scope.forwarding.close()
                 scope.network.close()

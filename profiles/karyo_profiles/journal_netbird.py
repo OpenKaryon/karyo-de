@@ -169,3 +169,35 @@ def recover_providers(journal, store, *, accounts=None, sessions=None, command=N
                 if owner is not None: owner.release_handles()
                 if dns is not None: dns.release_handles()
                 if network.fd is not None: os.close(network.fd); network.fd = None
+
+
+def restore_optional(journal, dns):
+    if "provider" not in journal.record(dns.token):
+        return None
+    provider = JournalNetBird.restore(journal, dns)
+    try:
+        provider.verify()
+        return provider
+    except BaseException:
+        provider.release_handles()
+        raise
+
+
+def restore_offline_services(journal, network, *, accounts=None):
+    """Observe a captured provider alongside DNS; never stop a graphical owner."""
+    if "provider" not in journal.record(network.token):
+        return JournalDNS.restore(journal, network, accounts=accounts), None
+    dns = JournalDNS.restore_observers(journal, network, accounts=accounts)
+    provider = None
+    try:
+        provider = restore_optional(journal, dns)
+        allowed = {str(dns.services.resolver.identity.pid), str(provider.scope.unit.identity.pid)}
+        values = network.network._ip("netns", "pids", network.network.name).splitlines()
+        if set(values) - allowed:
+            raise JournalRetained("Unknown consumers prevent offline profile reconciliation")
+        dns.services.verify(); provider.verify()
+        return dns, provider
+    except BaseException:
+        if provider is not None: provider.release_handles()
+        dns.release_handles()
+        raise

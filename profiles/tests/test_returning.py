@@ -141,7 +141,7 @@ class PollTest(unittest.TestCase):
     def fixture(self):
         store=Mock();store.locked.side_effect=lambda:nullcontext(store)
         registry=SessionRegistry(Mock(),store);scope=Mock();scope.graph.closed=False
-        scope.forwarding=None
+        scope.forwarding=scope.provider=None
         registry.profiles={"token":scope}
         return registry,scope
 

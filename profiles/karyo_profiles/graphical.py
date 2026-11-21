@@ -128,7 +128,8 @@ class GraphicalSession:
         environment = ("XDG_SESSION_TYPE=wayland", "XDG_SESSION_CLASS=user", "XDG_SEAT=seat0",
             "XDG_VTNR=" + str(self.vt), "HOME=" + self.account.home, "USER=" + self.account.name,
             "LOGNAME=" + self.account.name, "PATH=/usr/local/bin:/usr/bin:/bin",
-            "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/" + str(self.account.uid) + "/bus")
+            "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/" + str(self.account.uid) + "/bus",
+            *self.manager.environment)
         args = ["/usr/bin/systemd-run", "--quiet", "--collect", "--unit=" + self.name]
         args.extend("--property=" + value for value in properties)
         args.extend("--setenv=" + value for value in environment)

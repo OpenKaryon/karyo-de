@@ -8,6 +8,7 @@ from .graphical import GraphicalSession
 from .journal import JournalRetained
 from .journal_dns import JournalDNS,process_gone
 from .journal_network import JournalNetwork,offline,restore_network
+from .journal_netbird import restore_offline_services
 from .journal_session_record import validate_session
 from .logind import Sessions
 from .storage import trusted_directory
@@ -44,9 +45,9 @@ def baseline_policy(manager,rows):
             and manager_exec_start(manager.command,manager.account.uid)==BASE_MANAGER)
 
 
-def removing_manager(files,proof,*,allow_missing):
+def removing_manager(files,proof,*,allow_missing,netbird=False):
     """Restore full policy or finish its captured empty/absent removal directory."""
-    manager=UserManagerScope(files)
+    manager=UserManagerScope(files,netbird=netbird)
     manager.initial_dropins=frozenset(proof["dropins"])
     manager.directory_identity=tuple(proof["directory"]);manager.file_identity=tuple(proof["file"])
     manager.created=True
@@ -96,14 +97,14 @@ def recover_closed_session(journal,store,record,*,accounts=None,sessions=None):
     offline(account,accounts,sessions)
     network=restore_network(store,record,require_empty=False)
     if network is None:raise JournalRetained("The closing session lost its namespace")
-    dns=manager=None
+    dns=manager=provider=None
     try:
         wrapped=JournalNetwork(journal,network)
-        dns=JournalDNS.restore(journal,wrapped,accounts=accounts)
+        dns,provider=restore_offline_services(journal,wrapped,accounts=accounts)
         # Check completed graph ownership before removing even an empty policy
         # directory. Constructing this metadata object has no native side effects.
-        closed_graph(UserManagerScope(dns.files),value,sessions)
-        manager=removing_manager(dns.files,value["manager"],allow_missing=value["pending"]=="manager-close")
+        closed_graph(UserManagerScope(dns.files,netbird=provider is not None),value,sessions)
+        manager=removing_manager(dns.files,value["manager"],allow_missing=value["pending"]=="manager-close",netbird=provider is not None)
         offline(account,accounts,sessions)
         closing=dict(record,session=dict(value,pending="manager-close",graphical=None))
         journal.change(record,closing)
@@ -114,6 +115,7 @@ def recover_closed_session(journal,store,record,*,accounts=None,sessions=None):
         journal.change(closing,after)
         return True
     finally:
+        if provider is not None:provider.release_handles()
         if manager is not None and manager.fd is not None:os.close(manager.fd);manager.fd=None
         if dns is not None:dns.release_handles()
         if network.fd is not None:os.close(network.fd);network.fd=None

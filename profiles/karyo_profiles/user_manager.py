@@ -73,8 +73,12 @@ def manager_exec_start(command, uid):
 
 
 class UserManagerScope:
-    def __init__(self, files, *, sessions=None, command=None, process=None):
+    def __init__(self, files, *, sessions=None, command=None, process=None, netbird=False):
+        if type(netbird) is not bool:
+            raise ValueError("The provider launch policy must be explicit")
         self.files, self.network = files, files.network
+        self.environment = (("KARYO_NETBIRD_ENDPOINT=/run/karyo-netbird-" + self.network.spec.token + "/client.json",)
+                            if netbird else ())
         self.command = self.network.command if command is None else command
         self.sessions = Sessions() if sessions is None else sessions
         self.process = NativeProcess() if process is None else process
@@ -84,7 +88,8 @@ class UserManagerScope:
         self.filename = "90-karyo-profile.conf"
         self.contents = ("# Owned by the current Karyo profile runtime.\n[Service]\n"
                          + "\n".join(files.plan.client_properties()) + "\nExecStart=\nExecStart="
-                         + " ".join(SCOPED_MANAGER[1]) + "\n").encode()
+                         + " ".join(SCOPED_MANAGER[1]) + "\n"
+                         + ("Environment=" + " ".join(self.environment) + "\n" if self.environment else "")).encode()
         self.fd = None
         self.directory_identity = self.file_identity = None
         self.initial_dropins = None

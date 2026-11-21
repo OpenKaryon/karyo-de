@@ -109,7 +109,7 @@ class GraphicalTest(unittest.TestCase):
         network=SimpleNamespace(store=self.store,spec=NetworkSpec(1002,"ab"*16),command=self.kernel,identity=(4,5))
         files=SimpleNamespace(network=network,accounts=accounts,verify=verify,
             plan=SimpleNamespace(client_properties=lambda:("NetworkNamespacePath=/run/netns/fixture",)))
-        manager=SimpleNamespace(files=files,network=network,account=WORK,
+        manager=SimpleNamespace(files=files,network=network,account=WORK,environment=(),
             verify_file=lambda:None,info=lambda:{},verify_policy=lambda rows:None,
             inactive=lambda rows:True,capture=Mock(),verify=lambda:None)
         sessions=SimpleNamespace(owners=self.kernel.owners_for,get=self.kernel.get,all=self.kernel.all,
