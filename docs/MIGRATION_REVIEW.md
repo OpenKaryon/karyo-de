@@ -24,7 +24,7 @@ and verified; this checklist must not be read as a completion claim.
 | Editor | Complete independent window, compatible recovery/IPC and lossless encoding choice migrated. Undo, malformed metadata, both dialog choices and real second-process reuse pass on both bases (21/21 total). GUI package checks follow. |
 | Monitor | Complete sampler/UI migrated. Reset/PID/model, responsive services, user scope, atomic startup and disposable-child controls pass on both bases (26/26 total). Real authorization/package checks follow. |
 | Files | Pending. Preserve FileManager1, existing-window/tab routing, selection, rename, removable disks, folder-size cache and archive handoff. |
-| Archive | Pending. Preserve protected archives, password retry/cancel, atomic publication and actual compression/encryption behavior. |
+| Archive | Complete backend/window migrated with real ZIP/7z/encrypted RAR, compression, cancellation and atomic publication. Password retry/cancel and creation/browsing GUI cases pass on both bases (31 current CTest entries). Native package/VM checks follow. |
 | Snipping | Complete canvas/window/overlay migrated with public shortcut routes and compatible preferences. Native tests pass on both bases (28/28 total). Real overlay/clipboard and optional compositor window-snapshot integration follow. |
 | Settings | Pending. Review each page, user persistence, privileged changes and rollback. Public short routes must keep existing functionality. |
 | App Center / catalog | Pending. Keep personal/corporate package sources and data external; review privileged installation boundaries. |

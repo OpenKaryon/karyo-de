@@ -148,3 +148,15 @@ The file-type presentation previously embedded in the shell now has one internal
 shared target for shell, Files and Archive. Its existing format classification,
 labels and palette behavior are retained, including bioinformatics formats.
 Virtual archive entries remain name-only and never sniff filesystem contents.
+
+Archive backend and retained compression/encryption/extraction regressions are
+adapted from `distro/desktop/apps/archive` at the same application donor
+revision. libarchive and distribution 7-Zip/codecs remain external dependencies.
+The two public RAR fixtures retain the full 2013 Konrad Kleine BSD notice and
+libarchive v3.7.4 provenance in tests/fixtures/README.md. No personal archive or
+password is included; all test passwords are disposable public fixture values.
+
+Archive window, password form, icon and Russian catalog are now adapted from the
+same donor. Backend and GUI regressions remain separate executable targets; all
+retained UI scenarios are explicitly registered. The optional RAR addon contains
+only metadata/documentation and depends on the distribution's own codec package.

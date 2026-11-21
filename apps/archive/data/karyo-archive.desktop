@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=Archive Manager
+Name[ru]=Архиватор
+GenericName=Archive manager
+GenericName[ru]=Менеджер архивов
+Comment=Browse, create and extract archives
+Comment[ru]=Просмотр, создание и распаковка архивов
+Exec=karyo-archive %U
+Icon=karyo-archive
+Terminal=false
+Categories=Utility;Archiving;
+MimeType=application/zip;application/x-tar;application/gzip;application/x-bzip2;application/x-xz;application/zstd;application/x-7z-compressed;application/vnd.rar;application/x-rar;
+Keywords=archive;zip;tar;7z;rar;extract;compress;
+StartupWMClass=karyo-archive
+Actions=New;
+
+[Desktop Action New]
+Name=New archive
+Name[ru]=Новый архив
+Exec=karyo-archive --create

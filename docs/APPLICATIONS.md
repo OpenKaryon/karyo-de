@@ -177,3 +177,26 @@ that capability limit explicitly rather than selecting a guessed window. The
 reviewed compositor extension package and real overlay/clipboard VM acceptance
 are still pending. Native canvas/window regressions, including crop placement,
 inline-save and compatible preferences, pass on both bases (28/28 total).
+
+## Archive Manager
+
+karyo-archive (short command: archive) retains folder browsing/filtering, file
+preview, selected/full extraction and creation of ZIP, tar.gz and 7z archives.
+Operations run outside the UI thread, expose cancellation and publish completed
+output atomically. Password retry distinguishes a missing password from a wrong
+one; cancelling a different archive keeps the previous view intact. Creation
+supports password confirmation, file-name encryption and real compression levels.
+
+The application and MIME handler use public identity, an independent runtime
+component and the shared file presentation target. libarchive and distribution
+7-Zip remain external engines. Optional karyo-archive-rar adds the distribution
+7zip-rar codec for protected RAR; it never enables host repositories itself.
+
+Native regressions cover actual encrypted ZIP/7z/RAR, Unicode passwords, selected
+extraction, unsafe paths/links, output preservation, compression levels and a
+128-MiB cancellable stream. GUI tests drive wrong-password retry/cancel, protected
+archive creation and light/dark folder browsing. The initial split GUI fixture
+lost its QtTest slot marker; that empty run is not acceptance evidence. The
+corrected harness requires all expected slots and records ten passing Qt cases
+with no skips on each base. Full current CTest has 31 entries; installed-package
+and real graphical VM checks remain to be completed.
