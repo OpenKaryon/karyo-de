@@ -179,6 +179,17 @@ private Q_SLOTS:
         for (auto *label : view->findChildren<QLabel *>())
             QVERIFY(label->text() != QString("Cancelling sign-in…") || !label->isVisible());
     }
+    void disconnectedServiceReportsActionableReason()
+    {
+        auto view = window();
+        QSignalSpy failure(view.get(), &GreeterWindow::connectionFailed);
+        view->password()->lineEdit()->setText("must-not-be-logged");
+        m_peer->disconnectFromServer();
+        QTRY_COMPARE(failure.size(), 1);
+        QCOMPARE(failure.first().at(0).toString(), QString("The sign-in service connection was lost."));
+        QVERIFY(view->password()->text().isEmpty());
+        QVERIFY(view->password()->lineEdit()->isReadOnly());
+    }
     void missingInventoryIsActionableAndCannotAuthenticate()
     {
         GreeterWindow view(m_transport.get(), { }, { }, { "", "", "<b>Configuration failed</b>" },

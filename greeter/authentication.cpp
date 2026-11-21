@@ -67,6 +67,7 @@ bool GreeterAuthentication::begin(const QString &user, const QStringList &comman
     m_firstAnswer = firstAnswer;
     m_hasFirstAnswer = true;
     m_cancelRequested = false;
+    m_deniedCleanupRetry = false;
     setState(State::Authenticating);
     m_transport->createSession(m_user);
     return m_state != State::Failed;
@@ -120,6 +121,7 @@ void GreeterAuthentication::reset()
     m_command.clear();
     m_environment.clear();
     m_cancelRequested = false;
+    m_deniedCleanupRetry = false;
     setState(State::Idle);
 }
 
@@ -132,6 +134,7 @@ void GreeterAuthentication::fatal(const QString &text)
     m_command.clear();
     m_environment.clear();
     m_cancelRequested = false;
+    m_deniedCleanupRetry = false;
     setState(State::Failed);
     Q_EMIT message(text, false);
 }
@@ -148,6 +151,8 @@ void GreeterAuthentication::handle(const QJsonObject &reply)
     const QString type = reply.value(QStringLiteral("type")).toString();
     if (m_cancelRequested)
     {
+        m_deniedCleanupRetry = type == QLatin1String("error")
+            && reply.value(QStringLiteral("error_type")).toString() == QLatin1String("auth_error");
         cancelNow();
         return;
     }
@@ -175,11 +180,22 @@ void GreeterAuthentication::handle(const QJsonObject &reply)
     {
         if (m_state == State::Cancelling)
         {
+            if (m_deniedCleanupRetry && m_transport)
+            {
+                // greetd 0.10 removes the configuring session before asking its
+                // worker to cancel. A denied PAM worker can already be gone,
+                // making that cleanup report an error. Retry once and require
+                // a positive cancellation acknowledgement before allowing reuse.
+                m_deniedCleanupRetry = false;
+                m_transport->cancelSession();
+                return;
+            }
             fatal(tr("Could not cancel the sign-in attempt."));
             return;
         }
         const bool denied
             = reply.value(QStringLiteral("error_type")).toString() == QLatin1String("auth_error");
+        m_deniedCleanupRetry = denied;
         Q_EMIT message(denied ? tr("That password didn't work. Try again.")
                               : reply.value(QStringLiteral("description")).toString(),
             denied);

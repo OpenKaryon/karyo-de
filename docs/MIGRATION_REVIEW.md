@@ -227,3 +227,27 @@ native WindowTransparentForInput. The rebuilt terminal closes on the first real
 VNC click on both Debian and Ubuntu; the process exits and Wayland objects tear
 down normally. Existing shared-widget and terminal tests pass on both bases.
 This check uses a named QA overlay binary, not an installed package revision.
+
+The first real greetd run exposed a cage/wlroots initialization assertion on
+Ubuntu: the client's initial fullscreen request preceded xdg_surface setup.
+Letting the kiosk compositor size a normal shown window renders correctly on
+Ubuntu and Debian. Fatal UI reasons now reach stderr and clear unsubmitted input;
+a native disconnect regression verifies the signal contains only the reason.
+The real wrong-password path still exposed a separate cleanup/retry issue and
+is not accepted yet. Package installation itself preserves LightDM, and both
+installed font runtimes resolve the original Plex Sans/Mono files with fc-match.
+
+A real wrong-password attempt revealed greetd 0.10's terminated-PAM-worker
+cleanup error. The client now retries cancellation at most once after an
+explicit auth_error and still requires a positive cancellation acknowledgement
+before a fresh attempt. Further failure is terminal; authentication/session start
+is never inferred from a cleanup response. Native regressions reproduce failed
+worker cleanup, prevent early reuse and prove the retry is bounded.
+
+On both disposable VMs the revised QA frontend now passes real wrong-password
+recovery, correct password, Karyo session launch and GUI Sign out returning to a
+fresh greeter. Debian uses English/light; Ubuntu proves Russian/dark-sage adoption
+from a correctly owned public fixture. Both VMs were restored to their original
+LightDM and have clean dpkg verification/audit. This frontend is a named overlay;
+the installed 90df39b package wave precedes the kiosk and cleanup fixes. A final
+native package refresh remains required. No owner VM or physical laptop changed.

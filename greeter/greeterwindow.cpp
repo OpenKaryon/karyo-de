@@ -66,6 +66,8 @@ GreeterWindow::GreeterWindow(Greetd *transport, QList<GreeterUser> users, QList<
             status(text);
             if (error)
                 password()->showError();
+            if (m_auth->state() == GreeterAuthentication::State::Failed)
+                Q_EMIT connectionFailed(text);
         });
     connect(m_auth, &GreeterAuthentication::sessionReady, this,
         [this](const QString &user)
@@ -111,6 +113,8 @@ void GreeterWindow::sync()
         password()->lineEdit()->setEchoMode(QLineEdit::Password);
         password()->setPlaceholder(tr("Password"));
     }
+    if (state == State::Failed)
+        password()->clear();
     const bool canSubmit = (idle || state == State::Prompt) && !m_users.isEmpty() && !m_sessions.isEmpty();
     password()->setBusy(!canSubmit);
     if (m_other)
@@ -123,8 +127,6 @@ void GreeterWindow::sync()
     showMessage(m_status); // Reposition the shared block after link visibility changes.
     if (idle && canSubmit)
         password()->setFocus();
-    if (state == State::Failed)
-        Q_EMIT connectionFailed();
 }
 
 void GreeterWindow::showUser()

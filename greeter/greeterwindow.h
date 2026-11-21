@@ -13,7 +13,7 @@ public:
 Q_SIGNALS:
     void accepted(const QString &user, const QString &session);
     void preferenceError(const QString &message);
-    void connectionFailed();
+    void connectionFailed(const QString &message);
 
 private:
     void submit();

@@ -398,3 +398,10 @@ style, account/session inventory and greetd controller. Its embedded Russian
 catalog is maintained with this frontend. The documentation-only greetd example
 installs under share/doc and does not activate a service, create users, replace
 a display manager or install an alternative PAM policy.
+
+The real greetd 0.10 cleanup regression was reviewed against upstream
+[Context::cancel](https://github.com/kennylevinsen/greetd/blob/0.10.3/greetd/src/context.rs)
+and the session worker interface. The controller performs only one extra cleanup
+request after explicit authentication denial, then still requires positive
+cancellation before another attempt; it does not treat a cleanup error as login
+success. Native regressions and actual PAM sessions on both bases verify this.

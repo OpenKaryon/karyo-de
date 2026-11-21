@@ -44,5 +44,5 @@ private:
     State m_state = State::Idle;
     QString m_user, m_firstAnswer;
     QStringList m_command, m_environment;
-    bool m_hasFirstAnswer = false, m_cancelRequested = false;
+    bool m_hasFirstAnswer = false, m_cancelRequested = false, m_deniedCleanupRetry = false;
 };

@@ -172,6 +172,41 @@ private Q_SLOTS:
         QCOMPARE(request().value("response").toString(), QString("next-attempt"));
         QCOMPARE(ready.size(), 0);
     }
+    void deniedWorkerCleanupRetriesOnceBeforeReuse()
+    {
+        QSignalSpy ready(m_auth.get(), &GreeterAuthentication::sessionReady);
+        QVERIFY(begin("first-secret"));
+        request();
+        prompt("secret", "Password:");
+        request();
+        error();
+        QCOMPARE(request().value("type").toString(), QString("cancel_session"));
+        reply({ { "type", "error" }, { "error_type", "error" },
+            { "description", "unable to send message: Connection refused (os error 111)" } });
+        QCOMPARE(request().value("type").toString(), QString("cancel_session"));
+        QCOMPARE(m_auth->state(), State::Cancelling);
+        QVERIFY(!begin("must-not-start"));
+        success();
+        QTRY_COMPARE(m_auth->state(), State::Idle);
+        QCOMPARE(ready.size(), 0);
+        QVERIFY(begin("new-secret"));
+        QCOMPARE(request().value("type").toString(), QString("create_session"));
+        prompt("secret", "Password:");
+        QCOMPARE(request().value("response").toString(), QString("new-secret"));
+    }
+    void deniedCleanupCannotRetryIndefinitely()
+    {
+        QVERIFY(begin());
+        request();
+        error();
+        QCOMPARE(request().value("type").toString(), QString("cancel_session"));
+        error();
+        QCOMPARE(request().value("type").toString(), QString("cancel_session"));
+        error();
+        QTRY_COMPARE(m_auth->state(), State::Failed);
+        QVERIFY(!begin());
+        QCOMPARE(m_peer->bytesAvailable(), 0);
+    }
     void cancelQueuedDuringAuthenticationNeverStarts()
     {
         QVERIFY(begin());

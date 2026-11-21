@@ -62,8 +62,14 @@ int main(int argc, char **argv)
     QObject::connect(&window, &GreeterWindow::preferenceError, &app,
         [](const QString &text) { std::fprintf(stderr, "karyo-greeter: %s\n", qPrintable(text)); });
     QObject::connect(&window, &GreeterWindow::connectionFailed, &app,
-        [&app] { QTimer::singleShot(1000, &app, [&app] { app.exit(1); }); });
-    window.showFullScreen();
+        [&app](const QString &text)
+        {
+            std::fprintf(stderr, "karyo-greeter: %s\n", qPrintable(text));
+            QTimer::singleShot(1000, &app, [&app] { app.exit(1); });
+        });
+    // The kiosk compositor controls the output size. An initial fullscreen
+    // request can reach cage before its xdg_surface has been initialized.
+    window.show();
     window.password()->setFocus();
     return QApplication::exec();
 }
