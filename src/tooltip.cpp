@@ -26,10 +26,12 @@ QPointer<ToolTip> &shared()
 } // namespace
 
 ToolTip::ToolTip(QWidget *parent)
-    : QWidget(parent, Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus)
+    : QWidget(parent, Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus
+            | Qt::WindowTransparentForInput)
 {
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_ShowWithoutActivating);
+    // Widget transparency alone does not clear a native Wayland popup input region.
     setAttribute(Qt::WA_TransparentForMouseEvents);
 }
 

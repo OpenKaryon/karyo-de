@@ -219,3 +219,11 @@ both bases, with a NoDisplay desktop identity for Qt portal lookup. Its componen
 stages only the executable, desktop identity and documentation/example; it does
 not install active display-manager configuration or PAM policy. All 66 native
 CTest entries pass on Debian and Ubuntu. Real greetd login remains pending.
+
+A real Ubuntu Wayland trace reproduced the terminal close-button failure: a
+compositor-repositioned tooltip popup received the press instead of the button.
+Widget-level mouse transparency was insufficient. Tooltips now also declare
+native WindowTransparentForInput. The rebuilt terminal closes on the first real
+VNC click on both Debian and Ubuntu; the process exits and Wayland objects tear
+down normally. Existing shared-widget and terminal tests pass on both bases.
+This check uses a named QA overlay binary, not an installed package revision.
