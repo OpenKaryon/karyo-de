@@ -1010,3 +1010,23 @@ exit, then closes DNS/network and restores the captured QA account/PAM state.
 Old offline DNS/network and transport probes still pass on the schema-3 runtime.
 See Builder VALIDATION-PROFILE-SESSION-JOURNAL.md for exact artifacts, evidence and
 remaining prepared/closing reconciliation and public-runtime gates.
+
+
+SessionRegistry can additionally reconcile a fully captured offline manager
+preparation before any GUI receipt exists, including an unstarted login-start
+intent. It requires the same account, no UID/login owners, DNS-only namespace
+consumers, the exact prepared manager policy and an absent graphical unit.
+Manager-close intent precedes policy removal; DNS/network cleanup runs afterwards
+through the existing offline recovery path. Unacknowledged preparation and
+interrupted policy removal still retain resources for their later gate.
+
+
+Installed tests/installed-journal-prepared.py now accepts three actual SIGKILL
+cases on both QA bases: captured preparation, unstarted login-start intent and
+actual socket-activated host recovery. The final probe runs as a fixed root-owned
+file against native packages. No GUI or user manager is created during recovery;
+known policy, private DNS and network disappear in dependency order. The previous
+living-editor/lock, DNS, network and transport gates also pass on this runtime.
+Both original main logins and account/common-PAM/network snapshots are restored;
+dpkg verification and final resource postchecks are clean. See Builder
+VALIDATION-PROFILE-PREPARED-JOURNAL.md for exact inputs and remaining close gates.

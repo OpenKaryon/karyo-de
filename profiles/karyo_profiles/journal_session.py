@@ -10,7 +10,7 @@ from .credentials import LocalAccounts
 from .graphical import GraphicalIdentity,GraphicalSession
 from .journal import JournalRetained
 from .journal_dns import JournalDNS,recover_profiles,unit_receipt
-from .journal_network import JournalNetwork,restore_network
+from .journal_network import JournalNetwork,restore_network,offline
 from .journal_session_record import owner,validate_session
 from .logind import Sessions
 from .services import UnitIdentity
@@ -212,6 +212,7 @@ class JournalSession:
             self.update(pending="login-close")
             self.graph.close()
             self.update(pending="manager-close",graphical=None)
+        self.update(pending="manager-close")
         self.manager.close()  # ManagerPending is natural logind lifetime, never user@stop.
         before=self.journal.record(self.token);updated=dict(before);updated.pop("session")
         self.journal.change(before,updated)
@@ -224,6 +225,39 @@ class JournalSession:
         if self.network.network.fd is not None:os.close(self.network.network.fd);self.network.network.fd=None
 
 
+def recover_prepared_session(journal,store,record,*,accounts=None,sessions=None):
+    """Remove a fully captured offline preparation; never adopt a partial GUI."""
+    accounts=LocalAccounts() if accounts is None else accounts
+    sessions=Sessions() if sessions is None else sessions
+    account=accounts.by_uid(record["account"]["uid"])
+    if asdict(account)!=record["account"]:raise JournalRetained("The prepared journal account changed")
+    value=record["session"];validate_session(value,account)
+    if (value["pending"] not in {None,"login-start"} or value["graphical"] is not None
+            or value["manager"] is None or value["manager"]["live"] is not None):return False
+    offline(account,accounts,sessions)
+    network=restore_network(store,record,require_empty=False)
+    if network is None:raise JournalRetained("The prepared session lost its namespace")
+    dns=None;manager=None
+    try:
+        wrapped=JournalNetwork(journal,network)
+        # DNS-only inventory rejects any unacknowledged graphical/root consumer.
+        dns=JournalDNS.restore(journal,wrapped,accounts=accounts)
+        manager=restore_manager(dns.files,value["manager"])
+        graph=GraphicalSession(manager)
+        if graph.info()["LoadState"]!="not-found":
+            raise JournalRetained("An unrecorded graphical unit prevents preparation recovery")
+        offline(account,accounts,sessions)
+        scope=JournalSession(journal,dns,manager)
+        scope.close()  # Record close intent before touching the captured policy.
+        return True
+    finally:
+        if manager is not None:
+            if manager.pidfd is not None:manager.process.close(manager.pidfd);manager.pidfd=None
+            if manager.fd is not None:os.close(manager.fd);manager.fd=None
+        if dns is not None:dns.release_handles()
+        if network.fd is not None:os.close(network.fd);network.fd=None
+
+
 class SessionRegistry:
     def __init__(self,journal,store):
         self.journal,self.store=journal,store
@@ -234,6 +268,7 @@ class SessionRegistry:
             for record in self.journal.snapshot()["profiles"]:
                 if "session" not in record:continue
                 with self.store.locked():
+                    if recover_prepared_session(self.journal,self.store,record):continue
                     self.profiles[record["token"]]=JournalSession.restore(self.journal,self.store,record)
             recover_profiles(self.journal,self.store,exclude=self.profiles)
             return self
