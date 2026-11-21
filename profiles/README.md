@@ -1119,3 +1119,31 @@ allows at most six one-second attempts with fresh sockets and still requires a
 correct response; the underlying transient cause is not claimed as fixed.
 See Builder VALIDATION-PROFILE-FORWARDING-JOURNAL.md for exact artifacts, failed
 attempts and retained explicit setup/public-allocation/reconciliation gates.
+
+
+### Explicit private desktop runtime activation
+
+`profile-runtime` is a separate optional installation component. Installing it
+adds an inactive networking unit, a host-unit ordering drop-in and the root-only
+`karyo-profile-runtime` command. It does not enable services, create users, alter
+PAM, enable forwarding or replace `/etc/resolv.conf` during package installation.
+The base accounts/session/transport packages remain independently usable.
+
+An administrator must first install the optional runtime dependencies and
+configure a working systemd-resolved backend with the standard root-owned
+`/etc/resolv.conf` symlink. Then explicitly run:
+
+```sh
+sudo karyo-profile-runtime enable
+```
+
+The command checks native executables, the controlled PAM stack, installed units,
+physical IPv4 underlay and physical-link DNS before publishing a private root
+policy. It enables IPv4 forwarding and the root-only host socket persistently.
+Home retains the host network; private child desktops use owned NAT and routing
+rules. This is currently an IPv4 profile runtime, not generic IPv6 VPN support.
+A setup failure is reported as incomplete, with any published policy retained
+for administrator review. Retrying `enable` is supported. There is deliberately
+no automatic global forwarding reset on service stop, because other software
+may also depend on that global setting. Removing the optional package likewise
+requires reviewing any enabled profiles and administrator networking policy.

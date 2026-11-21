@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Unit]
+Description=Explicitly enabled Karyo private desktop networking
+After=network-online.target systemd-resolved.service
+Wants=network-online.target systemd-resolved.service
+Before=karyo-profile-host.service
+ConditionPathExists=/etc/karyo/profile-runtime.conf
+
+[Service]
+Type=oneshot
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/karyo-profile-runtime apply
+RemainAfterExit=yes
+User=root
+Group=root
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -57,6 +57,22 @@ install(FILES "${profile_source}/karyo-profile-host.socket"
 install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-host COMPONENT profile-host-runtime)
 
+# A distinct, inactive payload: only an explicit administrator command enables
+# private desktop forwarding and the host socket. Base DE installation is inert.
+configure_file("${profile_source}/runtime.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-runtime" @ONLY)
+configure_file("${profile_source}/karyo-profile-networking.service.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-networking.service" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-runtime"
+    DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-runtime)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-networking.service"
+    DESTINATION ${KARYO_SYSTEMD_SYSTEM_UNIT_DIR} COMPONENT profile-runtime)
+install(FILES "${profile_source}/karyo-profile-host-runtime.conf"
+    DESTINATION ${KARYO_SYSTEMD_SYSTEM_UNIT_DIR}/karyo-profile-host.service.d
+    RENAME 50-profile-runtime.conf COMPONENT profile-runtime)
+install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-runtime COMPONENT profile-runtime)
+
 if(BUILD_TESTING)
     find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
     add_test(NAME profile-account-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover
