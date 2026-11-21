@@ -867,3 +867,50 @@ accounts, common PAM, network snapshots and active main login are unchanged;
 the optional host remains disabled/inactive. Builder documents exact package
 revisions and hashes in VALIDATION-PROFILE-HOST.md. Cross-desktop activation,
 stopped-profile startup and persistent resource recovery remain separate gates.
+
+
+The host now opens a separate lifetime ownership journal under
+/run/karyo/profile-host before serving requests. Its directory is 0700 and both
+state/lock files are root-owned 0600. The bounded strict schema pins the boot and
+lock inode, profile account/source identity, random network token and captured
+namespace/veth/MAC receipt. A second controller, changed inode/content, unsafe
+file, unknown schema, leftover object or foreign boot is refused without overwrite.
+
+JournalNetwork is the first concrete journal consumer: only an eligible offline
+child of the active source may allocate a namespace. It publishes a create
+intent before native mutation, captures the complete receipt afterwards and
+publishes a removal intent before teardown. Current controller leases can coexist;
+old unreconciled records prevent new allocation. Password hashes are not stored.
+
+Host startup can recover this network-only schema by pinning the recorded
+namespace inode and checking veth indices, aliases and MACs, unchanged offline
+account and absence of namespace consumers. It closes only proven resources,
+including an interrupted removal where the pair or namespace is already gone.
+Unacknowledged creation, unknown/changed state or live consumers retain the record
+and resources for administrator review. This does not adopt by name or stop
+processes. Close of the journal itself releases descriptors, never resources.
+
+Later resolver/service/manager/graphical/forwarding receipts need their own typed
+checkpoint and recovery before public stopped-profile startup can use the full
+graph. Current public helpers remain unchanged. Network-only recovery does not
+claim successful recovery of a complete GUI or VPN profile.
+
+285 profile regressions pass on Debian and Ubuntu as root (three skips) and an
+ordinary user (82 root/platform skips). New journal cases exercise real file
+descriptors, atomic publication and interprocess locks plus captured network
+recovery, changed receipts, consumers and interrupted removal. Installed kernel
+crash/recovery acceptance is the next gate; unit fixtures do not claim it.
+
+Installed tests/installed-journal.py now exercises actual SIGKILL recovery on
+both native QA bases. A fixed child controller creates a real captured network;
+its parent kills only that Popen child. Recovery closes the original namespace,
+finishes cleanup after veth deletion and recognizes completed namespace removal.
+A fourth case triggers the installed socket-activated host service to reconcile
+the receipt before serving requests, proving the startup wiring itself.
+
+The unacknowledged-creation case performs no native mutation and proves the
+recovery gate retains exactly the original bytes. Only the known synthetic
+no-mutation fixture record is cleared by the QA driver; no generic forget/adopt
+endpoint is added. Private permissions, controller exclusion, original accounts/
+common PAM, network/DNS/forwarding and the main login all pass restoration checks.
+The installed host/private-net/mount transport probe also passes after the update.

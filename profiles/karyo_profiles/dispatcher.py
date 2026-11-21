@@ -187,8 +187,11 @@ def main():
         print("karyo-profile-host: no arguments are accepted", file=sys.stderr)
         return 1
     try:
-        dispatcher = HostDispatcher()
-        with activated_listener(os.environ) as listener:
+        from .journal import RuntimeJournal
+        from .journal_network import recover_networks
+        with activated_listener(os.environ) as listener, RuntimeJournal() as journal:
+            dispatcher = HostDispatcher()
+            recover_networks(journal, dispatcher.store)
             while True:
                 connection, unused = listener.accept()
                 with connection:

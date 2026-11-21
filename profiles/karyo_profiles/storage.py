@@ -51,10 +51,12 @@ def trusted_directory(path, *, create=False):
         raise
 
 
-def atomic_write(directory, name, data):
+def atomic_write(directory, name, data, *, mode=0o644):
     """Replace a trusted regular destination only after complete, synced output."""
     if os.geteuid() != 0:
         raise PermissionError("Only root can write desktop configuration")
+    if type(mode) is not int or mode not in {0o600, 0o644}:
+        raise ValueError("Profile publication mode must be private or public metadata")
     # All names are fixed metadata names or validated local account basenames.
     if Path(name).name != name or name in {".", ".."} or "/" in name:
         raise ValueError("Configuration destination must be a basename")
@@ -81,7 +83,7 @@ def atomic_write(directory, name, data):
             if written <= 0:
                 raise OSError("Incomplete profile configuration write")
             remaining = remaining[written:]
-        os.fchmod(fd, 0o644)
+        os.fchmod(fd, mode)
         os.fsync(fd)
         os.replace(temporary, name, src_dir_fd=directory, dst_dir_fd=directory)
         renamed = True
