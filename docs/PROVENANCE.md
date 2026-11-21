@@ -166,3 +166,8 @@ reviewed shell implementation, matching the donor Files implementation. Copies
 now stage complete trees and publish with Linux no-replace rename; errors never
 publish incomplete trees or remove move sources. Relative/dangling symlinks and
 compound suffixes are retained. Tests operate only in disposable directories.
+
+Foreign-toplevel observation is now an internal shared target, unchanged from
+the reviewed shell source. Files can observe application launch completion
+without linking the shell or requiring its session to be built. The upstream
+protocol XML keeps its original copyright and MIT license notice.
