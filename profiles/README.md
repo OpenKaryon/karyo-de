@@ -965,3 +965,48 @@ The old network-only crash probe and host/private-net/mount transport also pass
 against the final schema-2-capable runtime. This proves DNS-layer observers and
 offline cleanup, not complete live GUI reattachment or Internet/VPN forwarding.
 See Builder VALIDATION-PROFILE-DNS-JOURNAL.md for exact revisions and artifacts.
+
+
+Schema 3 adds a prepared user-manager policy and coupled live manager/PAM/
+graphical receipts. Fixed drop-in bytes and original policy paths, inode pairs,
+native unit invocations, process/executable identities, both logind owner records,
+graphical scope invocation, VT and trusted entry/compositor identities are checked.
+PAM startup captures its manager and graphical session together before publication.
+The entry boundary can reauthorize the same privileged caller before activation.
+
+JournalDNS now separates read-only observer restoration from its strict DNS-only
+consumer cleanup gate. JournalSession restores those observers, the exact manager
+and compositor scopes, private resolver mounts and namespace consumers. Consumers
+must belong to the captured graphical login, user-manager or original transient
+PAM service cgroup; normal sudo descendants remain in those owned scopes. Anchor
+identity or process churn never turns into evidence of absence.
+
+The host's SessionRegistry holds restored living session observers across requests
+and excludes only those verified tokens from offline legacy cleanup. Detaching
+observers does not stop the GUI or its services. Network/DNS cleanup refuses a
+record that still owns a session. Prepared, incomplete or interrupted closing
+transitions still require their later reconciliation path; no public stopped-
+profile operation, logout watcher, full forwarding or VPN integration is enabled.
+
+309 profile cases pass on Debian and Ubuntu as root (skip3) and ordinary UID65534
+(skip89). The installed live GUI/controller-crash reattachment gate follows next.
+
+
+Installed tests/installed-journal-session.py now accepts schema-3 living GUI
+reattachment on both disposable Debian/Ubuntu hosts. A fixed child controller
+creates the owned private DNS, user-manager and PAM compositor graph, then the
+parent SIGKILLs only that captured controller. New observers attach to the same
+manager/compositor, and the actual socket-activated host retains their pidfds
+while answering a request from the captured Work context.
+
+The unprotected case starts the installed editor through the scoped user
+manager. Its external VM-console driver acknowledges editor-ready/editor-after
+JSON phases on stdin after typing synthetic text and taking screenshots. The
+probe checks the same editor PID, an unchanged source file and matching unsaved
+recovery-cache bytes before and after controller/host restarts. The Home-password
+case remains compositor-locked with the same lock PID and no shell/editor; no
+password is supplied or printed. Known orderly teardown waits for native manager
+exit, then closes DNS/network and restores the captured QA account/PAM state.
+Old offline DNS/network and transport probes still pass on the schema-3 runtime.
+See Builder VALIDATION-PROFILE-SESSION-JOURNAL.md for exact artifacts, evidence and
+remaining prepared/closing reconciliation and public-runtime gates.

@@ -188,14 +188,17 @@ def main():
         return 1
     try:
         from .journal import RuntimeJournal
-        from .journal_dns import recover_profiles
+        from .journal_session import SessionRegistry
         with activated_listener(os.environ) as listener, RuntimeJournal() as journal:
             dispatcher = HostDispatcher()
-            recover_profiles(journal, dispatcher.store)
-            while True:
-                connection, unused = listener.accept()
-                with connection:
-                    dispatcher.handle(connection)
+            registry=SessionRegistry(journal,dispatcher.store).restore()
+            try:
+                while True:
+                    connection, unused = listener.accept()
+                    with connection:
+                        dispatcher.handle(connection)
+            finally:
+                registry.release_handles()
     except (OSError, RuntimeError, ValueError, PermissionError):
         print("karyo-profile-host: administrator review is required", file=sys.stderr)
         return 1

@@ -211,8 +211,10 @@ class GraphicalSession:
         info = os.stat("/proc/" + str(self.pid) + "/exe")
         return (info.st_dev, info.st_ino) == self.compositor
 
-    def enter(self, caller):
+    def enter(self, caller, *, reauthorize=None):
         self.guard()
+        if reauthorize is not None and reauthorize()!=caller:
+            raise PermissionError("The graphical session caller changed")
         family = self.store.ownership().family(caller.name)
         if self.account.name not in family or self.files.accounts.by_uid(caller.uid) != caller:
             raise PermissionError("Only a desktop in the active caller's family may be entered")
@@ -231,6 +233,8 @@ class GraphicalSession:
         if not current.active:
             raise SessionError("The active source changed before entering the profile")
         self.verify()
+        if reauthorize is not None and reauthorize()!=caller:
+            raise PermissionError("The graphical session caller changed before activation")
         self.sessions.activate(self.identity.login.id, timeout=switcher.remaining(deadline))
         self.entered = True
         while True:

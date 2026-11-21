@@ -164,7 +164,7 @@ class JournalDNS:
             raise
 
     @classmethod
-    def restore(cls,journal,network,*,accounts=None):
+    def restore_observers(cls,journal,network,*,accounts=None):
         record=journal.record(network.token);dns=record["dns"]
         validate_dns(dns,network.network.spec,record["account"]["gid"])
         if dns["pending"] in {"files-create","bus-start","resolver-start"}:
@@ -174,7 +174,17 @@ class JournalDNS:
         try:
             for role in ("bus","resolver"):
                 restore_unit(files,role,getattr(services,role),dns[role],dns["pending"]==role+"-stop")
-            expected=set() if services.resolver.closed else {str(services.resolver.identity.pid)}
+            return scope
+        except BaseException:
+            scope.release_handles()
+            raise
+
+    @classmethod
+    def restore(cls,journal,network,*,accounts=None):
+        scope=cls.restore_observers(journal,network,accounts=accounts)
+        try:
+            resolver=scope.services.resolver
+            expected=set() if resolver.closed else {str(resolver.identity.pid)}
             consumers=network.network._ip("netns","pids",network.network.name).splitlines()
             if set(consumers)-expected:
                 raise JournalRetained("Unknown private DNS namespace consumers remain")
@@ -184,6 +194,8 @@ class JournalDNS:
             raise
 
     def close(self):
+        if "session" in self.journal.record(self.token):
+            raise JournalRetained("The profile session must close before private DNS")
         dns=self.journal.record(self.token)["dns"]
         if dns["pending"] in {"files-create","bus-start","resolver-start"}:
             raise JournalRetained("An unacknowledged DNS creation requires review")
@@ -207,10 +219,12 @@ class JournalDNS:
         if self.files.fd is not None:os.close(self.files.fd);self.files.fd=None
 
 
-def recover_profiles(journal,store,*,accounts=None,sessions=None,command=None):
+def recover_profiles(journal,store,*,accounts=None,sessions=None,command=None,exclude=()):
     accounts=LocalAccounts() if accounts is None else accounts
     sessions=Sessions() if sessions is None else sessions
-    records=journal.snapshot()["profiles"]
+    records=[r for r in journal.snapshot()["profiles"] if r["token"] not in exclude]
+    if any("session" in r for r in records):
+        raise JournalRetained("A captured session requires its own controller reconciliation")
     for record in records:
         if "dns" not in record:continue
         with store.locked():
@@ -227,4 +241,4 @@ def recover_profiles(journal,store,*,accounts=None,sessions=None,command=None):
             finally:
                 if scope is not None:scope.release_handles()
                 if network.fd is not None:os.close(network.fd);network.fd=None
-    recover_networks(journal,store,accounts=accounts,sessions=sessions,command=command)
+    recover_networks(journal,store,accounts=accounts,sessions=sessions,command=command,exclude=exclude)

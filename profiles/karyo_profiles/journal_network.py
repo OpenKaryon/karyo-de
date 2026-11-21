@@ -129,7 +129,7 @@ def restore_network(store, record, command=None, *, require_empty=True):
         raise
 
 
-def recover_networks(journal, store, *, accounts=None, sessions=None, command=None):
+def recover_networks(journal, store, *, accounts=None, sessions=None, command=None, exclude=()):
     """Startup gate for the current network-only journal version.
 
     Later graph receipts require their own typed capture/recovery; an unknown
@@ -137,7 +137,7 @@ def recover_networks(journal, store, *, accounts=None, sessions=None, command=No
     """
     accounts = LocalAccounts() if accounts is None else accounts
     sessions = Sessions() if sessions is None else sessions
-    records = journal.snapshot()["profiles"]
+    records = [r for r in journal.snapshot()["profiles"] if r["token"] not in exclude]
     if any("dns" in record or record["pending"] == "create" or record["network"] is None for record in records):
         raise JournalRetained("An unacknowledged profile creation requires administrator review")
     for expected in records:
