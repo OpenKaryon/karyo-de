@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<policyconfig>
+  <vendor>Karyo</vendor>
+  <action id="org.karyo.desktops.add">
+    <description>Add a desktop</description>
+    <description xml:lang="ru">Добавление рабочего стола</description>
+    <message>Authentication is required to add a desktop</message>
+    <message xml:lang="ru">Для добавления рабочего стола требуется аутентификация</message>
+    <icon_name>system-users</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/desktop-add</annotate>
+  </action>
+</policyconfig>

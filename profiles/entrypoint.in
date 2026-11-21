@@ -1,0 +1,8 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-3.0-or-later
+import sys
+sys.dont_write_bytecode = True
+# A literal package-owned path; Python isolated mode ignores cwd/PYTHONPATH.
+sys.path.insert(0, "@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/profiles")
+from karyo_profiles.entrypoints import main
+raise SystemExit(main("@KARYO_PROFILE_OPERATION@"))

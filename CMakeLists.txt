@@ -109,3 +109,5 @@ if(KARYO_BUILD_APPS)
     add_subdirectory(apps/settings)
     add_subdirectory(apps/appcenter)
 endif()
+
+include(cmake/Profiles.cmake)

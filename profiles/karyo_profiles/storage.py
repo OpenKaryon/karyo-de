@@ -135,7 +135,7 @@ class ConfigStore:
                 os.close(lock)
             os.close(directory)
 
-    def _read(self, relative):
+    def _read(self, relative, *, missing=""):
         for root in (self.configuration, self.legacy):
             directory = None
             try:
@@ -146,13 +146,39 @@ class ConfigStore:
             finally:
                 if directory is not None:
                     os.close(directory)
-        return ""
+        return missing
 
     def ownership(self):
         return Ownership.parse(self._read(Path("desktops.conf")))
 
     def settings(self, name):
         return DesktopSettings.parse(self._read(Path("desktops.d") / (account_name(name) + ".conf")))
+
+    def has_settings(self, name):
+        return self._read(Path("desktops.d") / (account_name(name) + ".conf"), missing=None) is not None
+
+    def remove_new_settings(self, name, expected):
+        """Rollback only exactly the fresh canonical metadata written by this operation."""
+        if not self._locked or os.geteuid() != 0:
+            raise PermissionError("Profile rollback requires the root configuration lock")
+        directory = trusted_directory(self.configuration / "desktops.d")
+        try:
+            filename = account_name(name) + ".conf"
+            fd = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                         dir_fd=directory)
+            try:
+                info = os.fstat(fd)
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0
+                        or info.st_mode & 0o022 or info.st_nlink != 1):
+                    raise ValueError("Fresh profile metadata is no longer trusted")
+            finally:
+                os.close(fd)
+            if root_file(filename, dir_fd=directory) != expected.serialize():
+                raise ValueError("Fresh profile metadata changed during account provisioning")
+            os.unlink(filename, dir_fd=directory)
+            os.fsync(directory)
+        finally:
+            os.close(directory)
 
     def _save(self, relative, content):
         if not self._locked or os.geteuid() != 0:
