@@ -26,8 +26,8 @@ and verified; this checklist must not be read as a completion claim.
 | Files | Migrated with FileManager1, tab reuse, inline rename, USB, folder cache and safe quick archive actions. Both installed VM packages show correct selected-folder size/counts. Full native set 38/38; actual background-window activation remains an integration gate. |
 | Archive | Complete backend/window migrated with real ZIP/7z/encrypted RAR, compression, cancellation and atomic publication. Password retry/cancel and creation/browsing GUI cases pass on both bases (31 current CTest entries). Native package/VM checks follow. |
 | Snipping | Complete canvas/window/overlay migrated with public shortcut routes and compatible preferences. Native tests pass on both bases (28/28 total). Real overlay/clipboard and optional compositor window-snapshot integration follow. |
-| Settings | Complete source/runtime with all public routes and 305 initial Russian messages. Full 53 native tests pass on both bases at93765d7; installed network observation exposed a real issue under networkd/ifupdown, whose fix is undergoing acceptance. |
-| App Center / catalog | External validated catalog and APT/Flatpak/conda model migrated with native/unprivileged regressions. Widgets/pages/window and installed runtime acceptance remain. |
+| Settings | Complete source/runtime with all public routes and 305 initial Russian messages. All routes/runtime migrated. Real authorization and APT refresh accepted on both VMs; networkd/ifupdown observation fix accepted as a native overlay, updated DEB acceptance remains. |
+| App Center / catalog | Complete independent runtime, pages/window, external validated catalog and APT/Flatpak/conda model migrated. Full native suite is 59/59 on both bases; installed App Center package/GUI acceptance remains. |
 | Optional greeter | Pending as optional component. Keep existing display manager authoritative. |
 | Compositor layout extension / optional integrations | Separate reviewed packages and explicit capability gates; no mandatory VPN/VMware/Wine services in the base DE. |
 | OS defaults, browser/boot/installer, ISO generation | Owned by Karyo Linux/Builder stages, outside the DE migration scope. |
@@ -129,3 +129,29 @@ All local commit trailers and substantive body paragraphs were audited through
 DE 4d75dab and Builder c356323 (50 and 15 local commits respectively). Nothing
 has been pushed. The compositor, greeter, profile/system integration and Plex
 packaging/acceptance work remain part of the active goal.
+
+
+## Complete application source checkpoint
+
+All fourteen application families now have independent source/runtime components.
+App Center includes discovery/categories, installed software, catalog/APT/Flatpak
+search, details, updates, environment inventory/import/export/create/remove,
+terminal activation and explicit checked Miniforge setup. The optional public
+catalog remains external data, with no profiles or downloaded environments in
+Git. Russian chrome has 98 messages. Model jobs outlive pages; theme rebuild
+retains the model, active route and details/search back navigation.
+
+The full native suite now passes all 59 CTest entries on Debian 13 and Ubuntu
+26.04. App Center model/pages/window also pass as UID 65534. A full Ubuntu run
+exposed a prior intermittent ZipCrypto failure: a wrong password can pass its
+one-byte header check and fail at the data CRC. A deterministic synthetic fixture
+reproduced the bug on both bases before the fix. Archive now retains password
+retry for these encrypted decoder failures and all 32 backend Qt cases pass
+as root and UID 65534; damaged unencrypted ZIP does not request a password.
+
+This checkpoint closes source-level application migration, not the whole goal.
+The new App Center runtime and latest Settings/Archive revisions still need a
+verified native package wave and real VM acceptance. Greeter, optional compositor
+extensions, profile/system integrations, actual Plex font packaging and existing-
+window Files activation remain separate integration gates. Physical device
+acceptance cannot be inferred from these virtual machines. No commits are pushed.

@@ -334,3 +334,10 @@ fails at the data CRC. Encrypted ZIP decoder/CRC failures retain password retry
 while explicitly allowing damaged-data diagnosis; filesystem failures and
 cancellation do not become password prompts. Format reference:
 https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT .
+
+The App Center window, launch entry and Russian UI catalog are adapted from the
+same application donor. It now has a testable independent window, category/search/
+details navigation with back, plain-text operation feedback, and theme rebuilds
+that retain the model and active jobs. Public launcher names use Karyo and the
+catalog remains external optional data. Native route/search/theme regressions
+substitute package tools and require no authorization or real package changes.

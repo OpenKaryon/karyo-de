@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=App Center
+Name[ru]=Центр приложений
+GenericName=Software and environments
+GenericName[ru]=Приложения и окружения
+Comment=Find apps, install software and manage project environments
+Comment[ru]=Поиск и установка приложений, управление окружениями проектов
+Exec=karyo-appcenter
+Icon=system-software-install
+Terminal=false
+Categories=System;PackageManager;
+Keywords=software;apps;packages;updates;environments;conda;flatpak;
+Keywords[ru]=программы;приложения;пакеты;обновления;окружения;
+StartupWMClass=karyo-appcenter
