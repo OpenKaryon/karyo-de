@@ -253,3 +253,10 @@ donor. BlueZ discovery and changes now have deadlines, visible failures and
 state readback; disconnected adapters cannot leave stale actionable paths.
 Device labels in shared setting rows are plain text. Private-bus tests cover
 accepted/denied power and connection changes and adapter/service removal.
+
+Settings Network is adapted from the application donor. It retains escaped nmcli
+parsing and the shared Wi-Fi activation/password checks, uses explicit UUIDs for
+saved connections and bounded asynchronous commands with visible failures.
+Concurrent activation is prevented and superseded query callbacks are ignored;
+radio state is read back after failed changes. Fake nmcli fixtures never touch
+the build host or QA VM's actual network.
