@@ -19,7 +19,7 @@ void request(const QString &path, bool folder, QObject *context)
         QStringLiteral("/org/freedesktop/FileManager1"),
         QStringLiteral("org.freedesktop.FileManager1"),
         folder ? QStringLiteral("ShowFolders") : QStringLiteral("ShowItems"));
-    message << QStringList{QUrl::fromLocalFile(absolute).toString()} << QString();
+    message << QStringList{QUrl::fromLocalFile(absolute).toString(QUrl::FullyEncoded)} << QString();
     auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(message),
                                                context ? context : QCoreApplication::instance());
     const QString fallback = folder ? absolute : QFileInfo(absolute).absolutePath();

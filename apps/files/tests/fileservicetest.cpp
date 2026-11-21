@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "filesservice.h"
+#include "filemanager.h"
 #include "fileswindow.h"
 #include "folderview.h"
 
@@ -207,6 +208,21 @@ private Q_SLOTS:
         QCOMPARE(windows().size(), 2);
         QVERIFY(windows().contains(first));
     }
+    void sharedRequestsOpenAndSelectPathsWithSpaces()
+    {
+        QTemporaryDir root;
+        const QString folder = root.filePath(QStringLiteral("folder with spaces (2)"));
+        QVERIFY(QDir().mkpath(folder));
+        const QString item = folder + QStringLiteral("/Отчёт #1.txt");
+        QVERIFY(touch(item));
+        Karyo::Apps::openFolder(folder, this);
+        QTRY_COMPARE(windows().size(), 1);
+        QCOMPARE(current(windows().first())->path(), folder);
+        Karyo::Apps::showInFiles(item, this);
+        QTRY_COMPARE(current(windows().first())->selectedPaths(), QStringList{item});
+        QCOMPARE(windows().size(), 1);
+    }
+
     void serverDoesNotReplaceAnExistingFileManager()
     {
         auto bus = QDBusConnection::sessionBus();

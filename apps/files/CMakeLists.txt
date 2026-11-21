@@ -56,7 +56,7 @@ install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANC
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-files COMPONENT files-runtime)
 if(BUILD_TESTING)
     add_executable(karyo-files-service-test tests/fileservicetest.cpp)
-    target_link_libraries(karyo-files-service-test PRIVATE karyo-files-window Qt6::Test)
+    target_link_libraries(karyo-files-service-test PRIVATE karyo-files-window karyo-app-filemanager Qt6::Test)
     add_dependencies(karyo-files-service-test karyo-files)
     add_test(NAME files-service-ipc COMMAND dbus-run-session -- $<TARGET_FILE:karyo-files-service-test>)
     set_tests_properties(files-service-ipc PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 60)

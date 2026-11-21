@@ -34,7 +34,7 @@ private Q_SLOTS:
         QVERIFY(bus.registerObject("/org/freedesktop/FileManager1", &manager, QDBusConnection::ExportScriptableSlots));
         QDesktopServices::setUrlHandler("file", this, "openFolder");
         Karyo::Apps::openFolder(root.path(), this);
-        QTRY_COMPARE(manager.folders, QStringList{QUrl::fromLocalFile(root.path()).toString()});
+        QTRY_COMPARE(manager.folders, QStringList{QUrl::fromLocalFile(root.path()).toString(QUrl::FullyEncoded)});
         QVERIFY(manager.selected.isEmpty()); QVERIFY(m_opened.isEmpty());
         bus.unregisterObject("/org/freedesktop/FileManager1");
         QVERIFY(bus.unregisterService("org.freedesktop.FileManager1"));
@@ -55,7 +55,7 @@ private Q_SLOTS:
                                    QDBusConnection::ExportScriptableSlots));
         QDesktopServices::setUrlHandler(QStringLiteral("file"), this, "openFolder");
         Karyo::Apps::showInFiles(path, this);
-        QTRY_COMPARE(manager.selected, QStringList{QUrl::fromLocalFile(path).toString()});
+        QTRY_COMPARE(manager.selected, QStringList{QUrl::fromLocalFile(path).toString(QUrl::FullyEncoded)});
         QCOMPARE(manager.startup, QString());
         QVERIFY(m_opened.isEmpty());
         bus.unregisterObject(QStringLiteral("/org/freedesktop/FileManager1"));
