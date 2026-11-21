@@ -468,3 +468,10 @@ GPL-3.0-or-later code. Upstream systemd.exec PAMName documentation and disposabl
 native PAM/session experiments inform the process/cgroup model; no upstream
 implementation or unchecked prototype lifecycle script is copied. Native
 user-manager termination remains owned by logind rather than a forced stop.
+
+The controlled graphical PAM lease, activation wait and entry payload are new
+GPL-3.0-or-later code. Native logind/session-scope behavior was verified on both
+supported bases. The PAM file includes native common account/session policy and
+denies authentication; it copies no prototype unchecked login service, source-
+environment shell execution or TTY hangup lifecycle. Optional QA contains no
+personal accounts, tunnel configuration or embedded test credentials.

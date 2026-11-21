@@ -335,3 +335,29 @@ Accounts, PAM, network and main GUI state are restored. This is a real
 user-manager/PAM scope acceptance gate using a sleep process, not yet the
 controlled graphical starter, startup authentication or complete session
 supervisor. Builder VALIDATION-PROFILE-USER-MANAGER.md records exact evidence.
+
+## Installed controlled graphical profile entry
+
+The optional PAM/session-entry component and GraphicalSession library now pass
+real installed Debian/Ubuntu QA with source f2edff3. A new native PAM login stays
+on inactive reserved VT9 until the root controller confirms its active source
+and enters it. The post-PAM entry clears inheritable/ambient capabilities before
+waiting, then executes the ordinary karyo-session entry with its protected
+compositor startup gate. Its process and logind scope identities are independent
+of the original system unit cgroup.
+
+Both native bases pass real unprotected, Home-password and separate-password
+entry/return cycles. Wrong passwords retain the initial lock and prevent shell/
+Files startup; correct authentication starts them, and protected re-entry asks
+again without changing shell PIDs. Explicit owned teardown and normal logind
+manager shutdown restore original account/PAM/network and main session state.
+Published installed-graphical.py accepts bounded QA stdin without credentials
+in source. Builder VALIDATION-INSTALLED-GRAPHICAL-PROFILES.md records the exact
+packages, screenshots, complete-inventory churn fix and fixed QA recovery.
+
+This closes the controlled graphical primitive, not the full stopped-profile
+menu flow. A persistent root host controller must own the graph across commands,
+activate forwarding/dependencies, handle failure/recovery and user logout, and
+expose the authenticated public operation before that full feature is complete.
+Actual private VPN/client integration and other remaining system features stay
+separate.

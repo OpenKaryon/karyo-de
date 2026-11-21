@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from karyo_profiles.credentials import LocalAccount
-from karyo_profiles.logind import LoginOwner, Sessions
+from karyo_profiles.logind import LoginOwner, Sessions, SessionError
 from karyo_profiles.services import ServiceError
 from karyo_profiles.user_manager import BASE_MANAGER, SCOPED_MANAGER, ManagerPending, ManagerRetained, UserManagerScope, uid_processes, manager_exec_start
 
@@ -45,6 +45,24 @@ class LoginOwnersTest(unittest.TestCase):
                       text.replace("Leader=444","Leader=-1"),text+"Unknown=yes\n"):
             with self.assertRaises(ValueError):
                 LoginOwner.parse(value,"c1")
+
+    def test_ending_login_retries_a_complete_fresh_inventory(self):
+        class Churn(OwnerCommand):
+            def __init__(self):super().__init__((LOGIN,MANAGER));self.once=True;self.lists=0
+            def run(self,*args,timeout):
+                if args[0]=="list-sessions":self.lists+=1
+                if args[0]=="show-session" and self.once:
+                    self.once=False;self.owners=(MANAGER,)
+                    raise SessionError("Listed login ended")
+                return super().run(*args,timeout=timeout)
+        command=Churn()
+        self.assertEqual(Sessions(command).owners(1002),(MANAGER,))
+        self.assertEqual(command.lists,2)
+
+    def test_repeated_inventory_failure_never_becomes_empty_offline_state(self):
+        class Broken(OwnerCommand):
+            def run(self,*args,timeout):raise SessionError("Unavailable service")
+        with self.assertRaises(SessionError):Sessions(Broken(())).owners(1002)
 
     def test_owner_identity_ignores_only_lifecycle_state(self):
         values=MANAGER.__dict__|{"state":"closing"}

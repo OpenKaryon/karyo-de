@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The authorized root controller opens only account/session management.
+# This stack cannot be used as a password authentication bypass.
+auth requisite pam_deny.so
+@include common-account
+@include common-session

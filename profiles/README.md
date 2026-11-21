@@ -764,3 +764,51 @@ The probe deliberately uses sleep as the session process, so this does not
 claim a complete owned graphical launcher or protected initial-entry gate.
 The original PAM session's capabilities still require the separate GUI entry
 wrapper; the accepted manager wrapper covers manager-activated applications.
+
+### Controlled graphical PAM session
+
+The internal GraphicalSession library consumes an offline UserManagerScope and
+a held free-console lease. It starts a fresh UUID-named PAM unit, captures the
+unit invocation and pidfd, then separately captures the logind leader/login and
+session.scope invocation/cgroup. Process start time, UID, namespace and manager
+scope remain checked. Closing uses only the captured logind scope and original
+service, including the case where its leader has exited but scope clients remain.
+
+The separate optional profile-session payload owns the karyo-desktop PAM stack
+and fixed entry programs; installation starts nothing and changes no global PAM
+stack. Its auth stack denies login authentication: only the already-authorized
+root controller opens account/session management. The entry first drops PAM
+inheritable/ambient capabilities, then waits for its own logind session to become
+active before executing karyo-session. It never activates its own VT. The root
+enter operation checks family/current source and confirms source protection
+before activation; normal karyo-session retains the initial compositor lock gate.
+
+Native regressions pass 242 cases on Debian and Ubuntu in root and ordinary
+roles; the separate entry/PAM payload stages under /usr and /etc. Clean packages
+from f2edff3 pass installed graphical acceptance on both native QA bases.
+The public host dispatcher and persistent runtime remain separate: this library
+is not yet a new public switch endpoint.
+
+The fixed-host tests/installed-graphical.py starts a captured fresh child on VT9,
+with no compositor/shell before explicit activation. Real VNC input checks
+unprotected, Home-password and separate-password startup and re-entry. A wrong
+password keeps initial shell/Files clients absent; correct authentication starts
+them. Home/Work roundtrips preserve both shell PIDs and protected re-entry locks
+again. GUI processes have zero inheritable/permitted/effective/ambient sets,
+NoNewPrivs=0 and the unchanged baseline capability bounding set.
+
+The probe receives QA credentials only through bounded stdin, never from an
+embedded value. Separate-password mode temporarily changes only the known new
+child and restores its captured hash. Home mode uses its existing synchronized
+QA credential without changing the main account. Visual phases require bounded
+acknowledgements so captures cannot race the next VT switch. Cleanup restores
+original accounts/common PAM, network snapshots and main graphical session.
+
+The first Ubuntu teardown exposed a listed login disappearing before its owner
+properties could be read. Owner inventory now retries a complete fresh read
+within one deadline; repeated failure never becomes an empty/offline result.
+The one retained QA graph was recovered separately by its fixed native
+identities, not by adding generic adoption to the product. See Builder
+VALIDATION-INSTALLED-GRAPHICAL-PROFILES.md for exact inputs and diagnostics.
+The GUI fixture does not claim full VPN/Internet forwarding, a public stopped-
+profile operation, persistent recovery or automatic return after user logout.

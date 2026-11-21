@@ -176,8 +176,8 @@ class Sessions:
     def activate(self, identifier, *, timeout=2):
         self.command.run("activate", session_id(identifier), timeout=timeout)
 
-    def _identifiers(self):
-        text = self.command.run("list-sessions", "--json=short", timeout=5)
+    def _identifiers(self, *, timeout=5):
+        text = self.command.run("list-sessions", "--json=short", timeout=timeout)
         rows = json.loads(text)
         if not isinstance(rows, list) or len(rows) > 256:
             raise ValueError("Unexpected login manager session inventory")
@@ -215,18 +215,25 @@ class Sessions:
         return frozenset(occupied)
 
     def owners(self, uid):
-        """Include remote, TTY, closing and user-manager sessions, not just GUI."""
+        """Read a complete UID inventory; retry churn, never infer absence from errors."""
         if type(uid) is not int or not 1000 <= uid < 65534:
             raise ValueError("Invalid desktop owner UID")
         deadline = self.clock() + 5
-        found = []
-        for identifier in self._identifiers():
-            text = self.command.run("show-session", identifier, "--all",
-                *("--property=" + name for name in OWNER_PROPERTIES), timeout=deadline - self.clock())
-            owner = LoginOwner.parse(text, identifier)
-            if owner.uid == uid:
-                found.append(owner)
-        return tuple(found)
+        for attempt in range(3):
+            try:
+                found = []
+                for identifier in self._identifiers(timeout=deadline - self.clock()):
+                    text = self.command.run("show-session", identifier, "--all",
+                        *("--property=" + name for name in OWNER_PROPERTIES), timeout=deadline - self.clock())
+                    owner = LoginOwner.parse(text, identifier)
+                    if owner.uid == uid:
+                        found.append(owner)
+                return tuple(found)
+            except SessionError:
+                # A listed login may disappear before show-session. Only a
+                # successful new complete inventory can establish its absence.
+                if attempt == 2 or self.clock() >= deadline:
+                    raise
 
     def all(self):
         deadline = self.clock() + 5

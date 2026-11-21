@@ -27,6 +27,20 @@ install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-password-sync
     COMPONENT profile-password-sync-runtime)
 
+# Separate opt-in PAM/entry payload. The library package enables no service.
+configure_file("${profile_source}/session-entry.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/profile-session-entry" @ONLY)
+configure_file("${profile_source}/session-wait.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/profile-session-wait" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/profile-session-entry"
+    "${CMAKE_CURRENT_BINARY_DIR}/profile-session-wait"
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo COMPONENT profile-session-runtime)
+install(FILES "${profile_source}/pam.d/karyo-desktop"
+    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/pam.d COMPONENT profile-session-runtime)
+install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-session
+    COMPONENT profile-session-runtime)
+
 if(BUILD_TESTING)
     find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
     add_test(NAME profile-account-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover
