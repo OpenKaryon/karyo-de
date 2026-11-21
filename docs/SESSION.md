@@ -152,3 +152,27 @@ start only after success. Locker error/refusal/crash exits the compositor. A roo
 administrator changing policy during startup remains trusted; an ordinary user
 cannot alter those files. Existing-session switching still needs a privileged
 lock-before-activate controller and its separate installed acceptance.
+
+## Lock output lifetime
+
+The compositor lock is acquired through a hidden connection window, independently
+of which monitors exist. A temporary Qt placeholder has no wl_output and is never
+given a lock-surface role. Each real output gets an interactive password form;
+removed forms clear their text and are retired, and replacement outputs can
+accept the password without keeping an obsolete primary screen alive.
+
+One shared PAM request disables every form, including a form added while that
+request is pending. Removing a screen does not cancel PAM or release the lock.
+Errors update all surviving forms; successful PAM releases the original lock
+through its stable display connection, even if earlier windows disappeared.
+Queued role creation rechecks the guarded screen/output instead of capturing a
+possibly destroyed wl_output. No application-specific rule is involved.
+
+Native Qt 6.8 and 6.10 builds pass the lock/account/session regressions. Separate
+QA source overlays reproduce actual VT transitions on both VMware guests. The
+previous Ubuntu wallpaper-only failure is corrected: the replacement screen has
+a password form, wrong passwords remain rejected, and correct passwords return
+to the same running shell. A second Ubuntu output replacement during a pending
+wrong-password PAM request also retains an interactive error/retry form. The
+source overlay is removed afterward; final installed-package acceptance remains
+separate until a new lock package is built and tested.

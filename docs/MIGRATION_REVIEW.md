@@ -29,6 +29,14 @@ handoff is being corrected; initial startup acceptance must not be interpreted
 as complete protected desktop switching. Test metadata was removed, and both
 VMs finish at their original LightDM with unchanged account/PAM databases.
 
+The output-lifecycle correction now passes native source-overlay QA on both
+VMs: replacement outputs retain an interactive form, incorrect passwords fail,
+and a correct password returns to the same shell. Ubuntu also passes output
+replacement during a pending PAM failure. Temporary binaries/wrappers/metadata
+are removed with exact hash checks and package verification stays clean. The
+new final lock package is still a separate gate; installed 156d1aa alone retains
+the documented output-lifecycle bug.
+
 The existing-session switch core is source-tested (113 Python cases on each
 base, including ordinary UID runs), but has no published privileged entrypoint
 or shell wiring yet. Controlled startup of stopped sessions, VT allocation,

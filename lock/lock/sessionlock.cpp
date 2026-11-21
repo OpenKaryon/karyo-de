@@ -10,7 +10,8 @@
 #include <QtWaylandClient/private/qwaylandsurface_p.h>
 #include <QtWaylandClient/private/qwaylandwindow_p.h>
 
-#include <QGuiApplication>
+#include <QPointer>
+#include <QScreen>
 #include <QWindow>
 
 namespace SessionLock {
@@ -46,14 +47,20 @@ public:
     LockSurface(LockObject *lock, QWaylandWindow *window)
         : QtWaylandClient::QWaylandShellSurface(window)
     {
-        wl_output *output = nullptr;
-        if (auto *screen = dynamic_cast<QtWaylandClient::QWaylandScreen *>(window->window()->screen()->handle()))
-            output = screen->output();
+        const QPointer<QScreen> screen = window->window()->screen();
         // Qt 6.8 commits the bare surface right after creating its role,
         // which a lock surface must never do: the role comes after that commit.
         QMetaObject::invokeMethod(
             this,
-            [this, lock, window, output] { init(lock->get_lock_surface(window->waylandSurface()->object(), output)); },
+            [this, lock, window, screen] {
+                // Output removal can race this queued role creation. Do not
+                // dereference an old wl_output or bind Qt's placeholder screen.
+                if (!screen || window->window()->screen() != screen)
+                    return;
+                auto *native = dynamic_cast<QtWaylandClient::QWaylandScreen *>(screen->handle());
+                if (native && native->output())
+                    init(lock->get_lock_surface(window->waylandSurface()->object(), native->output()));
+            },
             Qt::QueuedConnection);
     }
     ~LockSurface() override
@@ -135,13 +142,25 @@ Lock *Lock::create(QWindow *window, QObject *parent)
     object->init(integration->lock());
     integration->lockObject = object;
     lock->m_object = object;
+    lock->m_display = waylandWindow->display();
     return lock;
 }
 
-void Lock::attach(QWindow *window)
+bool Lock::outputAvailable(QScreen *screen)
 {
-    if (auto *waylandWindow = dynamic_cast<QWaylandWindow *>(window->handle()))
+    auto *wayland = screen ? dynamic_cast<QtWaylandClient::QWaylandScreen *>(screen->handle()) : nullptr;
+    return wayland && wayland->output();
+}
+
+bool Lock::attach(QWindow *window)
+{
+    if (!window || !outputAvailable(window->screen()))
+        return false;
+    if (auto *waylandWindow = dynamic_cast<QWaylandWindow *>(window->handle())) {
         waylandWindow->setShellIntegration(integration);
+        return true;
+    }
+    return false;
 }
 
 void Lock::unlock()
@@ -150,10 +169,9 @@ void Lock::unlock()
         return;
     m_object->unlock_and_destroy();
     m_locked = false;
-    if (QWindow *window = QGuiApplication::topLevelWindows().value(0)) {
-        if (auto *waylandWindow = dynamic_cast<QWaylandWindow *>(window->handle()))
-            waylandWindow->display()->forceRoundTrip();
-    }
+    // The display outlives hotplugged lock windows and in-flight PAM checks.
+    if (m_display)
+        m_display->forceRoundTrip();
 }
 
 } // namespace SessionLock

@@ -11,6 +11,8 @@ include(${CMAKE_CURRENT_LIST_DIR}/DesktopAccounts.cmake)
 find_library(PAM_LIBRARY pam REQUIRED)
 qt_add_executable(karyo-lock
     ${PROJECT_SOURCE_DIR}/lock/main.cpp
+    ${PROJECT_SOURCE_DIR}/lock/lock/lockviews.cpp
+    ${PROJECT_SOURCE_DIR}/lock/lock/lockviews.h
     ${PROJECT_SOURCE_DIR}/lock/lock/lockmain.cpp
     ${PROJECT_SOURCE_DIR}/lock/lock/pamcheck.cpp
     ${PROJECT_SOURCE_DIR}/lock/lock/pamcheck.h

@@ -7,8 +7,14 @@
 #include <QObject>
 
 class QWindow;
+class QScreen;
+namespace QtWaylandClient
+{
+class QWaylandDisplay;
+}
 
-namespace SessionLock {
+namespace SessionLock
+{
 
 class LockObject;
 
@@ -21,7 +27,9 @@ public:
     static Lock *create(QWindow *window, QObject *parent = nullptr);
 
     // Before show(): the window becomes this lock's surface on its screen.
-    void attach(QWindow *window);
+    bool attach(QWindow *window);
+    // Qt may temporarily expose a placeholder while a VT loses every output.
+    static bool outputAvailable(QScreen *screen);
     bool isLocked() const { return m_locked; }
     // Unlocks and waits for the compositor to hear it.
     void unlock();
@@ -36,6 +44,7 @@ private:
     friend class LockObject;
     bool m_locked = false;
     LockObject *m_object = nullptr;
+    QtWaylandClient::QWaylandDisplay *m_display = nullptr;
 };
 
 } // namespace SessionLock
