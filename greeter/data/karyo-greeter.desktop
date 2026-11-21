@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Karyo Sign-in
+Name[ru]=Вход в Karyo
+Exec=karyo-greeter
+TryExec=karyo-greeter
+Icon=system-lock-screen
+NoDisplay=true
+Terminal=false

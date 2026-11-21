@@ -2,11 +2,27 @@
 #include "signinview.h"
 #include <karyo/ui/password.h>
 #include <QtTest>
+#include <QLabel>
 
 class SignInViewTest : public QObject
 {
     Q_OBJECT
 private slots:
+    void externalTextIsLiteral()
+    {
+        SignInView view;
+        const QString name = "<b>Fixture User</b>", detail = "<i>fixture</i>";
+        const QString message = "<a href='https://example.invalid'>Literal PAM prompt</a>";
+        view.setUser(name, detail);
+        view.showMessage(message);
+        int found = 0;
+        for (auto *label : view.findChildren<QLabel *>())
+            if (QStringList {name, detail, message}.contains(label->text())) {
+                QCOMPARE(label->textFormat(), Qt::PlainText);
+                ++found;
+            }
+        QCOMPARE(found, 3);
+    }
     void passwordErrorKeepsFormGeometry_data()
     {
         QTest::addColumn<QSize>("size");

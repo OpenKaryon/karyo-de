@@ -45,7 +45,8 @@ The implementation is adapted from the Karyo desktop prototype. See
 [provenance](docs/PROVENANCE.md) and the [migration map](docs/MIGRATION.md).
 Own code is GPL-3.0-or-later. The embedded Lucide resources retain their
 [upstream license](resources/lucide/LICENSE). Qt and other dependencies retain
-their upstream licenses. IBM Plex is referenced by family name, not bundled.
+their upstream licenses. The optional font runtime bundles unmodified IBM Plex under its original SIL OFL;
+see [font provenance](resources/fonts/README.md).
 
 ## Next milestone
 
@@ -60,3 +61,7 @@ The shell and PAM/Wayland lock are now independently buildable with
 recipes live in Karyo Builder. The `karyo-session` bundle installs the shell,
 lock, style and Wayland entry alongside an existing display manager.
 See [session boundaries and acceptance](docs/SESSION.md).
+
+The optional greetd front end is built with `-DKARYO_BUILD_GREETER=ON`. Its
+separate package does not activate a display manager or replace PAM policy. See
+[greeter integration](docs/GREETER.md) before explicit administrator setup.

@@ -24,6 +24,9 @@ public:
     QStringList mimeTypes;
     bool noDisplay = false;
     bool terminal = false;
+    // Session discovery also needs these standard Desktop Entry fields.
+    QString tryExec;
+    QStringList desktopNames;
 
     static std::optional<DesktopEntry> load(const QString &path, const QString &id);
     // Resolves an id against $XDG_DATA_HOME and $XDG_DATA_DIRS/applications.

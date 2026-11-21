@@ -15,6 +15,18 @@ class DesktopEntryTest : public QObject
     Q_OBJECT
     QTemporaryDir m_data;
 private Q_SLOTS:
+    void sessionMetadataUsesDesktopEntryListSyntax()
+    {
+        const QString path = m_data.filePath("session.desktop");
+        QFile file(path); QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("[Desktop Entry]\nType=Application\nName=Session\nExec=/bin/sh\n"
+                   "TryExec=/usr/bin/example\\slauncher\nDesktopNames=Karyo;wlroots;\n");
+        file.close();
+        const auto entry = DesktopEntry::load(path, "session.desktop");
+        QVERIFY(entry);
+        QCOMPARE(entry->tryExec, QString("/usr/bin/example launcher"));
+        QCOMPARE(entry->desktopNames, QStringList({"Karyo", "wlroots"}));
+    }
     void publicAndLegacyApplicationsKeepVisualRoles()
     {
         for (const QString &name : {"files", "terminal", "editor", "photos", "player",

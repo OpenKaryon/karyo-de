@@ -26,8 +26,8 @@ and verified; this checklist must not be read as a completion claim.
 | Files | Migrated with FileManager1, tab reuse, inline rename, USB, folder cache and safe quick archive actions. Both installed VM packages show correct selected-folder size/counts. Full native set 38/38; actual background-window activation remains an integration gate. |
 | Archive | Complete backend/window migrated with real ZIP/7z/encrypted RAR, compression, cancellation and atomic publication. Password retry/cancel and creation/browsing GUI cases pass on both bases (31 current CTest entries). Native package/VM checks follow. |
 | Snipping | Complete canvas/window/overlay migrated with public shortcut routes and compatible preferences. Native tests pass on both bases (28/28 total). Real overlay/clipboard and optional compositor window-snapshot integration follow. |
-| Settings | Complete source/runtime with all public routes and 305 initial Russian messages. All routes/runtime migrated. Real authorization and APT refresh accepted on both VMs; networkd/ifupdown observation fix accepted as a native overlay, updated DEB acceptance remains. |
-| App Center / catalog | Complete independent runtime, pages/window, external validated catalog and APT/Flatpak/conda model migrated. Full native suite is 59/59 on both bases; installed App Center package/GUI acceptance remains. |
+| Settings | Complete source/runtime with all public routes and 305 initial Russian messages. All routes/runtime migrated. Real authorization, APT refresh and networkd/ifupdown observation accepted from native DEBs on both VMs. |
+| App Center / catalog | Complete independent runtime, pages/window, external validated catalog and APT/Flatpak/conda model migrated. Installed native DEBs accepted for discovery/search, authorized ncdu install/open/remove and Russian environments UI on both VMs. Later retry-notice fix awaits packaging. |
 | Optional greeter | Bounded greetd IPC transport migrated and natively tested. UI/runtime and real greetd login remain; existing display manager stays authoritative. |
 | Compositor layout extension / optional integrations | Separate reviewed packages and explicit capability gates; no mandatory VPN/VMware/Wine services in the base DE. |
 | OS defaults, browser/boot/installer, ISO generation | Owned by Karyo Linux/Builder stages, outside the DE migration scope. |
@@ -172,3 +172,50 @@ literal command/environment fields, malformed/oversized/truncated inputs and
 receiver teardown. Fourteen Qt cases pass as root and UID 65534 on both bases.
 The complete current native suite passes 61/61. This does not yet establish a
 working greeter UI, real greetd authentication or a display-manager replacement.
+
+Shared sign-in presentation is now one internal target, reused by the lock and
+prepared for the optional greeter without sharing authentication decisions.
+User names/details and authentication messages are plain text. Lock layout,
+PAM policy and greetd IPC regressions pass on both bases after relinking; the
+view also passes as UID 65534. This does not replace the display manager.
+The latest Builder application-wave report closes native-DEB App Center and
+Settings network acceptance at exact DE 2e33ed6; later source changes retain
+their explicitly separate packaging gates.
+
+The optional greeter now also has a separate authentication controller. Session
+selection is captured per attempt; only greetd success authorizes start and its
+start acknowledgement announces readiness. Repeated secret/visible/info/error
+questions, cancellation acknowledgement, denial/retry and disconnect paths are
+covered by a private fake daemon. Pretyped passwords never answer visible
+questions, and embedded NUL responses are rejected. Ten controller Qt cases
+pass as root and UID 65534 on both bases; the full native suite is now 62/62.
+Greeter inventory/view wiring, packaging and real greetd login remain pending.
+
+Greeter discovery/preferences now have native and unprivileged acceptance.
+Only main login accounts appear; invalid desktop ownership configuration stops
+discovery instead of trusting partial mappings. Installed executable Wayland
+sessions coexist, Karyo is preferred, and TryExec/DesktopNames use the shared
+Desktop Entry parser. New preferences are bounded atomic JSON; a malformed
+primary file cannot revive legacy selection. Six inventory Qt cases pass as
+root and UID 65534 on both bases, and the full native suite passes 63/63.
+
+Greeter appearance adoption now validates a single no-follow file descriptor's
+owner/type/size, reads at most 4097 bytes and accepts only public theme/accent
+values. A bad higher-priority publication cannot revive a legacy file. Five
+appearance Qt cases pass as root and UID 65534 on both bases, including symlink,
+FIFO, oversized, wrong-owner and invalid-value paths. Publication by the later
+system integration and real greeter rendering remain separate acceptance gates.
+
+Greeter UI wiring now exercises real shared widgets against a private daemon:
+user/session selection, frozen choices during authentication, visible and secret
+prompts, cancellation reset and post-start-only preference publication. A lost
+connection before controller construction also fails explicitly. This remains
+source-level coverage; the runtime executable and real greetd login are separate.
+All 65 native CTest entries pass on Debian 13 and Ubuntu 26.04. The greeter
+window workflows also pass as UID 65534 on each base.
+
+The optional `karyo-greeter` runtime and embedded Russian catalog now build on
+both bases, with a NoDisplay desktop identity for Qt portal lookup. Its component
+stages only the executable, desktop identity and documentation/example; it does
+not install active display-manager configuration or PAM policy. All 66 native
+CTest entries pass on Debian and Ubuntu. Real greetd login remains pending.

@@ -209,6 +209,8 @@ std::optional<DesktopEntry> DesktopEntry::load(const QString &path, const QStrin
     entry.mimeTypes = splitList(values.value(QStringLiteral("MimeType")));
     entry.noDisplay = !shown || values.value(QStringLiteral("NoDisplay")) == QLatin1String("true");
     entry.terminal = values.value(QStringLiteral("Terminal")) == QLatin1String("true");
+    entry.tryExec = unescape(values.value(QStringLiteral("TryExec")));
+    entry.desktopNames = splitList(values.value(QStringLiteral("DesktopNames")));
     if (entry.name.isEmpty() || entry.exec.isEmpty())
         return std::nullopt;
     return entry;

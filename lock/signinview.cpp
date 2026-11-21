@@ -159,10 +159,12 @@ SignInView::SignInView(bool decorationOnly, QWidget *parent)
     names->setSpacing(2);
     names->addStretch(1);
     m_nameLabel = new QLabel(m_userBlock);
+    m_nameLabel->setTextFormat(Qt::PlainText);
     m_nameLabel->setFont(Ui::headingFont(28));
     setInk(m_nameLabel, t.text);
     names->addWidget(m_nameLabel);
     m_detailLabel = new QLabel(m_userBlock);
+    m_detailLabel->setTextFormat(Qt::PlainText);
     m_detailLabel->setFont(Ui::bodyFont(14));
     setInk(m_detailLabel, t.muted);
     names->addWidget(m_detailLabel);
@@ -176,6 +178,7 @@ SignInView::SignInView(bool decorationOnly, QWidget *parent)
     m_password->setFixedWidth(378 + 8 + 54);
     v->addWidget(m_password);
     m_message = new QLabel(m_userBlock);
+    m_message->setTextFormat(Qt::PlainText);
     m_message->setFont(Ui::bodyFont(13.5));
     m_message->setWordWrap(true);
     setInk(m_message, t.ink1);

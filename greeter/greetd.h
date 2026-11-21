@@ -15,6 +15,7 @@ public:
     explicit Greetd(QObject *parent = nullptr);
 
     bool connectToDaemon();
+    bool isConnected() const;
     void createSession(const QString &user);
     void answer(const QString &response);
     // Acknowledges an info or error message without a response.

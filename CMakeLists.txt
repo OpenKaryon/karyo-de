@@ -79,6 +79,8 @@ include(cmake/Fonts.cmake)
 
 include(cmake/Session.cmake)
 
+include(cmake/SignIn.cmake)
+
 include(cmake/Lock.cmake)
 
 include(cmake/Greeter.cmake)

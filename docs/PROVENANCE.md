@@ -356,3 +356,45 @@ a bounded payload, validates documented reply shapes and fails closed for
 malformed/truncated input. Tests use a private local socket only; no real PAM or
 session is started. Protocol reference:
 https://manpages.debian.org/trixie/greetd/greetd-ipc.7.en.html .
+
+Sign-in presentation is shared through one internal widgets target for the lock
+and optional greeter. Its view/name helpers contain no authentication decisions;
+PAM and greetd retain their separate controllers and policies. User names,
+account details and authentication messages render as plain text. Existing
+layout cases and literal external-text regressions cover the shared view.
+
+The optional greeter authentication controller is newly separated from the
+prototype's presentation. It captures the selected session per attempt, answers
+arbitrary documented PAM prompts, never sends a pretyped password to a visible
+question, and starts only after greetd reports authentication success. It waits
+for cancellation acknowledgement before retry and for start acknowledgement
+before announcing readiness. Tests use a private fake daemon only, covering
+denial, cancellation during authentication, repeated prompts and disconnects;
+they make no claim of real PAM or display-manager acceptance.
+
+Greeter user/session discovery is adapted from the application donor. It filters
+child desktops and non-login/system accounts, refuses an invalid ownership map,
+keeps other installed Wayland sessions and resolves literal executable arguments.
+TryExec/DesktopNames use the shared Desktop Entry parser rather than INI comment
+semantics. Selection preferences move to bounded atomic Karyo JSON with checked
+publication and a bounded snapshot of the legacy INI only when the new file is
+absent. No password, token or authentication decision is stored in preferences.
+
+Greeter appearance adoption starts from the donor's published theme/accent
+behavior, rewritten to open once without following symlinks, validate the same
+descriptor's owner/type/size and read a bounded allowlisted INI subset. It never
+opens the selected user's home preferences or deserializes arbitrary variants.
+The public Karyo publication path is preferred with compatible legacy fallback;
+only the greeter account's own validated appearance keys are updated.
+
+The independent greeter window adapts the donor presentation around the new
+controller and inventory. Account/session choices freeze during authentication,
+visible and secret questions use the correct input mode, cancellation restores
+password entry, and preferences are saved only after the start acknowledgement.
+Private-socket widget tests exercise these flows without PAM or session launch.
+
+The optional greeter runtime is now a Wayland-only executable using the shared
+style, account/session inventory and greetd controller. Its embedded Russian
+catalog is maintained with this frontend. The documentation-only greetd example
+installs under share/doc and does not activate a service, create users, replace
+a display manager or install an alternative PAM policy.

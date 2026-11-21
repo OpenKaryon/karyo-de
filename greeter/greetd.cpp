@@ -37,6 +37,8 @@ bool Greetd::connectToDaemon()
     return m_socket->waitForConnected(3000);
 }
 
+bool Greetd::isConnected() const { return !m_failed && m_socket->state() == QLocalSocket::ConnectedState; }
+
 void Greetd::createSession(const QString &user)
 {
     send({ { QStringLiteral("type"), QStringLiteral("create_session") },
