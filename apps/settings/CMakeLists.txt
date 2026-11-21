@@ -28,3 +28,12 @@ if(BUILD_TESTING)
 endif()
 
 include(${PROJECT_SOURCE_DIR}/cmake/DesktopAccounts.cmake)
+
+add_library(karyo-settings-apps STATIC src/apps.cpp src/defaultapps.cpp src/defaultapps.h)
+target_link_libraries(karyo-settings-apps PUBLIC karyo-settings-config karyo-settings-widgets karyo-desktop-accounts)
+if(BUILD_TESTING)
+    add_executable(karyo-settings-apps-test tests/defaultappstest.cpp)
+    target_link_libraries(karyo-settings-apps-test PRIVATE karyo-settings-apps Qt6::Test)
+    add_test(NAME settings-default-apps COMMAND karyo-settings-apps-test)
+    set_tests_properties(settings-default-apps PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 45)
+endif()

@@ -68,6 +68,7 @@ private Q_SLOTS:
         const QByteArray original = read(profile); QString error;
         QVERIFY(!Config::setSessionValue("INVALID;key", "value", &error)); QVERIFY(!error.isEmpty());
         QVERIFY(!Config::setSessionValue("LANG", "new\ninjected", &error));
+        QVERIFY(!Config::setSessionValue("LANG\n", "value", &error));
         QCOMPARE(read(profile), original);
         QVERIFY(QFile::remove(profile)); QVERIFY(QDir().mkdir(profile));
         QVERIFY(!Config::setSessionValue("LANG", "new", &error)); QVERIFY(!error.isEmpty());

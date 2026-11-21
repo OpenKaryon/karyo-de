@@ -221,3 +221,9 @@ The reviewed NetworkManager activation helper is extracted unchanged from the
 shell into an internal Qt Core/D-Bus target shared with Settings. Existing Wi-Fi
 security classification, password validation and activation feedback remain one
 implementation rather than diverging copies in the two interfaces.
+
+Settings Apps/Accounts pages are adapted from the same donor. Default-app
+publication now validates and atomically updates only selected MIME defaults,
+retains other associations and reports failures with UI rollback. Account data
+is read through the shared ownership model; password changes still use the
+system's interactive passwd command and authoritative authentication policy.

@@ -102,7 +102,7 @@ bool setSessionValue(const QString &key, const QString &value, QString *error)
 {
     const auto fail = [error](const QString &message) { if (error) *error = message; return false; };
     if (error) error->clear();
-    static const QRegularExpression validKey(QStringLiteral("^[A-Za-z_][A-Za-z0-9_]*$"));
+    static const QRegularExpression validKey(QRegularExpression::anchoredPattern(QStringLiteral("[A-Za-z_][A-Za-z0-9_]*")));
     if (!validKey.match(key).hasMatch() || value.contains(QChar::Null)
         || value.contains(QLatin1Char('\n')) || value.contains(QLatin1Char('\r')))
         return fail(QStringLiteral("Invalid session setting."));
