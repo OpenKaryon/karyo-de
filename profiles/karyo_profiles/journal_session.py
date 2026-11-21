@@ -264,10 +264,12 @@ class SessionRegistry:
         self.profiles={}
 
     def restore(self):
+        from .journal_session_cleanup import recover_closed_session
         try:
             for record in self.journal.snapshot()["profiles"]:
                 if "session" not in record:continue
                 with self.store.locked():
+                    if recover_closed_session(self.journal,self.store,record):continue
                     if recover_prepared_session(self.journal,self.store,record):continue
                     self.profiles[record["token"]]=JournalSession.restore(self.journal,self.store,record)
             recover_profiles(self.journal,self.store,exclude=self.profiles)

@@ -1030,3 +1030,27 @@ living-editor/lock, DNS, network and transport gates also pass on this runtime.
 Both original main logins and account/common-PAM/network snapshots are restored;
 dpkg verification and final resource postchecks are clean. See Builder
 VALIDATION-PROFILE-PREPARED-JOURNAL.md for exact inputs and remaining close gates.
+
+
+Recorded login-close/manager-close recovery additionally requires all original
+process starts and logind IDs to be gone, the exact completed graphical service
+and scope (or their absence), an offline account and DNS-only namespace consumers.
+It can finish a captured full policy, the same empty directory after unlink or
+an already absent directory under manager-close intent. Native policy must still
+match the recorded scoped or original baseline form. Changed inodes, files,
+invocations, live processes/logins or unknown units retain resources. No process
+is signaled and no user manager is stopped by this offline reconciliation.
+Installed closing crash acceptance follows separately.
+
+
+Installed tests/installed-journal-closing.py now accepts all six recorded offline
+closing crash boundaries on both QA guests: completed GUI before its journal ACK,
+full manager policy, policy file unlinked, policy directory gone, daemon-reloaded
+removal and actual host startup from a partial removal. The first case enters a
+real compositor before known teardown; other cases own the native waiting PAM
+entry and its manager. Each controller waits for natural native manager exit,
+then receives SIGKILL only from its captured parent. No fake pidfd or user@stop
+is used to infer completion. Old live-editor/lock, prepared, DNS, network and
+transport cases pass again on this runtime, with clean final resource/package
+checks. See Builder VALIDATION-PROFILE-CLOSING-JOURNAL.md for exact evidence and
+the still-required active close/logout supervision and full public runtime.

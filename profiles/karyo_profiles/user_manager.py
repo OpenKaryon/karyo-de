@@ -295,6 +295,7 @@ class UserManagerScope:
         if self.pidfd is not None:
             self.process.close(self.pidfd)
             self.pidfd = None
-        os.close(self.fd)
-        self.fd = None
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
         self.closed = True
