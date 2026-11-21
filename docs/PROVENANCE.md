@@ -423,3 +423,12 @@ Ubuntu adaptations use its actual node descriptor/view title API. Explicit
 session-lock definitions and a missing-keymap guard remove prototype assumptions.
 Native recipes and their source identities are under integrations/compositor;
 whole upstream sources and generated binaries remain ignored build inputs.
+
+FileManager1 activation handoff is new common application code following the
+standard xdg-activation protocol. Its XML is copied unchanged from the native
+Debian wayland-protocols package and retains Aleix Pol Gonzalez/Carlos Garnacho's
+MIT terms. Generated code is not relabeled as GPL; each caller runtime installs
+the original XML with its full notice. The independent request/fixture code is
+GPL-3.0-or-later. QtGui's private native surface interface is compiled separately
+on the supported Qt 6.8/6.10 bases; tokens and callback correlation use independent
+Wayland resources rather than concrete private QtWayland window classes.

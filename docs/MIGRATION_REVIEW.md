@@ -312,3 +312,17 @@ LightDM. Fixture keyboard files were restored and sessions ended afterward.
 This closes only layout/snapshot extensions. Prototype Wine/VMware compositor
 changes, profile/account/PAM/network/DNS/shared-clipboard helpers, Files existing-
 window activation and hardware-specific acceptance remain open.
+
+## Files background activation source fix
+
+A separate GUI fixture reproduced the actual remaining failure on both installed
+QA sessions: clicking Open folder for an existing Files tab left the requester in
+front. The shared helper had always sent an empty startup ID. It now forwards a
+standard per-request Wayland activation token from the focused caller, using the
+real input serial and surface without bypassing compositor policy.
+
+Native fixture before/after checks pass against installed Files on Debian and
+Ubuntu. A private-bus real-Wayland fixture also verifies distinct concurrent
+tokens and cancellation when the owner is destroyed, with no late duplicate.
+All 67 CTests pass on both bases. This closes the source/real-client regression;
+new native caller packages and their installed application acceptance follow.
