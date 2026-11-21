@@ -29,7 +29,7 @@ namespace {
 const QStringList DefaultPinned = {
     QStringLiteral("openkaryon-files.desktop"),     QStringLiteral("chromium.desktop"),
     QStringLiteral("karyo-terminal.desktop"),
-    QStringLiteral("openkaryon-terminal.desktop"),  QStringLiteral("openkaryon-editor.desktop"),
+    QStringLiteral("openkaryon-terminal.desktop"),  QStringLiteral("karyo-editor.desktop"), QStringLiteral("openkaryon-editor.desktop"),
     QStringLiteral("openkaryon-appcenter.desktop"), QStringLiteral("openkaryon-monitor.desktop"),
     QStringLiteral("openkaryon-settings.desktop"),  QStringLiteral("rstudio.desktop"),
     QStringLiteral("jupyterlab.desktop"),           QStringLiteral("igv.desktop"),

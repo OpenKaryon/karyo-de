@@ -84,3 +84,23 @@ The retained deterministic test advances a supplied clock, persists timers,
 reopens them after elapsed time and verifies completion occurs once. Both native
 bases pass all eighteen current tests. Actual audio playback remains a device/
 service acceptance scenario, not a property established by the fake-clock test.
+
+## Text Editor
+
+karyo-editor (short command: notepad) retains tabs, search/replace, syntax modes,
+indentation, external-change banners, shared commands and per-buffer grouped undo.
+The existing recovery directory and Editor session-bus endpoint remain compatible:
+old and public launches hand files to one window instead of competing for the
+same unsaved buffers. Only the executable/desktop identity and public C++ targets
+change; no personal text or session files are packaged.
+
+Unrepresentable characters are rejected before a legacy Latin-1 write. The GUI
+explicitly offers UTF-8; Cancel leaves the original and unsaved state unchanged,
+while confirmation preserves both old and new characters. Recovery validates
+metadata/version and buffer IDs, backs up unreadable session metadata and retains
+unreferenced caches. Explicit tab close still removes that tab's own cache.
+
+The editor window test restores a prototype-format unsaved tab, keeps its undo,
+retains orphan recovery through corrupt metadata and a second reopening, drives
+both encoding-dialog choices, and verifies a real second process reuses the
+session-bus window. All twenty-one current tests pass on both native bases.

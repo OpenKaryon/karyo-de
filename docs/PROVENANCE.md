@@ -98,3 +98,8 @@ The original undo/cache format is retained; the window/UI follows separately.
 Editor syntax detection/highlighting and the custom code-editing surface now
 use public Karyo widgets. Existing Markdown, CSV/VCF, FASTA and programming
 language support is retained without preset-dependent filtering.
+
+Editor window, Russian catalog and launch metadata are now adapted from that
+same donor. Existing recovery paths and the session-bus wire contract are kept
+to prevent competing instances. The new window validates recovery metadata and
+IDs, preserves unknown caches and exposes explicit UTF-8 conversion on save.

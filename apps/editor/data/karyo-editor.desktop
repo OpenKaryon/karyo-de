@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Text Editor
+Name[ru]=Текстовый редактор
+GenericName=Text and code editor
+GenericName[ru]=Редактор текста и кода
+Comment=Edit text, scripts and pipelines in tabs; unsaved work survives restarts
+Comment[ru]=Тексты, скрипты и конвейеры во вкладках; несохранённое переживает перезапуск
+Exec=karyo-editor %F
+Icon=accessories-text-editor
+Terminal=false
+Categories=Utility;TextEditor;Development;
+MimeType=text/plain;text/markdown;text/csv;text/tab-separated-values;text/x-python;text/x-python3;text/x-script.python;application/x-shellscript;text/x-shellscript;text/x-r;text/x-r-source;application/json;application/x-yaml;application/yaml;text/x-makefile;text/x-log;application/x-desktop;
+Keywords=text;editor;notepad;code;snakemake;python;yaml;tsv;fasta;
+Keywords[ru]=текст;редактор;блокнот;код;snakemake;python;yaml;tsv;fasta;
+StartupWMClass=karyo-editor
