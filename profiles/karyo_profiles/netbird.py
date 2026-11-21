@@ -55,13 +55,16 @@ class NetBirdState:
         if self.home_identity is not None and self.capture_home() != self.home_identity:
             raise ServiceError("The provider account home generation changed")
 
+    def owner_contents(self, home):
+        return json.dumps({"version": 1, "account": asdict(self.account), "home": list(home)},
+                          sort_keys=True, separators=(",", ":")) + "\n"
+
     def prepare(self):
         self.guard()
         if self.fd is not None:
             raise ServiceError("Provider state was already captured")
         self.home_identity = self.capture_home()
-        self.owner = (json.dumps({"version": 1, "account": asdict(self.account), "home": list(self.home_identity)},
-                                sort_keys=True, separators=(",", ":")) + "\n")
+        self.owner = self.owner_contents(self.home_identity)
         parent = trusted_directory(self.path.parent, create=True)
         created = False
         try:
@@ -165,12 +168,15 @@ class NetBirdScope:
     def endpoint(self):
         return self.directory / "client.json"
 
-    def publish_endpoint(self):
-        self.verify()
+    def endpoint_text(self):
         resolver = os.stat("/run/" + self.files.plan.runtime_name)
         value = endpoint_record(self.state.account.uid, self.state.account.gid, self.network.identity,
                                 (resolver.st_dev, resolver.st_ino), self.socket_identity, self.unit.identity.pid)
-        self.endpoint_contents = json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n"
+        return json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n"
+
+    def publish_endpoint(self):
+        self.verify()
+        self.endpoint_contents = self.endpoint_text()
         directory = trusted_directory(self.directory)
         try:
             try:
@@ -215,6 +221,11 @@ class NetBirdScope:
         self.network.verify()
         self.dns.services.verify()
         self.state.prepare()
+        return self.start_prepared()
+
+    def start_prepared(self):
+        self.state.verify()
+        self.dns.services.verify()
         self.unit.start(self.properties(), "service", "run", "--config", str(self.state.path / "config.json"),
                         "--daemon-addr", self.address, "--log-file", "console")
         deadline = time.monotonic() + 8

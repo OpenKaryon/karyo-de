@@ -1182,9 +1182,20 @@ state is stamped with the complete account identity and captured home device/ino
 chowned or deleted on a retry. It connects to the profile's private resolve1 bus,
 never the host NetworkManager/system bus, and grants no SYS_ADMIN/SYS_MODULE capability.
 
-This layer is deliberately not public VPN activation yet. Durable provider/tunnel
-receipts, wt0 inventory, connected teardown, client/GUI launch and callback
-acceptance must be joined to the profile host before the VPN policy is enabled.
+This layer is deliberately not public VPN activation yet. Schema-5 host receipts
+now capture its persistent state/home generation, native service invocation,
+process start/executable/namespace, runtime socket and published client endpoint.
+After a controller crash an offline pre-login provider can be verified and closed
+before private DNS, forwarding and network cleanup. A lost stop acknowledgement
+is recoverable only when the captured process and runtime objects are gone; an
+unacknowledged state/service creation is retained for review. Credentials are not
+serialized, adopted or removed. A graphical owner or changed namespace consumer
+prevents this offline cleanup. Earlier journal schemas remain readable.
+
+Connected wt0/routes inventory, connected teardown, session/client launch and
+real enrollment acceptance still need to join the profile host before public VPN
+policy is enabled. The optional client and its synthetic callback gate alone
+do not complete that lifecycle.
 The external NetBird package's maintainer script starts a system-wide service;
 installing that dependency must be an explicit packaging/administrator decision,
 not a side effect of the base DE or this primitive. The DE neither replaces that

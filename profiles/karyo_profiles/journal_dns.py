@@ -194,8 +194,8 @@ class JournalDNS:
             raise
 
     def close(self):
-        if "session" in self.journal.record(self.token):
-            raise JournalRetained("The profile session must close before private DNS")
+        if "session" in self.journal.record(self.token) or "provider" in self.journal.record(self.token):
+            raise JournalRetained("The profile session and provider must close before private DNS")
         dns=self.journal.record(self.token)["dns"]
         if dns["pending"] in {"files-create","bus-start","resolver-start"}:
             raise JournalRetained("An unacknowledged DNS creation requires review")
@@ -225,6 +225,9 @@ def recover_profiles(journal,store,*,accounts=None,sessions=None,command=None,ex
     records=[r for r in journal.snapshot()["profiles"] if r["token"] not in exclude]
     if any("session" in r for r in records):
         raise JournalRetained("A captured session requires its own controller reconciliation")
+    from .journal_netbird import recover_providers
+    recover_providers(journal, store, accounts=accounts, sessions=sessions, command=command, exclude=exclude)
+    records=[r for r in journal.snapshot()["profiles"] if r["token"] not in exclude]
     for record in records:
         if "dns" not in record:continue
         with store.locked():
