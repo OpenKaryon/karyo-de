@@ -176,3 +176,19 @@ to the same running shell. A second Ubuntu output replacement during a pending
 wrong-password PAM request also retains an interactive error/retry form. The
 source overlay is removed afterward; final installed-package acceptance remains
 separate until a new lock package is built and tested.
+
+## Installed lock output-lifecycle acceptance
+
+Final lock DEBs from 283cce4 pass clean native 68/68 CTests and actual installed
+initial PAM/VT-return checks on both QA guests without any source overlay. The
+fixed-host installed-startup.py roundtrip-vt action refuses an occupied console,
+waits for lock readiness while inactive and always restores the graphical VT.
+It prints READY rather than accepting an invisible password form. Visual forms,
+wrong-password errors and correct-password unlock are checked separately; a
+second Ubuntu output replacement during a pending PAM failure also passes.
+
+This closes the lock/PAM output-lifecycle gate, not all shell output lifetime.
+The same full-session inspection reveals a distinct Ubuntu panel defect after
+output replacement: the shell is alive and can open its menu and applications,
+but the existing taskbar is invisible. That shell surface lifecycle is a separate
+open regression; it must be fixed before claiming complete profile VT switching.

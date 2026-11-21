@@ -37,6 +37,19 @@ are removed with exact hash checks and package verification stays clean. The
 new final lock package is still a separate gate; installed 156d1aa alone retains
 the documented output-lifecycle bug.
 
+Final lock DEBs from 283cce4 now pass actual installed initial PAM and VT return
+on both guests, with interactive forms, rejected wrong passwords and correct
+unlocks preserving shell PIDs. No source overlay is installed. The repeatable
+QA VT driver includes all logind session classes before using the empty console
+and restores the original VT even on failure; readiness alone is not acceptance.
+
+A separate full-session check found that the Ubuntu taskbar becomes invisible
+after output replacement although the shell can still open its menu and real
+applications. Shell layer-surface output lifetime therefore remains open.
+Actual graphical pkexec already accepts own-family listing and current-desktop
+noop switching on both guests, complementing native SSH identity rejection.
+That does not close real two-profile switching or its protected entry gates.
+
 The existing-session switch core and fixed active-caller list/switch helpers
 are source-tested (120 Python cases on each base, including ordinary UID runs).
 Installed two-session authorization and shell wiring remain separate gates. Controlled startup of stopped sessions, VT allocation,
