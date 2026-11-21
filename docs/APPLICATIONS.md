@@ -156,3 +156,24 @@ invariants. UI tests retain a responsive event loop while a fixture systemctl
 waits, preserve user service scope and system startup bytes, and control only
 a disposable child process. All 26 tests pass on both native bases; real VM
 service authorization and installed-monitor checks remain acceptance work.
+
+## Snipping Tool
+
+karyo-snip (short command: snip) retains quick capture, notification-to-editor,
+region/screen capture, delayed capture and the complete annotation window. The
+prototype preferences and capture lock path remain compatible. Photos handoff
+uses its desktop entry with a default-image-viewer fallback; file selection uses
+the shared FileManager1 helper. grim and wl-clipboard are external runtime tools.
+
+Session defaults retain Print, Super+Shift+S, Ctrl+Print and Ctrl+Shift+1–4.
+Of the numbered shortcuts, Ctrl+Shift+1 captures a region without opening the
+editor; modes 2/3/4 edit a region/screen/window. Existing custom session
+configuration remains authoritative.
+
+Window selection requires the optional compositor window-snapshot extension.
+Its MIT protocol notice and unchanged wire identity are retained. Stock labwc
+provides region/screen capture but no window rectangles; the application reports
+that capability limit explicitly rather than selecting a guessed window. The
+reviewed compositor extension package and real overlay/clipboard VM acceptance
+are still pending. Native canvas/window regressions, including crop placement,
+inline-save and compatible preferences, pass on both bases (28/28 total).

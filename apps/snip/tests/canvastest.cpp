@@ -1,24 +1,80 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "canvas.h"
 #include "capture.h"
+#include "snipwindow.h"
 #include <karyo/ui/style.h>
 #include <QInputMethodEvent>
 #include <QPlainTextEdit>
 
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QSettings>
 #include <QtTest>
 
 class CanvasTest : public QObject {
     Q_OBJECT
 private:
+    QTemporaryDir m_settings;
     static void drag(Canvas &canvas, QPoint from, QPoint to) {
         QTest::mousePress(&canvas, Qt::LeftButton, {}, from);
         QTest::mouseMove(&canvas, to);
         QTest::mouseRelease(&canvas, Qt::LeftButton, {}, to);
     }
 private Q_SLOTS:
-    void initTestCase() { Karyo::Ui::applyStyle(); }
+    void initTestCase() {
+        QVERIFY(m_settings.isValid());
+        qputenv("XDG_CONFIG_HOME", m_settings.path().toUtf8());
+        QApplication::setOrganizationName(QStringLiteral("openkaryon"));
+        QApplication::setApplicationName(QStringLiteral("karyo-snip"));
+        Karyo::Ui::applyStyle();
+    }
+    void prototypePreferencesRemainReadable() {
+        QSettings legacy(QSettings::NativeFormat, QSettings::UserScope,
+                         QStringLiteral("openkaryon"), QStringLiteral("openkaryon-snip"));
+        legacy.setValue(QStringLiteral("strokeWidth"), 7);
+        legacy.setValue(QStringLiteral("textSize"), 33);
+        legacy.sync();
+        SnipWindow window;
+        auto *canvas = window.findChild<Canvas *>();
+        QVERIFY(canvas);
+        QCOMPARE(canvas->strokeWidth(), 7);
+        QCOMPARE(canvas->textSize(), 33);
+        legacy.clear();
+    }
+    void editorSavesOnlyOnRequest() {
+        QTemporaryDir dir;
+        const QString path=dir.filePath(QStringLiteral("edited.png"));
+        QImage base(640,400,QImage::Format_ARGB32_Premultiplied);
+        base.fill(QColor("#edf1f5"));
+        SnipWindow window;
+        window.resize(1100,720);
+        window.showCapture(base,path,false);
+        window.show(); window.activateWindow();
+        QTest::qWait(30);
+        QVERIFY(!QFileInfo::exists(path));
+        auto *canvas=window.findChild<Canvas *>();
+        QVERIFY(canvas);
+        QTest::keyClick(&window, Qt::Key_T);
+        QTest::mouseClick(canvas,Qt::LeftButton,{},canvas->rect().center());
+        auto *editor=canvas->findChild<QPlainTextEdit *>(QStringLiteral("inlineTextEditor"));
+        QVERIFY(editor && editor->isVisible());
+        QVERIFY(!QApplication::activeModalWidget());
+        QTest::keyClicks(editor,"Test annotation paint crop vcrhapbt");
+        QCOMPARE(editor->toPlainText(),QStringLiteral("Test annotation paint crop vcrhapbt"));
+        // Save commits the inline draft without opening a text dialog.
+        QVERIFY(!QFileInfo::exists(path));
+        QAbstractButton *saveButton=nullptr;
+        for (auto *button: window.findChildren<QAbstractButton *>())
+            if (button->text()==QStringLiteral("Save")) saveButton=button;
+        QVERIFY(saveButton);
+        QVERIFY(saveButton->isEnabled());
+        QTest::mouseClick(saveButton,Qt::LeftButton);
+        QTRY_VERIFY(QFileInfo::exists(path));
+        QCOMPARE(QImage(path).convertToFormat(canvas->image().format()),canvas->image());
+        if (!qEnvironmentVariableIsEmpty("KARYO_SNIP_QA_IMAGE"))
+            window.grab().save(qEnvironmentVariable("KARYO_SNIP_QA_IMAGE"));
+        QVERIFY(window.close()); // Saving clears the dirty state.
+    }
     void colorsTextAndHistory() {
         Canvas canvas;
         canvas.resize(432, 332); // 400x300 image at (16,16), exactly 1:1.
@@ -54,6 +110,29 @@ private Q_SLOTS:
         QCOMPARE(canvas.image(), red);
         canvas.undo();
         QCOMPARE(canvas.image(), base);
+    }
+    void saveShortcutCommitsInlineText() {
+        QTemporaryDir dir;
+        const QString path=dir.filePath(QStringLiteral("shortcut.png"));
+        QImage base(400,300,QImage::Format_ARGB32_Premultiplied); base.fill(Qt::white);
+        SnipWindow window; window.resize(1100,720); window.showCapture(base,path,false);
+        window.show(); window.activateWindow(); QTest::qWait(20);
+        auto *canvas=window.findChild<Canvas *>();
+        auto *crop=window.findChild<QAbstractButton *>(QStringLiteral("tool-4"));
+        auto *pen=window.findChild<QAbstractButton *>(QStringLiteral("tool-0"));
+        QVERIFY(crop && pen);
+        QVERIFY(crop->mapTo(&window,QPoint()).x()<pen->mapTo(&window,QPoint()).x());
+        QTest::keyClick(&window,Qt::Key_T);
+        QTest::mouseClick(canvas,Qt::LeftButton,{},canvas->rect().center());
+        auto *editor=canvas->findChild<QPlainTextEdit *>();
+        QVERIFY(editor->isVisible());
+        QTest::keyClicks(editor,"Inline save");
+        QTest::keyClick(editor,Qt::Key_S,Qt::ControlModifier);
+        QTRY_VERIFY(QFileInfo::exists(path));
+        QVERIFY(!editor->isVisible());
+        QVERIFY(canvas->image()!=base);
+        QCOMPARE(QImage(path).convertToFormat(canvas->image().format()),canvas->image());
+        QVERIFY(window.close());
     }
     void blurIsExportedAndUndoable() {
         Canvas canvas;

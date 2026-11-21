@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="openkaryon_window_snapshot_v1">
+  <copyright>Copyright 2026 OpenKaryon Developers. SPDX-License-Identifier: MIT</copyright>
+  <interface name="openkaryon_window_snapshot_v1" version="1">
+    <description summary="visible window bounds for the desktop screenshot picker">
+      snapshot returns visible, mapped toplevel rectangles in global logical
+      coordinates, topmost first, followed by done. Decorations are included,
+      shadows and resize hitboxes are excluded. Minimized windows and windows
+      on hidden workspaces are omitted. A snapshot is not a live subscription.
+      No data is returned while the session is locked. Sandboxed clients must
+      not be offered this private desktop interface. Captures use the visible
+      screen pixels: any occluding windows remain in the resulting rectangle.
+    </description>
+    <request name="destroy" type="destructor"/>
+    <request name="snapshot"/>
+    <event name="window">
+      <arg name="x" type="int"/>
+      <arg name="y" type="int"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+      <arg name="title" type="string"/>
+    </event>
+    <event name="done">
+      <arg name="available" type="uint" summary="zero if the session is locked"/>
+    </event>
+  </interface>
+</protocol>

@@ -61,7 +61,7 @@ const QStringList DefaultPinned = {
     QStringLiteral("openkaryon-files.desktop"),   QStringLiteral("chromium.desktop"),
     QStringLiteral("karyo-terminal.desktop"), QStringLiteral("openkaryon-terminal.desktop"), QStringLiteral("karyo-editor.desktop"), QStringLiteral("openkaryon-editor.desktop"),
     QStringLiteral("rstudio.desktop"),            QStringLiteral("openkaryon-appcenter.desktop"),
-    QStringLiteral("openkaryon-monitor.desktop"), QStringLiteral("openkaryon-settings.desktop"),
+    QStringLiteral("karyo-monitor.desktop"), QStringLiteral("openkaryon-monitor.desktop"), QStringLiteral("openkaryon-settings.desktop"),
 };
 
 QSettings shellSettings()

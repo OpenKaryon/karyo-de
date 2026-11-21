@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 SOURCE = Path(__file__).resolve().parents[1]
 
@@ -49,6 +50,16 @@ exit 7
     def run_launcher(self, *args):
         return subprocess.run([str(self.launcher), *args], env=self.env,
                               capture_output=True, text=True)
+
+    def test_public_screenshot_shortcut_modes(self):
+        root = ET.parse(SOURCE / "session/labwc/rc.xml").getroot()
+        bindings = {item.attrib["key"]: item.find("action").attrib.get("command")
+                    for item in root.findall("keyboard/keybind")}
+        expected = {"C-S-1": "--region", "C-S-2": "--region --edit",
+                    "C-S-3": "--screen --edit", "C-S-4": "--window --edit",
+                    "Print": "--region", "W-S-s": "--region", "C-Print": "--screen"}
+        for key, mode in expected.items():
+            self.assertEqual(bindings[key], "karyo-snip " + mode)
 
     def test_preflight_and_missing_backend(self):
         self.assertEqual(self.run_launcher("--check").returncode, 0)

@@ -1,0 +1,36 @@
+[Desktop Entry]
+Type=Application
+Name=Snipping Tool
+Name[ru]=Ножницы
+GenericName=Screenshots
+GenericName[ru]=Снимки экрана
+Comment=Take screenshots and mark them up
+Comment[ru]=Снимки экрана с пометками
+Exec=karyo-snip
+Icon=applets-screenshooter
+Terminal=false
+Categories=Utility;Graphics;
+Keywords=screenshot;snip;capture;print screen;screen;
+Keywords[ru]=снимок экрана;скриншот;ножницы;захват;
+StartupWMClass=karyo-snip
+Actions=Region;RegionEdit;Screen;Window;
+
+[Desktop Action Region]
+Name=Snip a rectangle
+Name[ru]=Снимок области
+Exec=karyo-snip --region
+
+[Desktop Action Screen]
+Name=Snip the full screen
+Name[ru]=Снимок всего экрана
+Exec=karyo-snip --screen --edit
+
+[Desktop Action RegionEdit]
+Name=Select a region and edit
+Name[ru]=Выбрать область и редактировать
+Exec=karyo-snip --region --edit
+
+[Desktop Action Window]
+Name=Select a window and edit
+Name[ru]=Выбрать окно и редактировать
+Exec=karyo-snip --window --edit

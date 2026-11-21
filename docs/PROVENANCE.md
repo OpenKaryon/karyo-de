@@ -133,3 +133,13 @@ are adapted from `distro/desktop/apps/snip` at the same application donor
 revision. Editable vectors, inline text, raster blur and explicit crop commit
 retain one undo history. Clipboard publication now requires successful wl-copy
 completion before skipping the Qt fallback, including timeout/error paths.
+
+Snip window/overlay, launch metadata and Russian catalog now come from that
+same donor. Existing settings/capture-lock paths are preserved explicitly. The
+OpenKaryon window-snapshot v1 wire identity and MIT notice remain in the XML,
+with the full MIT text installed alongside it. Its compositor capability is
+optional and is never claimed by the stock session merely because the client builds.
+
+The donor's headless wlroots input fixture is retained as test-only source, not
+a runtime dependency or installed interposer. It requires an explicitly supplied
+QA FIFO and matching wlroots build; real-VM checks use isolated virtual input.

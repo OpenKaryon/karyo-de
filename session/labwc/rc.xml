@@ -17,6 +17,13 @@
     <keybind key="W-Down"><action name="Iconify" /></keybind>
     <keybind key="W-Left"><action name="SnapToEdge" direction="left" /></keybind>
     <keybind key="W-Right"><action name="SnapToEdge" direction="right" /></keybind>
+    <keybind key="Print"><action name="Execute" command="karyo-snip --region" /></keybind>
+    <keybind key="W-S-s"><action name="Execute" command="karyo-snip --region" /></keybind>
+    <keybind key="C-Print"><action name="Execute" command="karyo-snip --screen" /></keybind>
+    <keybind key="C-S-1"><action name="Execute" command="karyo-snip --region" /></keybind>
+    <keybind key="C-S-2"><action name="Execute" command="karyo-snip --region --edit" /></keybind>
+    <keybind key="C-S-3"><action name="Execute" command="karyo-snip --screen --edit" /></keybind>
+    <keybind key="C-S-4"><action name="Execute" command="karyo-snip --window --edit" /></keybind>
   </keyboard>
   <mouse><default /></mouse>
 </labwc_config>
