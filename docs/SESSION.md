@@ -215,3 +215,13 @@ Terminal PIDs do not change, and the notification service retains its DND state.
 This fixes the reproduced Ubuntu disappearing-panel case in the tested source
 builds. Clean native DEB installation acceptance and physical multi-monitor
 coverage are separate gates; this is not yet full two-profile switching.
+
+
+The clean native shell DEBs built from bb46dfc now also pass installed output
+recovery on Debian and Ubuntu: all 68 CTests pass, no source overlay is present,
+and actual initial PAM followed by VT return restores the panel and Start.
+A Start flyout is open when leaving; shared DND and the shell/Terminal PIDs
+survive. Input hashes, GUI captures and unchanged account/PAM/package checks
+are recorded in Builder VALIDATION-INSTALLED-SHELL-HOTPLUG.md. This closes the
+reproduced installed shell output-lifecycle regression for one virtual display;
+physical multi-monitor and actual two-profile switching remain separate gates.

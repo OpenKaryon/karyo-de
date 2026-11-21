@@ -400,3 +400,13 @@ shell and Terminal PIDs, visible returned panels, working Start and DND state.
 The shell skips Qt placeholder outputs and recreates only output-bound views;
 shared models and DBus services persist. Exact clean native shell packages still
 need installation acceptance before closing the installed gate.
+
+
+The clean native shell DEBs built from bb46dfc now also pass installed output
+recovery on Debian and Ubuntu: all 68 CTests pass, no source overlay is present,
+and actual initial PAM followed by VT return restores the panel and Start.
+A Start flyout is open when leaving; shared DND and the shell/Terminal PIDs
+survive. Input hashes, GUI captures and unchanged account/PAM/package checks
+are recorded in Builder VALIDATION-INSTALLED-SHELL-HOTPLUG.md. This closes the
+reproduced installed shell output-lifecycle regression for one virtual display;
+physical multi-monitor and actual two-profile switching remain separate gates.

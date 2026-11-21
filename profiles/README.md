@@ -433,3 +433,13 @@ All 129 profile cases pass on Debian and Ubuntu as root (3 role-specific skips)
 and ordinary UID 65534 (42 skips). An independent CMake accounts build stages
 the public launcher and runs the same suite without building Qt. Native package
 and real GUI-caller acceptance of the public interface remain separate checks.
+
+
+Native profile-accounts DEBs from bf831b0 now pass installed public-interface
+acceptance on both guests. Actual Terminal windows launched from each shell
+call karyo-desktops list --json and switch karyoqa through native pkexec;
+responses contain only the current family and changed=false on VT8. Forged SSH
+contexts remain denied. Accounts, common PAM and the default manager are
+unchanged; known QA scripts/JSON are removed. This is current-desktop noop
+acceptance, not a claim of switching between two distinct sessions. Exact
+artifacts and checks are in Builder VALIDATION-PROFILE-FRONTEND.md.
