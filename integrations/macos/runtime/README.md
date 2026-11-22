@@ -228,3 +228,19 @@ rejects both original calls and accepts their actual patched arguments with
 -Werror=format-security. Both complete25-patch Git/zero-fuzz quilt runs restore
 all58 selected source files. This does not establish a completed engine build;
 full native package auditing and application execution remain subsequent gates.
+
+## Ruby counter headers and reproducible paths
+
+The next full build passed Foundation and reached the bundled Ruby interpreter.
+Its debug_counter.h used #include __FILE__ to expand an X-macro list twice;
+Debian's normal -ffile-prefix-map remapped that string to a path no longer
+resolvable by the preprocessor. Common patch0026 includes the same adjacent
+header by its stable filename. Preserve reproducible path mapping and the
+interpreter instead of removing either. The exact Ruby module revision
+423f2439478d2e24d7c19b2e0ea4a67ee3e80c3d is verified independently.
+
+Both native source suites pass24 cases, including compiler rejection of the
+original mapped self-include and successful compilation/execution of the actual
+replacement directive with an X-macro header. All26 Git/zero-fuzz quilt patches
+apply/reverse on both bases and restore59 pristine selected files. Full engine
+packaging and native application execution remain separate unfinished gates.

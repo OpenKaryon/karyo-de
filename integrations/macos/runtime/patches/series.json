@@ -102,6 +102,10 @@
     {
       "file": "0025-foundation-literal-assertion-format.patch",
       "sha256": "e443efeefa8b48906791e94875f7194a8cd2a51d89794c8803b8852b7112d3ee"
+    },
+    {
+      "file": "0026-ruby-counter-relative-self-include.patch",
+      "sha256": "c57764342e69564e815d6a92da29cbb1a57a6c15d2030626ac689b3702b365c2"
     }
   ]
 }

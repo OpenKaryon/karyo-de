@@ -1,0 +1,16 @@
+Subject: Keep Ruby counter self-inclusion independent of remapped build paths
+
+Resolve the same header locally while preserving reproducible compiler maps.
+
+diff --git a/src/external/ruby/ruby/debug_counter.h b/src/external/ruby/ruby/debug_counter.h
+--- a/src/external/ruby/ruby/debug_counter.h
++++ b/src/external/ruby/ruby/debug_counter.h
+@@ -249,7 +249,7 @@
+ 
+ enum rb_debug_counter_type {
+ #define RB_DEBUG_COUNTER(name) RB_DEBUG_COUNTER_##name,
+-#include __FILE__
++#include "debug_counter.h"
+     RB_DEBUG_COUNTER_MAX
+ #undef RB_DEBUG_COUNTER
+ };

@@ -12,7 +12,7 @@ import sys
 import tarfile
 import tempfile
 
-from patch_policy import DARLING_REVISION, COCOTRON_REVISION, OBJC_REVISION, FOUNDATION_REVISION, MAX_FILE_BYTES, EXPECTED_PATCH_COUNT, parse_paths
+from patch_policy import DARLING_REVISION, COCOTRON_REVISION, OBJC_REVISION, FOUNDATION_REVISION, RUBY_REVISION, MAX_FILE_BYTES, EXPECTED_PATCH_COUNT, parse_paths
 from prepare_swift import digest, matches
 
 
@@ -85,6 +85,10 @@ def verify(snapshot, recipe, output):
     if (len(foundation) != 1 or foundation[0].get("revision") != FOUNDATION_REVISION
             or foundation[0].get("url") != "https://github.com/darlinghq/darling-foundation.git"):
         raise ValueError("Pinned Foundation source snapshot required")
+    ruby = [m for m in manifest.get("modules", []) if m.get("path", "").rstrip("/") == "src/external/ruby"]
+    if (len(ruby) != 1 or ruby[0].get("revision") != RUBY_REVISION
+            or ruby[0].get("url") != "https://github.com/darlinghq/darling-ruby.git"):
+        raise ValueError("Pinned Ruby source snapshot required")
     artifact = manifest.get("archive", {})
     if (artifact.get("file") != "source.tar.gz" or type(artifact.get("bytes")) is not int
             or not isinstance(artifact.get("sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", artifact["sha256"])):
