@@ -514,3 +514,22 @@ The GPL-3.0-or-later headless XWayland QA tool adapts the prototype regression,
 adds four late palettes, package hash verification, ordinary-user isolation and
 acknowledged X11 retirement between cases. Python Xlib, Pillow, grim and native
 Xwayland remain external test dependencies with their own licensing.
+
+
+The independent Windows launcher adapts the prototype openkaryon-win32 Python
+launcher at donor26bad17cef413d26c36c117f2f1123dca4edded7. It is split into own
+GPL-3.0-or-later policy/storage/registration/frontend modules. Per-account storage,
+ordinary credential validation, capability reset, bounded owner-checked records
+and Karyo-scoped MIME defaults replace the obsolete two-slot environment model.
+No personal prefix, registered application or binary is imported. Native Wine,
+PyQt6 and icoutils are separately packaged dependencies with upstream licenses.
+Source policy and real native engine/package acceptance have distinct gates.
+
+
+The native Windows acceptance fixtures are new GPL-3.0-or-later C, RC, WiX XML
+and Python QA code. They compile a synthetic PE64 and per-user MSI using native
+MinGW and wixl, with a generated single-color icon. They introduce no Windows
+application, proprietary resource, imported prefix or credential. Native Wine,
+MinGW, wixl, Python Xlib, Qt, Pillow and grim retain their own licenses. Actual
+Wine64 runtime and native Qt dialog tests remain distinct from the compositor's
+modeled owned-window regression and from pending full application compatibility.

@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.21)
+project(KaryoWin32 VERSION 0.1.0 LANGUAGES NONE)
+include(GNUInstallDirs)
+include(CTest)
+include(../../cmake/Win32.cmake)

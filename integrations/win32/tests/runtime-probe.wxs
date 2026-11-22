@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+<Product Id="6CC75065-4EFC-4C0B-8A86-14FBB5711A01" Name="Karyo Runtime QA" Language="1033" Version="1.0.0" Manufacturer="Karyo QA" UpgradeCode="6CC75065-4EFC-4C0B-8A86-14FBB5711A02">
+<Package InstallerVersion="200" Compressed="yes" InstallScope="perUser" Platform="x64"/>
+<Media Id="1" Cabinet="probe.cab" EmbedCab="yes"/>
+<Directory Id="TARGETDIR" Name="SourceDir"><Directory Id="LocalAppDataFolder"><Directory Id="InstallFolder" Name="KaryoRuntimeQA">
+<Component Id="ProbeComponent" Guid="6CC75065-4EFC-4C0B-8A86-14FBB5711A03" Win64="yes"><File Id="RuntimeProbe" Name="InstalledProbe.exe" Source="runtime-probe.exe" KeyPath="yes"/></Component>
+</Directory></Directory></Directory>
+<Feature Id="MainFeature" Title="Runtime probe" Level="1"><ComponentRef Id="ProbeComponent"/></Feature>
+</Product></Wix>

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Windows Applications
+Name[ru]=Приложения Windows
+Comment=Launch a Windows EXE application or MSI installer
+Comment[ru]=Запустить приложение Windows или установщик MSI
+Exec=karyo-win32 --gui -- %f
+Icon=application-x-ms-dos-executable
+Terminal=false
+Categories=System;Utility;
+MimeType=application/x-ms-dos-executable;application/x-msdownload;application/vnd.microsoft.portable-executable;application/x-msi;
+StartupNotify=true

@@ -1,0 +1,5 @@
+[Default Applications]
+application/x-ms-dos-executable=karyo-win32.desktop;
+application/x-msdownload=karyo-win32.desktop;
+application/vnd.microsoft.portable-executable=karyo-win32.desktop;
+application/x-msi=karyo-win32.desktop;
