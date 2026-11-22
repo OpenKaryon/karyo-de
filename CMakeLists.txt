@@ -111,3 +111,5 @@ if(KARYO_BUILD_APPS)
 endif()
 
 include(cmake/Profiles.cmake)
+
+include(cmake/XClipboard.cmake)

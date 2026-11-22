@@ -1,0 +1,9 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-3.0-or-later
+import os,sys
+if os.getuid()!=os.geteuid() or os.getgid()!=os.getegid() or not 1000<=os.getuid()<65534 or sys.argv[1:]:
+    raise SystemExit('karyo-xclipboard requires an ordinary desktop account and no arguments')
+sys.dont_write_bytecode=True
+sys.path.insert(0,'@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/clipboard')
+from karyo_xclipboard.bridge import main
+raise SystemExit(main())
