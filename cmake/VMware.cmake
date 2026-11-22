@@ -1,6 +1,8 @@
 get_filename_component(vmware_source "${CMAKE_CURRENT_LIST_DIR}/../integrations/vmware" ABSOLUTE)
 configure_file("${vmware_source}/entrypoint.in" "${CMAKE_CURRENT_BINARY_DIR}/karyo-vmware-agent" @ONLY)
 install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-vmware-agent" DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT vmware-session-runtime)
+configure_file("${vmware_source}/display-entrypoint.in" "${CMAKE_CURRENT_BINARY_DIR}/display-follower" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/display-follower" DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo/vmware COMPONENT vmware-session-runtime)
 install(DIRECTORY "${vmware_source}/karyo_vmware" DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo/vmware
     COMPONENT vmware-session-runtime FILES_MATCHING PATTERN "*.py" PATTERN "__pycache__" EXCLUDE)
 install(FILES "${vmware_source}/karyo-vmware.conf" DESTINATION lib/tmpfiles.d COMPONENT vmware-session-runtime)

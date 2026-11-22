@@ -27,7 +27,8 @@ removal restores ordinary Karyo autostart resolution for subsequent sessions.
 This is the session/channel component of a larger VMware integration migration.
 Rootless clipboard, actual host exchange and native Home/Work handover require
 installed acceptance. Privileged vmblock/uinput file transfer, host drag/drop,
-HGFS, display following and other-DE handover remain separate integration gates.
+HGFS and other-DE handover remain separate integration gates; installed display
+following is a separate acceptance gate for the new component below.
 It does not claim that rootless vmusr replaces the SUID wrapper for every tool.
 
 Source validation passes11 agent cases (including real inherited-lock worker,
@@ -74,3 +75,37 @@ wait for completed cleanup rather than equating absent command names with an
 already released reservation. Original Home and account/PAM/package state survive.
 See Builder's joined-lock report for exact actor versions, retained first Ubuntu
 observation race and the distinct host-payload/file-transfer boundaries.
+
+The optional display worker now follows preferred sizes of connected vmwgfx
+outputs. It reads the shared kernel connector metadata twice per second instead
+of requiring a global udev netlink subscription in private desktop networks.
+Changes debounce for half a second, with one later correction; unchanged kernel
+metadata does not repeatedly override a user's manually chosen resolution.
+Disabled, unknown, non-VMware and ambiguous outputs are left alone.
+
+The worker lives in the coordinator's foreground group set and retains the same
+channel reservation. Background/locked sessions stop it with the clipboard pair.
+Its bounded wlr-randr requests have their own parent-death guard and inherited
+reservation; a blocked request cannot block the coordinator's active-state loop.
+The real native session is checked before querying and again before each write.
+Failures retry after five seconds without repeated identical error messages.
+KARYO_VMWARE_DISPLAY_SYNC=0 opts out; the old OPENKARYON_VMWARE_DISPLAY_SYNC=0
+is retained as a fallback when the new setting is absent. The package requires
+wlr-randr. Source tests pass 25 cases on Debian and Ubuntu, including real worker
+cleanup under UID1001; native resize acceptance is not claimed by these tests.
+
+The fixed-host tests/installed-display.py gate now also accepts the installed
+worker in both Debian and Ubuntu Work sessions. It checks native session/UID,
+empty current capabilities, NoNewPrivileges and inherited channel ownership;
+manual custom mode remains unchanged until activation, background ownership
+ends, and reactivation brings the preferred kernel size back in the same Work
+session. Debian's older wlr-randr omits refresh rate for a custom current mode;
+that native-discovered format is covered by an additional source regression.
+
+The gate restores the original Home geometry/session and removes only captured
+Work/channel resources. This accepts activation-time following against real
+kernel metadata and compositor state, not an actual host window resize, monitor
+hotplug or a multi-monitor layout. Synthetic DRM topology injection did not
+provide a reliable host event here and is deliberately excluded from acceptance.
+See Builder's VALIDATION-VMWARE-DISPLAY.md for the preserved failed probes,
+strict recovery of the separate networking observation and final evidence.

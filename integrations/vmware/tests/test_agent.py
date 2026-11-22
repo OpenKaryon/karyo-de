@@ -49,6 +49,11 @@ class AgentPolicyTests(unittest.TestCase):
         value=self.make();value.binder=lambda:None;value.tick(True)
         self.assertFalse(self.children);self.assertIsNone(value.lock)
 
+    def test_display_worker_shares_foreground_ownership_and_stops_on_lock(self):
+        value=self.make();display=FakeChild();value.display=lambda lock:display
+        value.tick(True);self.assertIn(display,value.children)
+        value.tick(False);self.assertTrue(display.stopped);self.assertIsNone(value.lock)
+
     def test_non_vmware_exits_without_session_or_lock_operations(self):
         with patch.object(agent.os,'getuid',return_value=1001),patch.object(agent.os,'geteuid',return_value=1001),patch.object(agent,'on_vmware',return_value=False),patch.object(agent,'Session') as lookup,patch.object(sys,'argv',['agent']):
             self.assertEqual(agent.main(),0);lookup.assert_not_called()

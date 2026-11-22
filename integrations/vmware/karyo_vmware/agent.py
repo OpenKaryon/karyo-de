@@ -3,6 +3,7 @@
 import fcntl,os,signal,stat,subprocess,sys,time
 from pathlib import Path
 from .children import Child
+from .display import enabled
 from .session import Session
 from .worker import LOCK,drop_privileges,validate_lock
 
@@ -31,8 +32,8 @@ def external_vmusr():
     return False
 
 class Agent:
-    def __init__(self,commands,*,clock=time.monotonic,binder=acquire,factory=Child,external=external_vmusr):
-        self.commands=commands;self.clock=clock;self.binder=binder;self.factory=factory;self.external=external
+    def __init__(self,commands,*,clock=time.monotonic,binder=acquire,factory=Child,external=external_vmusr,display=None):
+        self.display=display;self.commands=commands;self.clock=clock;self.binder=binder;self.factory=factory;self.external=external
         self.lock=None;self.children=[];self.active=False;self.due=0;self.started=0;self.failures=0
 
     def stop(self):
@@ -56,11 +57,13 @@ class Agent:
         try:
             if self.external():self.stop();self.due=now+.5;return
             for command in self.commands:self.children.append(self.factory(command,self.lock))
+            if self.display is not None:self.children.append(self.display(self.lock))
             self.started=now
         except BaseException:self.stop();raise
 
 def main():
-    if os.getuid()!=os.geteuid() or os.getgid()!=os.getegid() or not 1000<=os.getuid()<65534 or sys.argv[1:]:return 2
+    if os.getuid()!=os.geteuid() or os.getgid()!=os.getegid() or not 1000<=os.getuid()<65534:return 2
+    if sys.argv[1:]:return 2
     if not on_vmware():return 0
     if not os.environ.get('DISPLAY') or not os.environ.get('WAYLAND_DISPLAY'):
         print('karyo-vmware-agent: native X11 and Wayland displays are required.',file=sys.stderr);return 1
@@ -68,7 +71,9 @@ def main():
     def stop(*unused):raise SystemExit(0)
     for number in (signal.SIGTERM,signal.SIGHUP,signal.SIGINT):signal.signal(number,stop)
     try:
-        session=Session();agent=Agent([['/usr/bin/vmtoolsd','-n','vmusr'],['/usr/bin/karyo-xclipboard']])
+        session=Session()
+        def display(lock):return Child(['/usr/libexec/karyo/vmware/display-follower',str(lock)],lock)
+        agent=Agent([['/usr/bin/vmtoolsd','-n','vmusr'],['/usr/bin/karyo-xclipboard']],display=display if enabled(os.environ) else None)
         while True:
             active=session.state()
             if active is None:break
