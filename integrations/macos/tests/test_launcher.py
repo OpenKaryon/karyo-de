@@ -77,3 +77,20 @@ class Launcher(ProfileFixture, unittest.TestCase):
         with patch.object(launcher,'normal_user',side_effect=LaunchError('ordinary user required')),contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(launcher.main([str(self.binary)]),1)
         self.assertFalse((self.home/'.karyo-macos').exists())
+
+    def test_gui_dispatch_is_literal_and_uses_configured_picker(self):
+        picker=self.folder/'picker';picker.write_text('#!/bin/sh\nexit 0\n');picker.chmod(0o700)
+        with patch.object(launcher,'normal_user',return_value=(self.uid,self.home)), \
+             patch.object(launcher,'discard_inherited_capabilities') as cleared, \
+             patch.object(launcher.os,'execv',side_effect=SystemExit(7)) as execute:
+            with self.assertRaises(SystemExit):
+                launcher.main(['--gui',str(self.binary),'--',"literal '$()'",'one\ntwo'],picker_path=str(picker))
+            execute.assert_called_once_with(str(picker),[str(picker),'--',str(self.binary),"literal '$()'",'one\ntwo'])
+            cleared.assert_called_once()
+        self.assertFalse((self.home/'.karyo-macos').exists())
+
+    def test_gui_modes_reject_conflicts_and_missing_frontend(self):
+        with patch.object(launcher,'normal_user',return_value=(self.uid,self.home)),contextlib.redirect_stderr(io.StringIO()):
+            for args in (['--gui','--inspect',str(self.binary)],['--status','--gui'],['--gui']):
+                self.assertEqual(launcher.main(args,picker_path=str(self.folder/'missing')),1)
+        self.assertFalse((self.home/'.karyo-macos').exists())

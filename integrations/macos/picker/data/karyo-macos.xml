@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-karyo-mach-o">
+    <comment>Intel macOS executable</comment>
+    <comment xml:lang="ru">Исполняемый файл macOS Intel</comment>
+    <sub-class-of type="application/octet-stream"/>
+    <magic priority="70">
+      <match type="string" value="\xcf\xfa\xed\xfe" offset="0">
+        <match type="string" value="\x07\x00\x00\x01" offset="4">
+          <match type="string" value="\x02\x00\x00\x00" offset="12"/>
+        </match>
+      </match>
+    </magic>
+  </mime-type>
+</mime-info>

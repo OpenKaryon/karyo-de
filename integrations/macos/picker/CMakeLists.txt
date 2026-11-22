@@ -1,0 +1,33 @@
+add_library(karyo-macos-picker-ui STATIC pickerwindow.cpp pickerwindow.h)
+target_include_directories(karyo-macos-picker-ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(karyo-macos-picker-ui PUBLIC Karyo::Style)
+target_compile_options(karyo-macos-picker-ui PRIVATE -Wall -Wextra -Wpedantic)
+qt_add_executable(karyo-macos-picker main.cpp)
+target_link_libraries(karyo-macos-picker PRIVATE karyo-macos-picker-ui)
+target_compile_definitions(karyo-macos-picker PRIVATE
+    KARYO_MACOS_HELPER_PATH="${CMAKE_INSTALL_FULL_BINDIR}/karyo-macos")
+if(NOT COMMAND karyo_add_translation)
+    include("${PROJECT_SOURCE_DIR}/cmake/Translations.cmake")
+endif()
+karyo_add_translation(karyo-macos-picker "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-macos-picker_ru.ts")
+install(TARGETS karyo-macos-picker RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT macos-picker-runtime)
+install(FILES data/karyo-macos.desktop
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT macos-picker-runtime)
+install(FILES data/karyo-macos.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/mime/packages COMPONENT macos-picker-runtime)
+install(FILES data/karyo-macos.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps COMPONENT macos-picker-runtime)
+install(FILES ${PROJECT_SOURCE_DIR}/LICENSE "${macos_source}/README.md"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-macos COMPONENT macos-picker-runtime)
+install(FILES ${PROJECT_SOURCE_DIR}/resources/lucide/LICENSE
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-macos RENAME Lucide-LICENSE COMPONENT macos-picker-runtime)
+if(BUILD_TESTING)
+    find_package(Qt6 REQUIRED COMPONENTS Test)
+    add_executable(karyo-macos-picker-fixture ../tests/pickerfixture.cpp)
+    target_link_libraries(karyo-macos-picker-fixture PRIVATE Qt6::Core)
+    add_executable(karyo-macos-picker-test ../tests/pickertest.cpp)
+    target_link_libraries(karyo-macos-picker-test PRIVATE karyo-macos-picker-ui Qt6::Test)
+    target_compile_definitions(karyo-macos-picker-test PRIVATE
+        KARYO_MACOS_PICKER_FIXTURE="$<TARGET_FILE:karyo-macos-picker-fixture>")
+    add_dependencies(karyo-macos-picker-test karyo-macos-picker-fixture)
+    add_test(NAME macos-picker-lifecycle COMMAND karyo-macos-picker-test)
+    set_tests_properties(macos-picker-lifecycle PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 45)
+endif()

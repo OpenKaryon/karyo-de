@@ -54,8 +54,9 @@ def inspection(plan):
             'runtime': runtime_status(), 'prefixCreated': False}
 
 
-def main(argv=None):
+def main(argv=None, picker_path='/usr/bin/karyo-macos-picker'):
     parser = argparse.ArgumentParser(description='Экспериментальный запуск macOS x86_64-приложений через Darling.')
+    parser.add_argument('--gui', action='store_true', help='Открыть окно выбора приложения Karyo.')
     parser.add_argument('--status', action='store_true', help='Наличие движка; совместимость проверяется отдельно.')
     parser.add_argument('--json', action='store_true', help='Машиночитаемый статус.')
     parser.add_argument('--inspect', action='store_true', help='Проверить приложение и путь профиля без записи и запуска.')
@@ -64,15 +65,23 @@ def main(argv=None):
     options = parser.parse_args(argv)
     try:
         if options.status:
-            if options.inspect or options.application:
+            if options.inspect or options.application or options.gui:
                 raise LaunchError('--status нельзя сочетать с запуском приложения.')
             result = runtime_status()
             print(json.dumps(result, ensure_ascii=False) if options.json else
                   ('Darling установлен; совместимость приложений проверяется отдельно.' if result['installed'] else 'Darling не установлен.'))
             return 0 if result['installed'] else 1
+        normal_user()
+        if options.gui or (options.application is None and not options.inspect):
+            if options.inspect:
+                raise LaunchError('--gui нельзя сочетать с --inspect.')
+            if not os.path.isfile(picker_path) or not os.access(picker_path, os.X_OK):
+                raise LaunchError('Для окна выбора установите необязательный пакет karyo-macos.')
+            arguments = options.arguments[1:] if options.arguments[:1] == ['--'] else options.arguments
+            discard_inherited_capabilities()
+            os.execv(picker_path, [picker_path, '--', *([options.application, *arguments] if options.application else [])])
         if not options.application:
             raise LaunchError('Укажите .app bundle или исполняемый Mach-O файл x86_64.')
-        normal_user()
         application = inspect_application(options.application)
         arguments = options.arguments[1:] if options.arguments[:1] == ['--'] else options.arguments
         plan = prepare_launch(application, arguments, create=not options.inspect)

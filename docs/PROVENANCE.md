@@ -766,3 +766,25 @@ Linux subprocess engine fixture. It captures ordinary credentials/capabilities,
 private-log and existing-data behavior through the installed isolated entrypoint.
 No Darling, Apple or third-party executable is embedded or represented as a
 compatibility pass by that fixture.
+
+
+The standalone macOS picker is an original Qt6/C++17 rewrite of the reviewed
+prototype's macos_gui.py behavior (26bad17, original SHA256
+48d389c22cdd897c0a52cf22251cf796c430655ce1bdfb27f01b8de3246792f2).
+It uses the existing public Karyo widgets/style rather than carrying the PyQt
+prototype into the desktop component. Its async controller, bounded decoding,
+plain-text status, close guard, Russian translation, Qt lifecycle fixtures and
+Karyo app icon are original GPL-3.0-or-later code/resources. Common embedded
+Lucide artwork retains its license; the GUI runtime installs that notice.
+The custom Mach-O MIME magic is adapted from the same reviewed own-code package;
+no Apple executable, logo, SDK, third-party engine or private profile is bundled.
+
+
+The installed native macOS picker actor and explicit-close Wayland observer are
+original GPL-3.0-or-later QA, adapted from the existing own-code dual-protocol
+observer. Generated bindings come from the existing MIT wlr XML and each native
+wayland-protocols XML with their notices. They run only on a new private QA
+display. The Linux engine fixture and32-byte synthetic Mach-O inspection header
+are explicitly labeled, never installed as a runtime or presented as Darling
+compatibility. Before/after installed argument controls retain original failing
+packages and new actual-Wayland results without per-application runtime rules.

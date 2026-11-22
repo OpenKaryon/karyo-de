@@ -10,3 +10,7 @@ if(BUILD_TESTING)
     add_test(NAME macos-launch-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover -s ${macos_source}/tests -v)
     set_tests_properties(macos-launch-policy PROPERTIES ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
 endif()
+
+if(TARGET Karyo::Style)
+    add_subdirectory("${macos_source}/picker" "${CMAKE_CURRENT_BINARY_DIR}/macos-picker")
+endif()

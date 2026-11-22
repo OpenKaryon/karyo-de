@@ -22,6 +22,7 @@ def main():
     account=pwd.getpwuid(1001);home=Path(account.pw_dir)
     assert home==Path('/home/win32qa') and not (home/'.karyo-macos').exists()
     output=Path('/output');binary=Path('/usr/share/karyo-qa/macos-inspection-probe')
+    version=subprocess.check_output(['dpkg-query','-W','-f=${Version}','karyo-macos-core'],text=True).strip()
     assert binary.is_file() and binary.stat().st_size==32
     env={**os.environ,'HOME':'/not-account-home','USER':'root','LOGNAME':'root',
          'PYTHONPATH':'/not-the-runtime','PYTHONHOME':'/not-the-runtime',
@@ -38,6 +39,11 @@ def main():
     prefix=Path(preview['prefix']);assert prefix.is_relative_to(home/'.karyo-macos')
     missing=run(['/usr/bin/karyo-macos',str(binary)],env,1)
     assert 'Darling не установлен' in missing.stderr and not (home/'.karyo-macos').exists()
+    if version=='0.1.0-2':
+        for argv in (['/usr/bin/karyo-macos','--gui'],['/usr/bin/karyo-macos']):
+            frontend=run(argv,env,1)
+            assert 'необязательный пакет karyo-macos' in frontend.stderr
+        assert not (home/'.karyo-macos').exists()
     env['OPENKARYON_SESSION_SLOT']='1'
     again=json.loads(run(['/usr/bin/karyo-macos','--inspect',str(binary)],env,0).stdout)
     assert again['prefix']==preview['prefix']
@@ -76,11 +82,12 @@ def main():
     assert len(list((prefix.parent/'logs').glob('*.log')))==2
     accepted={'accepted':True,'fixture_only':True,'darling_runtime_proven':False,
         'uid':1001,'public_entry':'/usr/bin/karyo-macos','prefix':str(prefix),
-        'package_version':subprocess.check_output(['dpkg-query','-W','-f=${Version}','karyo-macos-core'],text=True).strip(),
+        'package_version':version,
         'checks':['status-without-engine','noncreating-inspect','account-and-slot-authority',
             'missing-engine-no-state','foreign-format-refusal','isolated-python-entry',
             'literal-arguments-status23','clean-environment-capabilities','private-exclusive-logs','existing-data-inode-preserved'],
         'marker_sha256':hashlib.sha256(before).hexdigest()}
+    if version=='0.1.0-2':accepted['checks'].extend(['explicit-gui-without-frontend','default-gui-without-frontend'])
     (output/'native-acceptance.json').write_text(json.dumps(accepted,indent=2)+'\n')
     print(json.dumps(accepted),flush=True)
 

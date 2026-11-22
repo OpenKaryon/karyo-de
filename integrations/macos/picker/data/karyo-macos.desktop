@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=macOS Applications
+Name[ru]=Приложения macOS
+Comment=Experimental Intel macOS application launcher
+Comment[ru]=Экспериментальный запуск приложений macOS Intel
+Exec=karyo-macos-picker -- %f
+Icon=karyo-macos
+Terminal=false
+Categories=Utility;
+MimeType=application/x-karyo-mach-o;
+StartupNotify=true
