@@ -144,6 +144,51 @@ private Q_SLOTS:
         QCOMPARE(generic->id, QStringLiteral("text-reader.desktop"));
     }
 
+    void distributionMimeDefaultsAreDesktopSpecificAndUserOverridable()
+    {
+        const QString folder = m_data.filePath("system/applications");
+        QVERIFY(QDir().mkpath(folder));
+        QFile defaults(folder + "/karyo-mimeapps.list");
+        QVERIFY(defaults.open(QIODevice::WriteOnly));
+        defaults.write("[Default Applications]\napplication/x-karyo-win32-fixture=work-chat.desktop;\n");
+        defaults.close();
+        qputenv("XDG_CURRENT_DESKTOP", "Karyo:Other");
+        auto selected = DesktopEntry::defaultFor("application/x-karyo-win32-fixture");
+        QVERIFY(selected);
+        QCOMPARE(selected->id, QString("work-chat.desktop"));
+        qputenv("XDG_CURRENT_DESKTOP", "Other");
+        QVERIFY(!DesktopEntry::defaultFor("application/x-karyo-win32-fixture"));
+        QFile user(m_data.filePath("config/mimeapps.list"));
+        QVERIFY(user.open(QIODevice::WriteOnly));
+        user.write("[Default Applications]\napplication/x-karyo-win32-fixture=chatgpt.desktop;\n");
+        user.close();
+        qputenv("XDG_CURRENT_DESKTOP", "Karyo");
+        selected = DesktopEntry::defaultFor("application/x-karyo-win32-fixture");
+        QVERIFY(selected);
+        QCOMPARE(selected->id, QString("chatgpt.desktop"));
+        QVERIFY(user.remove());
+    }
+
+    void newlyRegisteredApplicationsInvalidateTheIdentityCache()
+    {
+        QVERIFY(!DesktopEntry::forAppId("late-windows-fixture.exe"));
+        const QString path = m_data.filePath("applications/karyo-win32-fixture.desktop");
+        QFile entry(path);
+        QVERIFY(entry.open(QIODevice::WriteOnly));
+        entry.write("[Desktop Entry]\nType=Application\nName=Late Windows app\nExec=late-app\n"
+                    "StartupWMClass=late-windows-fixture.exe\nMimeType=application/x-karyo-late-fixture;\n");
+        entry.close();
+        const auto selected = DesktopEntry::forAppId("late-windows-fixture.exe");
+        QVERIFY(selected);
+        QCOMPARE(selected->id, QString("karyo-win32-fixture.desktop"));
+        const auto handler = DesktopEntry::defaultFor("application/x-karyo-late-fixture");
+        QVERIFY(handler);
+        QCOMPARE(handler->id, selected->id);
+        QVERIFY(entry.remove());
+        QVERIFY(!DesktopEntry::forAppId("late-windows-fixture.exe"));
+        QVERIFY(!DesktopEntry::defaultFor("application/x-karyo-late-fixture"));
+    }
+
     void embeddedIcons()
     {
         QVERIFY(Karyo::Ui::hasIcon(QStringLiteral("folder")));

@@ -13,6 +13,9 @@
 #include <QStandardPaths>
 #include <QTextStream>
 #include <utility>
+#ifdef Q_OS_LINUX
+#include <sys/stat.h>
+#endif
 
 namespace {
 
@@ -129,6 +132,28 @@ bool matchesPlainAppId(const DesktopEntry &entry, const QString &appId)
     // Exec basename, e.g. "featherpad %U" -> featherpad.
     const QStringList cmd = entry.command();
     return !cmd.isEmpty() && QFileInfo(cmd.first()).fileName().toLower() == app;
+}
+
+QByteArray applicationCatalogStamp()
+{
+    QByteArray result;
+    for (const QString &dir : QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation)) {
+        const QByteArray path = QFile::encodeName(dir);
+        result += path + '\0';
+#ifdef Q_OS_LINUX
+        struct stat info {};
+        if (::stat(path.constData(), &info) == 0) {
+            result += QByteArray::number(quint64(info.st_dev)) + ':';
+            result += QByteArray::number(quint64(info.st_ino)) + ':';
+            result += QByteArray::number(qint64(info.st_mtim.tv_sec)) + ':';
+            result += QByteArray::number(qint64(info.st_mtim.tv_nsec));
+        }
+#else
+        result += QByteArray::number(QFileInfo(dir).lastModified().toMSecsSinceEpoch());
+#endif
+        result += '\0';
+    }
+    return result;
 }
 
 } // namespace
@@ -278,7 +303,9 @@ std::optional<DesktopEntry> DesktopEntry::forAppId(const QString &appId)
         candidates.append(base);
     static QList<DesktopEntry> cached;
     static qint64 cachedAt = 0;
+    static QByteArray cachedCatalogStamp;
     const qint64 now = QDateTime::currentSecsSinceEpoch();
+    const QByteArray catalogStamp = applicationCatalogStamp();
     std::optional<DesktopEntry> suffixMatch;
     bool ambiguousSuffix = false;
     for (const QString &candidate : std::as_const(candidates)) {
@@ -288,9 +315,10 @@ std::optional<DesktopEntry> DesktopEntry::forAppId(const QString &appId)
             if (auto lower = find(candidate.toLower() + QStringLiteral(".desktop")))
                 return lower;
         }
-        if (cached.isEmpty() || now - cachedAt > 30) {
+        if (cached.isEmpty() || now - cachedAt > 30 || cachedCatalogStamp != catalogStamp) {
             cached = all();
             cachedAt = now;
+            cachedCatalogStamp = catalogStamp;
         }
         // Exact desktop IDs / StartupWMClass take precedence over stripping
         // a profile suffix, including entries intentionally naming a profile.
@@ -404,8 +432,13 @@ QStringList defaultIds(const QString &mimeType)
         }
         files.append(dir + QStringLiteral("/mimeapps.list"));
     }
-    for (const QString &dir : QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation))
+    for (const QString &dir : QStandardPaths::standardLocations(QStandardPaths::ApplicationsLocation)) {
+        for (const QString &desktop : desktops) {
+            if (!desktop.contains(QLatin1Char('/')) && !desktop.contains(QLatin1Char('\\')))
+                files.append(dir + QStringLiteral("/%1-mimeapps.list").arg(desktop));
+        }
         files.append(dir + QStringLiteral("/mimeapps.list"));
+    }
     QStringList ids;
     for (const QString &path : std::as_const(files)) {
         QFile file(path);
@@ -454,10 +487,13 @@ QList<DesktopEntry> DesktopEntry::forMimeType(const QString &mimeType)
     }
     static QList<DesktopEntry> cached;
     static qint64 cachedAt = 0;
+    static QByteArray cachedCatalogStamp;
     const qint64 now = QDateTime::currentSecsSinceEpoch();
-    if (cached.isEmpty() || now - cachedAt > 30) {
+    const QByteArray catalogStamp = applicationCatalogStamp();
+    if (cached.isEmpty() || now - cachedAt > 30 || cachedCatalogStamp != catalogStamp) {
         cached = all();
         cachedAt = now;
+        cachedCatalogStamp = catalogStamp;
     }
     for (const DesktopEntry &entry : std::as_const(cached)) {
         if (entry.noDisplay || !entry.mimeTypes.contains(mimeType))

@@ -69,3 +69,17 @@ installed and accepted on both native QA VMs. Actual Photos menu activation
 raises the existing Files window and selects its generated image fixture; PID
 survival and integrity checks pass. This closes the installed caller gate left
 open by the source-fixture checkpoint above.
+
+
+Desktop-specific MIME defaults are also read from application data directories,
+as defined by the freedesktop MIME Apps specification. This supports optional
+Karyo-only handlers without editing global/user defaults or preferences of
+another desktop. Explicit user configuration retains precedence.
+
+Application identity and MIME candidate caches now include the configured
+application-directory identities and modification timestamps (nanosecond native
+metadata on Linux). A newly registered Wine application can be matched at its
+first window instead of waiting for the old 30-second scan deadline. The time
+fallback remains for edits within existing nested subdirectories. Native tests
+verify immediate registration/removal and Karyo/user/other-desktop precedence.
+Specification: https://specifications.freedesktop.org/mime-apps/latest-single/.
