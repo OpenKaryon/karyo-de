@@ -1,0 +1,153 @@
+Description: Clip scene rendering and input with private addon masks
+Origin: vendor, reviewed prototype at 26bad17cef413d26c36c117f2f1123dca4edded7, native 0.18 adaptation
+Forwarded: not-needed
+License: MIT, like wlroots types/scene/wlr_scene.c
+
+--- a/types/scene/wlr_scene.c
++++ b/types/scene/wlr_scene.c
+@@ -478,6 +478,47 @@
+ 	wl_signal_emit_mutable(&scene_buffer->events.outputs_update, &event);
+ }
+ 
++struct scene_clip {
++	struct wlr_addon addon;
++	pixman_region32_t region;
++};
++
++static void scene_clip_destroy(struct wlr_addon *addon) {
++	struct scene_clip *clip = wl_container_of(addon, clip, addon);
++	wlr_addon_finish(addon);
++	pixman_region32_fini(&clip->region);
++	free(clip);
++}
++
++static const struct wlr_addon_interface scene_clip_impl = {
++	.name = "scene_clip_region",
++	.destroy = scene_clip_destroy,
++};
++
++static struct scene_clip *scene_node_get_clip(struct wlr_scene_node *node) {
++	struct wlr_addon *addon = wlr_addon_find(&node->addons, node, &scene_clip_impl);
++	struct scene_clip *clip = NULL;
++	return addon ? wl_container_of(addon, clip, addon) : NULL;
++}
++
++static void scene_node_apply_clip(struct wlr_scene_node *node, int lx, int ly,
++		pixman_region32_t *region) {
++	for (;;) {
++		struct scene_clip *clip = scene_node_get_clip(node);
++		if (clip) {
++			pixman_region32_translate(region, -lx, -ly);
++			pixman_region32_intersect(region, region, &clip->region);
++			pixman_region32_translate(region, lx, ly);
++		}
++		if (!node->parent) {
++			return;
++		}
++		lx -= node->x;
++		ly -= node->y;
++		node = &node->parent->node;
++	}
++}
++
+ static bool scene_node_update_iterator(struct wlr_scene_node *node,
+ 		int lx, int ly, void *_data) {
+ 	struct scene_update_data *data = _data;
+@@ -489,11 +530,13 @@
+ 	pixman_region32_union(&node->visible, &node->visible, data->visible);
+ 	pixman_region32_intersect_rect(&node->visible, &node->visible,
+ 		lx, ly, box.width, box.height);
++	scene_node_apply_clip(node, lx, ly, &node->visible);
+ 
+ 	if (data->calculate_visibility) {
+ 		pixman_region32_t opaque;
+ 		pixman_region32_init(&opaque);
+ 		scene_node_opaque_region(node, lx, ly, &opaque);
++		pixman_region32_intersect(&opaque, &opaque, &node->visible);
+ 		pixman_region32_subtract(data->visible, data->visible, &opaque);
+ 		pixman_region32_fini(&opaque);
+ 	}
+@@ -601,6 +644,31 @@
+ 	scene_node_visibility(node, damage);
+ 	scene_damage_outputs(scene, damage);
+ 	pixman_region32_fini(damage);
++}
++
++void wlr_scene_node_set_clip_region(struct wlr_scene_node *node,
++		const pixman_region32_t *region) {
++	struct scene_clip *clip = scene_node_get_clip(node);
++	if (!region) {
++		if (!clip) {
++			return;
++		}
++		scene_clip_destroy(&clip->addon);
++	} else {
++		if (clip && pixman_region32_equal(&clip->region, region)) {
++			return;
++		}
++		if (!clip) {
++			clip = calloc(1, sizeof(*clip));
++			if (!clip) {
++				return;
++			}
++			pixman_region32_init(&clip->region);
++			wlr_addon_init(&clip->addon, &node->addons, node, &scene_clip_impl);
++		}
++		pixman_region32_copy(&clip->region, region);
++	}
++	scene_node_update(node, NULL);
+ }
+ 
+ struct wlr_scene_rect *wlr_scene_rect_create(struct wlr_scene_tree *parent,
+@@ -1150,6 +1218,18 @@
+ 		int lx, int ly, void *data) {
+ 	struct node_at_data *at_data = data;
+ 
++	int origin_x = lx, origin_y = ly;
++	for (struct wlr_scene_node *ancestor = node; ancestor;
++			ancestor = ancestor->parent ? &ancestor->parent->node : NULL) {
++		struct scene_clip *clip = scene_node_get_clip(ancestor);
++		if (clip && !pixman_region32_contains_point(&clip->region,
++				floor(at_data->lx - origin_x), floor(at_data->ly - origin_y), NULL)) {
++			return false;
++		}
++		origin_x -= ancestor->x;
++		origin_y -= ancestor->y;
++	}
++
+ 	double rx = at_data->lx - lx;
+ 	double ry = at_data->ly - ly;
+ 
+@@ -1665,6 +1745,18 @@
+ 	if (!wlr_box_equal(&data->logical, &node_box)) {
+ 		return false;
+ 	}
++	for (struct wlr_scene_node *ancestor = node; ancestor;
++			ancestor = ancestor->parent ? &ancestor->parent->node : NULL) {
++		if (!scene_node_get_clip(ancestor)) {
++			continue;
++		}
++		pixman_box32_t bounds = { node_box.x, node_box.y,
++			node_box.x + node_box.width, node_box.y + node_box.height };
++		if (pixman_region32_contains_rectangle(&node->visible, &bounds) != PIXMAN_REGION_IN) {
++			return false;
++		}
++		break;
++	}
+ 
+ 	if (buffer->primary_output == scene_output) {
+ 		struct wlr_linux_dmabuf_feedback_v1_init_options options = {
+--- a/include/wlr/types/wlr_scene.h
++++ b/include/wlr/types/wlr_scene.h
+@@ -253,6 +253,11 @@
+  * implicitly disabled as well.
+  */
+ void wlr_scene_node_set_enabled(struct wlr_scene_node *node, bool enabled);
++
++/** Karyo extension: clip rendering and hit-testing of this node and its children to a copied
++ * region in node-local coordinates. Pass NULL to remove the clip. */
++void wlr_scene_node_set_clip_region(struct wlr_scene_node *node,
++	const pixman_region32_t *region);
+ /**
+  * Set the position of the node relative to its parent.
+  */

@@ -287,3 +287,35 @@ The native ten-layout owned-window model and normal/startup-lock protocol gates
 also pass, as do real Wine palette/focus checks. Native wlroots karyo2 and its
 existing exact dependency remain unchanged. This does not claim physical tablet,
 locked-pointer gameplay or full remaining DE/runtime migration acceptance.
+
+
+## Native scene masks
+
+The native wlroots karyo3 recipes add wlr_scene_node_set_clip_region, which copies
+a node-local Pixman region through the existing addon lifecycle. Rendering,
+opaque occlusion, hit testing and damage follow masks on the node and its
+ancestors. Passing NULL removes the mask. Destroying a subtree releases its
+private masks and preserves the lifecycle of independent addons and buffers.
+No public structure field, old export or native SONAME is changed.
+
+Both native source builds pass an unchanged old-header executable against the
+new library, including output pixels, native input queries, copied/complex and
+nested regions, moving/reparenting, empty/cleared masks and destruction. Tests
+cover integer scales 1/2 and normal/90-degree output transforms. A headless native
+scanout path accepts an opaque full-output buffer, rejects it after clipping
+its corners and accepts it again after the mask is removed. Physical DRM and
+fractional scale remain separate gates. The synthetic buffer explicitly chooses
+nearest filtering to keep its solid-color reference exact; desktop filtering is
+unchanged.
+
+Debian labwc karyo7 and Ubuntu labwc karyo5 require the exact native wlroots
+karyo3 version. Both pairs pass mapped/unmapped real Wine palettes, the ten-layout
+X11 model and ordinary/startup-lock protocols. Labwc's native test suites also
+pass; upstream wlroots reports no defined tests, so the own runtime fixtures
+provide the new feature gate. Builder docs/VALIDATION-SCENE-CLIP.md records the
+exact packages, source and acceptance identities.
+
+This supplies the renderer/input mechanism for subsequent rounded Windows frames.
+The current compositor recipes do not yet apply these masks to application
+frames. Theme resources, frame metrics/icons, floating/maximized rules and real
+pointer transport on rounded parent/owned windows remain the next integration.

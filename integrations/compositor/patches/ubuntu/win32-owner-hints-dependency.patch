@@ -1,4 +1,4 @@
-Description: Require the native library which refreshes unmapped owner hints
+Description: Require the native library with owner hints and scene clip masks
 Origin: vendor
 License: follows original native packaging notices
 Forwarded: not-needed
@@ -9,7 +9,7 @@ Forwarded: not-needed
   xwayland,
   ${misc:Depends},
   ${shlibs:Depends},
-+ libwlroots-0.19 (= 0.19.2-1+karyo2),
++ libwlroots-0.19 (= 0.19.2-1+karyo3),
  Suggests:
   foot | alacritty | x-terminal-emulator,
   kanshi,

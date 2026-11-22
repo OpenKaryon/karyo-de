@@ -619,3 +619,17 @@ preserves old visible coverage before shape-changing styles so restored MDI
 icons do not leave corner pixels behind. GetWindowRgn's explicit-region API is
 unchanged. The original child/MDI producer and private-pointer/pixel actors are
 own GPL-3.0-or-later QA. They contain no Windows application or personal prefix.
+
+
+### Native scene mask extension
+
+The native wlroots scene-mask patches review scene-clip-region.patch from donor
+26bad17cef413d26c36c117f2f1123dca4edded7, original SHA256
+fc18e9a3959178bd5a2b419ef2ea17d85fffce8ee1d207fb246d4bef06ece3a4.
+They retain MIT with the original wlroots notices and native package copyright.
+Masks use the existing node addon lifecycle and add one exported function;
+public structures are unchanged. Native 0.18 and 0.19 direct-scanout adaptations
+retain each release's unclipped behavior and reject masked full-buffer scanout.
+The new original renderer/input/ABI C fixture and Builder acceptance driver are
+GPL-3.0-or-later QA. They use native headers/libraries without incorporating a
+third-party application, private prefix or proprietary image.

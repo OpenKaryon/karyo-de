@@ -41,14 +41,14 @@
     },
     {
       "path": "../patches/ubuntu/win32-owner-hints-dependency.patch",
-      "sha256": "9a9bdb3555fe5616af1f83c1dba5a329258a50a2647323fef97910ab60785f7e"
+      "sha256": "0d279924d93ce6ce77e17f79f2b92824b30eaf04f81c60735a64ec840873f8ff"
     }
   ],
   "build": {
-    "revision": "karyo4",
+    "revision": "karyo5",
     "distribution": "resolute",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Preserve groups with an unmapped same-process Win32 owner.",
+    "message": "Use the paired native scene-mask and owner-hint library.",
     "binaries": [
       "labwc"
     ],

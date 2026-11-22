@@ -45,7 +45,7 @@
     },
     {
       "path": "../patches/debian/win32-owner-hints-dependency.patch",
-      "sha256": "1975311e5f1531ad6dbcba8abfa67a91aa61b340e1ec3a22f25c89e5afb7ad10"
+      "sha256": "a593aa4d09cd4ae593022978a61ac9d949c11ed3e9fdd96281ecd5a204303c6a"
     },
     {
       "path": "../patches/debian/absolute-pointer-motion.patch",
@@ -53,10 +53,10 @@
     }
   ],
   "build": {
-    "revision": "karyo6",
+    "revision": "karyo7",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Preserve owned windows and avoid duplicate relative motion for absolute pointer events.",
+    "message": "Use the paired native scene-mask and owner-hint library.",
     "binaries": [
       "labwc"
     ],

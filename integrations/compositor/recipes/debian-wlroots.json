@@ -30,13 +30,17 @@
     {
       "path": "../patches/debian/wlroots-unmapped-parent-hints.patch",
       "sha256": "e593e0cc99a03541ae87262b8a01e906089f3a924addbdda6e6f4251b8953e8b"
+    },
+    {
+      "path": "../patches/debian/wlroots-scene-clip-region.patch",
+      "sha256": "8176ad83d0420c233b1e187a681cbc6b5412ddf1e26b3e49497a9411e21422a6"
     }
   ],
   "build": {
-    "revision": "karyo2",
+    "revision": "karyo3",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Read identity and decoration hints of unassociated transient parents.",
+    "message": "Clip scene rendering and input with private addon masks.",
     "binaries": [
       "libwlroots-0.18",
       "libwlroots-0.18-dev",
