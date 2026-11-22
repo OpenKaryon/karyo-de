@@ -1,0 +1,16 @@
+Subject: Keep screen messages as data for literal format strings
+
+Preserve format-security when forwarding an existing message.
+
+diff --git a/src/external/screen/screen/ansi.c b/src/external/screen/screen/ansi.c
+--- a/src/external/screen/screen/ansi.c
++++ b/src/external/screen/screen/ansi.c
+@@ -2888,7 +2888,7 @@
+   extern struct layer *flayer;
+   struct layer *oldflayer = flayer;
+   flayer = &p->w_layer;
+-  LMsg(err, str);
++  LMsg(err, "%s", str);
+   flayer = oldflayer;
+ }
+ 

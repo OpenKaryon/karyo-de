@@ -106,6 +106,10 @@
     {
       "file": "0026-ruby-counter-relative-self-include.patch",
       "sha256": "c57764342e69564e815d6a92da29cbb1a57a6c15d2030626ac689b3702b365c2"
+    },
+    {
+      "file": "0027-screen-literal-message-format.patch",
+      "sha256": "99016cd27e55160b52021519de865f076596220f1e74cad2028f1814781a07eb"
     }
   ]
 }

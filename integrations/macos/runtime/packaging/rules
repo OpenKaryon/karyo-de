@@ -10,6 +10,11 @@ override_dh_auto_configure:
 		-DCOMPILE_PY2_BYTECODE=OFF -DDARLING_SOURCE_REVISION=60ba801decee7a00782f74f6be4c8ffb013f79ff \
 		-DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
+# Collect independent compiler errors in one native attempt; Ninja still fails
+# the package whenever any target fails. No failed artifacts are accepted.
+override_dh_auto_build:
+	dh_auto_build --buildsystem=cmake+ninja --builddirectory=obj-karyo -- -k 0
+
 override_dh_auto_install:
 	dh_auto_install --buildsystem=cmake+ninja --builddirectory=obj-karyo --destdir=debian/karyo-darling-runtime
 

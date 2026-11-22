@@ -244,3 +244,21 @@ original mapped self-include and successful compilation/execution of the actual
 replacement directive with an X-macro header. All26 Git/zero-fuzz quilt patches
 apply/reverse on both bases and restore59 pristine selected files. Full engine
 packaging and native application execution remain separate unfinished gates.
+
+## Screen messages and complete compiler diagnostics
+
+The sixth real native build passed the Ruby correction and reached more than
+17800 Ninja steps before screen forwarded a message as an unchecked format.
+Patch0027 passes that message through a literal "%s", retaining format-security
+and preserving percent characters as data. The exact screen module revision
+4bed52587563ede850bf9ff834567478ac1e616b is checked independently.
+
+Both native source suites pass26 cases; actual27-patch Git/zero-fuzz quilt
+proofs restore60 pristine files. The C compiler rejects the original forwarding
+call and accepts/executes the corrected percent-containing message. The ordinary
+debhelper build rule now asks Ninja to continue independent targets after an
+error, so one attempt can report more than the first failure. A real two-target
+native debhelper control proves independent linking occurs after the deliberate
+compiler error while the packaging command still fails. No failed package or
+incomplete stage is accepted; successful builds perform the same target work.
+Full native engine packaging and real Mac execution remain required gates.
