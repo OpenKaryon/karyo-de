@@ -144,3 +144,43 @@ separate acceptance. Protocol snapshot denial alone is not a pixel capture or
 proof of physical keyboard behavior. DE session wiring must fail closed when a
 protected startup lacks this compositor capability rather than silently starting
 an unprotected stock compositor.
+
+
+## Generic Win32 hidden-owner groups
+
+The karyo3 source recipes add a separate reviewed owned-window patch. Legacy
+Win32 toolkits can place one decorated main frame and fixed-size palettes under
+an invisible application owner. The compositor selects that unique frame as an
+effective stacking root only for matching positive PID and case-insensitive .exe
+class, a tiny undecorated owner, and an unambiguous document layout. It preserves
+the actual WM_TRANSIENT_FOR hints. Native classes, visible owners, multiple main
+frames and resizable custom frames retain the normal compositor path.
+
+Minimization of this recognized group disables its scene views without sending
+IconicState, which can otherwise make the application withdraw its real windows
+and disappear from the taskbar. Debian 0.8's raise-cache bypass also handles
+palettes that appear later. Ubuntu 0.9 has no such cache and uses the native
+wlroots0.19 window-type API; no Debian library is bundled or forced onto Ubuntu.
+
+The patches adapt the prototype's wine-owned-window-groups and minimize changes
+at donor26bad17cef413d26c36c117f2f1123dca4edded7. They modify GPL-2.0-only labwc
+and retain its upstream licensing; the standalone QA driver is GPL-3.0-or-later.
+There are no application-name rules, prefix mutations or per-program settings.
+
+Run tests/owned-windows.py with --package pointing to a verified native source-
+package result and --output to a new directory, as an ordinary user in the
+matching prepared image. It owns a private headless labwc/XWayland session and
+uses captured pixels, X11 hints and state for five layouts. It also checks four
+late palettes, unrelated-app occlusion and grouped minimize/restore. --baseline
+requires the old missing-group behavior and is deliberately not acceptance.
+Use a read-only source/root, isolated /tmp, no network, cap-drop=ALL and
+no-new-privileges. The test waits for compositor-published X11 retirement before
+XIDs may be reused between cases; XSync alone does not acknowledge its WM loop.
+
+Both karyo2 packages reproduce the missing Wine grouping. Both karyo3 packages
+pass the new native scenario and the existing normal/startup-lock protocol
+gates. Native package builds retain upstream test execution (two Debian suites,
+three Ubuntu suites). This proves the generic XWayland layout model, not actual
+Wine application compatibility, focus-loop/menu fixes, caption themes or a live
+package upgrade. Those remain distinct migration gates. The running QA desktop
+compositors and user virtual machines were not replaced for these tests.

@@ -1,0 +1,106 @@
+Description: Preserve generic Win32 hidden-owner palette groups and minimize state
+Origin: vendor, adapted from the reviewed Karyo prototype
+Forwarded: not-needed
+
+--- a/src/xwayland.c
++++ b/src/xwayland.c
+@@ -3,6 +3,8 @@
+ #include "xwayland.h"
+ #include <assert.h>
+ #include <stdlib.h>
++#include <string.h>
++#include <strings.h>
+ #include <wlr/types/wlr_compositor.h>
+ #include <wlr/types/wlr_output_layout.h>
+ #include <wlr/types/wlr_scene.h>
+@@ -201,13 +203,68 @@
+ }
+ 
+ static struct wlr_xwayland_surface *
++native_top_parent(struct wlr_xwayland_surface *surface)
++{
++	while (surface->parent) {
++		surface = surface->parent;
++	}
++	return surface;
++}
++
++static bool
++is_fixed_size(struct wlr_xwayland_surface *surface)
++{
++	xcb_size_hints_t *hints = surface->size_hints;
++	const uint32_t flags = XCB_ICCCM_SIZE_HINT_P_MIN_SIZE
++		| XCB_ICCCM_SIZE_HINT_P_MAX_SIZE;
++	return hints && (hints->flags & flags) == flags
++		&& hints->min_width == hints->max_width
++		&& hints->min_height == hints->max_height;
++}
++
++static struct wlr_xwayland_surface *
+ top_parent_of(struct view *view)
+ {
+-	struct wlr_xwayland_surface *s = xwayland_surface_from_view(view);
+-	while (s->parent) {
+-		s = s->parent;
+-	}
+-	return s;
++	struct wlr_xwayland_surface *surface = xwayland_surface_from_view(view);
++	struct wlr_xwayland_surface *owner = native_top_parent(surface);
++	/* Legacy Win32 frameworks put their main frame and fixed palettes
++	 * under one invisible application owner. Preserve the client's real
++	 * ownership hints and select only an unambiguous stacking frame. */
++	if (surface == owner || owner->width > 1 || owner->height > 1
++			|| owner->decorations == WLR_XWAYLAND_SURFACE_DECORATIONS_ALL
++			|| !owner->class || owner->pid <= 0 || surface->pid != owner->pid
++			|| !surface->class || strcasecmp(surface->class, owner->class)) {
++		return owner;
++	}
++	size_t length = strlen(owner->class);
++	if (length < 5 || strcasecmp(owner->class + length - 4, ".exe")) {
++		return owner;
++	}
++	struct wlr_xwayland_surface *frame = NULL;
++	struct view *candidate;
++	wl_list_for_each(candidate, &view->server->views, link) {
++		if (candidate->type != LAB_XWAYLAND_VIEW
++				|| (!candidate->mapped && !candidate->minimized)) {
++			continue;
++		}
++		struct wlr_xwayland_surface *child = xwayland_surface_from_view(candidate);
++		if (child == owner || native_top_parent(child) != owner
++				|| child->pid != owner->pid || !child->class
++				|| strcasecmp(child->class, owner->class)) {
++			continue;
++		}
++		bool normal = wlr_xwayland_surface_has_window_type(child,
++			WLR_XWAYLAND_NET_WM_WINDOW_TYPE_NORMAL);
++		if (normal && child->decorations == WLR_XWAYLAND_SURFACE_DECORATIONS_ALL) {
++			if (frame) {
++				return owner;
++			}
++			frame = child;
++		} else if (normal && !is_fixed_size(child)) {
++			return owner;
++		}
++	}
++	return frame ? frame : owner;
+ }
+ 
+ static void
+@@ -880,8 +937,14 @@
+ static void
+ xwayland_view_minimize(struct view *view, bool minimized)
+ {
+-	wlr_xwayland_surface_set_minimized(xwayland_surface_from_view(view),
+-		minimized);
++	struct wlr_xwayland_surface *surface = xwayland_surface_from_view(view);
++	/* IconicState can make the framework withdraw the entire application,
++	 * losing its taskbar handles. Minimize this recognized scene group
++	 * without changing its real X11 windows to IconicState. */
++	if (surface->parent && top_parent_of(view) != native_top_parent(surface)) {
++		return;
++	}
++	wlr_xwayland_surface_set_minimized(surface, minimized);
+ }
+ 
+ static struct view *

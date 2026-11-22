@@ -502,3 +502,15 @@ Ubuntu sysctl heuristic. This adapts launch policy without modifying upstream
 binaries, globally relaxing userns/AppArmor or importing upstream implementation.
 Sources: https://github.com/netbirdio/netbird/blob/v0.82.1/client/ui/tray_linux.go
 and https://github.com/WebKit/WebKit/blob/webkitgtk-2.52.6/Source/WebKit/UIProcess/glib/WebProcessPoolGLib.cpp.
+
+
+The compositor hidden-owner grouping/minimize patches adapt the prototype
+wine-owned-window-groups.patch and wine-owned-window-minimize.patch at donor
+26bad17cef413d26c36c117f2f1123dca4edded7. They retain labwc's GPL-2.0-only source
+licensing, rather than applying this repository's GPL-3.0-or-later default to
+third-party derived code. Debian and Ubuntu variants use their native APIs and
+libraries. No application binary, personal Wine prefix or settings are copied.
+The GPL-3.0-or-later headless XWayland QA tool adapts the prototype regression,
+adds four late palettes, package hash verification, ordinary-user isolation and
+acknowledged X11 retirement between cases. Python Xlib, Pillow, grim and native
+Xwayland remain external test dependencies with their own licensing.

@@ -34,13 +34,17 @@
     {
       "path": "../patches/debian/startup-lock.patch",
       "sha256": "33aa92d755a9a98087379cac1fc3320a2d121960e3b2b5f36c60141ece0a4964"
+    },
+    {
+      "path": "../patches/debian/win32-owned-windows.patch",
+      "sha256": "e8a007eecbebc1a8e47b10e951acef464ba76a104f28dc14bc2f199d074b635c"
     }
   ],
   "build": {
-    "revision": "karyo2",
+    "revision": "karyo3",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Add desktop protocols and a fail-closed initial compositor lock.",
+    "message": "Preserve generic Win32 owned-window groups and taskbar restoration.",
     "binaries": [
       "labwc"
     ],

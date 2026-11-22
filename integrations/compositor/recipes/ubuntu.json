@@ -34,13 +34,17 @@
     {
       "path": "../patches/ubuntu/startup-lock.patch",
       "sha256": "1e09cea422b1e487a7bf4dbb7f72cabe2ec426bb10f98bf13b01f83c33169dbc"
+    },
+    {
+      "path": "../patches/ubuntu/win32-owned-windows.patch",
+      "sha256": "f773eaf1293391079b9ab07cbaa396fa7a3744bee7dbe6b32aeccbc06833994b"
     }
   ],
   "build": {
-    "revision": "karyo2",
+    "revision": "karyo3",
     "distribution": "resolute",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Add desktop protocols and a fail-closed initial compositor lock.",
+    "message": "Preserve generic Win32 owned-window groups and taskbar restoration.",
     "binaries": [
       "labwc"
     ],

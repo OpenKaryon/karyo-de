@@ -410,3 +410,16 @@ survive. Input hashes, GUI captures and unchanged account/PAM/package checks
 are recorded in Builder VALIDATION-INSTALLED-SHELL-HOTPLUG.md. This closes the
 reproduced installed shell output-lifecycle regression for one virtual display;
 physical multi-monitor and actual two-profile switching remain separate gates.
+
+
+## Generic Win32 owned-window compositor slice
+
+The native labwc karyo3 recipes now include generic hidden-owner palette grouping
+and scene-only minimize/restore. Native Debian/Ubuntu headless XWayland checks
+reproduce the missing behavior on karyo2, pass on karyo3, retain four excluded
+layout behaviors and exercise four late palettes. Normal and initial-lock
+Wayland protocol gates still pass. There are no RomArtist rules or prefix edits.
+This is one remaining compatibility capability, not acceptance of the complete
+Wine runtime: actual Win32 binaries, focus/menu fixes, captions, launchers and
+installed graphical upgrade remain open. See integrations/compositor/README.md
+and Builder's owned-window validation report for provenance and exact evidence.

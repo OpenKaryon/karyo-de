@@ -6,3 +6,7 @@ RUN sed -i "s/^Types: deb$/Types: deb deb-src/" /etc/apt/sources.list.d/ubuntu.s
     && rm -rf /var/lib/apt/lists/*
 RUN apt-get update && apt-get install -y --no-install-recommends libcmocka-dev xwayland \
     && rm -rf /var/lib/apt/lists/*
+
+# Ordinary-user XWayland stacking/minimize QA; no Wine binary is required.
+RUN apt-get update && apt-get install -y --no-install-recommends python3-xlib python3-pil grim \
+    && rm -rf /var/lib/apt/lists/*
