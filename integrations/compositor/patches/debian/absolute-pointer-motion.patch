@@ -1,0 +1,19 @@
+Description: Keep absolute pointer updates out of relative-only client motion
+Origin: backport, reviewed native labwc 0.9.3 src/input/cursor.c behavior
+Forwarded: not-needed
+License: GPL-2.0-only, like labwc src/input/cursor.c
+
+--- a/src/input/cursor.c
++++ b/src/input/cursor.c
+@@ -881,11 +881,6 @@
+ 
+ 	double dx = lx - seat->cursor->x;
+ 	double dy = ly - seat->cursor->y;
+-
+-	wlr_relative_pointer_manager_v1_send_relative_motion(
+-		seat->server->relative_pointer_manager,
+-		seat->seat, (uint64_t)event->time_msec * 1000,
+-		dx, dy, dx, dy);
+ 
+ 	preprocess_cursor_motion(seat, event->pointer,
+ 		event->time_msec, dx, dy);

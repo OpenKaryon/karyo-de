@@ -46,13 +46,17 @@
     {
       "path": "../patches/debian/win32-owner-hints-dependency.patch",
       "sha256": "1975311e5f1531ad6dbcba8abfa67a91aa61b340e1ec3a22f25c89e5afb7ad10"
+    },
+    {
+      "path": "../patches/debian/absolute-pointer-motion.patch",
+      "sha256": "c3dcf9f6257b5d10eb2fc04f6e7aa0c88f0e590f05293fce1802010640c038aa"
     }
   ],
   "build": {
-    "revision": "karyo5",
+    "revision": "karyo6",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Preserve groups with an unmapped same-process Win32 owner.",
+    "message": "Preserve owned windows and avoid duplicate relative motion for absolute pointer events.",
     "binaries": [
       "labwc"
     ],

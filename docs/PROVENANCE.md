@@ -599,3 +599,11 @@ and preserves the native disabled-button path. It retains LGPL-2.1-or-later
 like Wine's defwnd.c; native package copyright remains authoritative. New C
 caption pixel probes and Python actors are own GPL-3.0-or-later QA, not runtime
 payloads or third-party application resources.
+
+
+The Debian absolute-pointer patch adapts src/input/cursor.c behavior from native
+labwc0.9.3 (archive SHA256 deda3c37098b03eccbe4cc82662efde96570981910f1ae910f18156cbbaa231e).
+It removes relative-motion delivery from the absolute handler only, retaining
+the native relative handler and GPL-2.0-only upstream source notices. The before/
+after Win32/X11 pointer traces use identical own QA producer and actor bytes,
+with unchanged Wine2 and native wlroots. No third-party public ABI is added.

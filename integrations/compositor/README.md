@@ -270,3 +270,20 @@ classes, an untyped mapped owner and ambiguous documents. Normal and startup-loc
 protocol gates pass against both installed pairs. This extends the previous
 mapped-owner checkpoint; it does not establish arbitrary toolkit compatibility,
 Windows-like decoration or existing-user deployment.
+
+
+### Absolute pointer re-entry on the Debian compositor
+
+Debian labwc karyo6 follows native labwc0.9.3 behavior: absolute position updates
+no longer emit an additional relative-motion event to the focused client. The
+relative-device handler remains unchanged. This avoids an Xwayland cursor jump
+to the output edge when leaving/re-entering a Wine surface and clicking.
+It is a generic input transport correction, without application-name rules.
+
+The same real Wine2 producer/actor reproduces the old failure and passes with
+the new compositor; actual X11 position, button mask and focus are retained.
+Both PE32/PE64 and96/192DPI pass all15 baseline stages after the correction.
+The native ten-layout owned-window model and normal/startup-lock protocol gates
+also pass, as do real Wine palette/focus checks. Native wlroots karyo2 and its
+existing exact dependency remain unchanged. This does not claim physical tablet,
+locked-pointer gameplay or full remaining DE/runtime migration acceptance.
