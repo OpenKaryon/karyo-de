@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -I
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Installed native Wine64 + real PE/MSI/Qt QA; disposable ordinary-user image only."""
-import argparse,hashlib,json,os,pwd,shutil,signal,stat,subprocess,sys,tempfile,time
+import argparse,hashlib,json,os,pwd,shutil,signal,stat,struct,subprocess,sys,tempfile,time
 from pathlib import Path
 from PIL import Image
 from Xlib import X,Xatom,display,error
@@ -32,16 +32,20 @@ def native_status(text):
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output',type=Path,required=True);args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output',type=Path,required=True);parser.add_argument('--bits',type=int,choices=(32,64),default=64);args=parser.parse_args()
     require(os.getuid()==1001 and pwd.getpwuid(os.getuid()).pw_name=='win32qa','Use the disposable ordinary Wine QA user')
     require(os.environ.get('DBUS_SESSION_BUS_ADDRESS','').startswith('unix:'),'A real private D-Bus session is required')
     args.output.mkdir(exist_ok=False,parents=True);home=Path(pwd.getpwuid(os.getuid()).pw_dir)
     require(not (home/'.local').exists(),'Wine QA home must be fresh')
-    public=Path('/usr/share/karyo-qa/runtime-probe.exe');require(public.is_file(),'Compiled PE fixture missing')
+    suffix='32' if args.bits==32 else ''
+    public=Path('/usr/share/karyo-qa/runtime-probe'+suffix+'.exe');require(public.is_file(),'Compiled PE fixture missing')
+    data=public.read_bytes();offset=struct.unpack_from('<I',data,60)[0]
+    machine=struct.unpack_from('<H',data,offset+4)[0];magic=struct.unpack_from('<H',data,offset+24)[0]
+    require((machine,magic)==((0x14c,0x10b) if args.bits==32 else (0x8664,0x20b)),'Fixture has the wrong PE architecture')
     exe=home/'Пример $(echo nope).EXE';shutil.copyfile(public,exe)
     base={'LANG':'C.UTF-8','LC_ALL':'C.UTF-8','WINEDEBUG':'-all','WINEDLLOVERRIDES':'mscoree,mshtml=d',
           'QT_QPA_PLATFORM':'wayland','QT_STYLE_OVERRIDE':'karyo','QT_PLUGIN_PATH':'/does/not/exist/linux-plugins'}
-    report={'uid':os.getuid(),'cases':[],'wine_version':run(['/usr/bin/wine','--version']).stdout.strip()}
+    report={'uid':os.getuid(),'pe_bits':args.bits,'cases':[],'wine_version':run(['/usr/bin/wine','--version']).stdout.strip()}
     inspection=run(['/usr/bin/karyo-win32','--inspect',str(exe)],env={**os.environ,**base,'HOME':'/not-the-real-home','OPENKARYON_SESSION_SLOT':'2'})
     inspected=json.loads(inspection.stdout);require(inspected['ownerUid']==1001 and str(home) in inspected['prefix'],'Inspection selected a foreign account')
     require(not (home/'.local').exists(),'Inspection wrote user storage');report['cases'].append('read-only inspection uses native account')
@@ -95,7 +99,7 @@ def main():
                 failed=subprocess.run(['/usr/bin/karyo-win32','--app-id','qa-suite','--no-register',str(exe),'--exit42'],env=env,text=True,capture_output=True,timeout=30)
                 require(failed.returncode==42 and latest_record(home,'qa-suite')['returnCode']==42,'Windows exit status was lost')
                 report['cases'].append('registered reuse and real exit42')
-                installer='/usr/share/karyo-qa/runtime-probe.msi'
+                installer='/usr/share/karyo-qa/runtime-probe'+suffix+'.msi'
                 run(['/usr/bin/karyo-win32','--app-id','qa-installer',installer,'/qn'],env=env)
                 installed_prefix=home/'.local/share/karyo/windows/prefixes/qa-installer'
                 installed=list((installed_prefix/'drive_c').rglob('InstalledProbe.exe'));require(len(installed)==1,'Real MSI did not install executable')

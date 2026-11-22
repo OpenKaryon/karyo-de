@@ -533,3 +533,10 @@ application, proprietary resource, imported prefix or credential. Native Wine,
 MinGW, wixl, Python Xlib, Qt, Pillow and grim retain their own licenses. Actual
 Wine64 runtime and native Qt dialog tests remain distinct from the compositor's
 modeled owned-window regression and from pending full application compatibility.
+
+
+The Win32 menu and persistent private Wayland pointer probes are new own
+GPL-3.0-or-later QA code. The unmodified wlr-virtual-pointer-unstable-v1 XML
+retains its MIT license and Josef Gajdusek copyright, at official upstream
+c11408942e2fb54d41dadb84cdf844331076ae11. Its URL/hash are recorded beside the
+XML. These fixtures and protocol data are not installed in runtime packages.

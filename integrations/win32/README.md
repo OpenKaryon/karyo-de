@@ -52,3 +52,26 @@ proprietary program or Windows resources; the icon is a generated solid square.
 Wine64 acceptance does not claim 32-bit engine support, real application menu
 compatibility, caption styling, simultaneous desktop sessions or host file
 transfer. Those retain separate product gates.
+
+## Actual standard-menu QA
+
+The own menu-probe.c creates three ordinary Win32 menus. menu-acceptance.py
+observes actual Xwayland window types/input hints and can navigate with keys or
+with a click followed by repeated Wayland pointer moves. pointer-probe.c keeps
+one virtual pointer alive for the whole mouse sequence; its display is owned by
+the actor and never taken from the user's session. The unmodified MIT protocol
+XML is pinned under tests/protocols with upstream provenance.
+
+Baseline mode requires an actual observed non-popup menu; empty observations are
+not a successful reproduction. It does not claim that mouse navigation fails
+when only the window type is wrong. Positive mode additionally requires popup
+protocol metadata and repeated navigation. Full actual acceptance stays separate
+from the older compositor's modeled palette grouping test.
+
+
+The real-engine and menu actors now accept --bits 32 (default64), validate the
+actual fixture PE machine type and retain that bitness in the receipt. Own
+PE32/MSI32, Unicode/GDI/icon/registration/prefix/exit status and both keyboard/
+mouse menus pass on stock Ubuntu26.04 Wine10's native WoW64 without i386 system
+packages. Debian13's legacy Wine64 still requires a matching32-bit native runtime
+for that gate. These results do not replace the separate patched-engine checks.
