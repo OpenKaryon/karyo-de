@@ -322,3 +322,67 @@ No application-specific runtime rule, registry theme or private prefix edit was
 needed. These tested releases and operations do not establish every Windows
 application, network/updater behavior, physical GPU or arbitrary legacy-prefix
 import/upgrade. The full migration remains active beyond this QA milestone.
+
+
+## Explicit existing-prefix import
+
+The standalone launcher can copy an offline ordinary-account Wine prefix into a
+new flat profile without selecting an old prototype session through environment
+variables. Preview is nonexecuting and creates no destination storage:
+
+    karyo-win32 --inspect-import /path/to/prefix --app-id imported-app
+    karyo-win32 --import-prefix /path/to/prefix --app-id imported-app
+
+For the old layout, select the actual desktop/session-1/session-2 directory.
+The source root and all copied objects must belong to the current Unix account.
+Close source Wine applications first. Native wineserver -w is bounded and is the
+only engine helper used by import; Windows binaries and wineboot are not executed
+by the copy operation. Source names, contents, modes and mtimes are not written.
+Ordinary filesystem reads can still update source access times.
+
+Descriptors prevent following source directory/file symlinks while copying.
+Internal links are rebased into the copied prefix; external drive/folder links
+keep their original meaning and their targets are never copied implicitly.
+Files keep their timestamps and owner permission bits, copied directories are
+private. Special files, other owners, overlapping source/destination and changed
+source metadata are rejected. A hidden working directory is flushed and published
+with Linux renameat2(RENAME_NOREPLACE); an existing or concurrently created profile
+is never replaced. Failure cleans only that operation's unpublished working copy.
+Existing application IDs/launchers also require choosing another --app-id.
+
+If a single Windows user-data directory has a former Unix username, a relative
+alias for the current username preserves access to that copied data. Several
+possible users require --windows-user NAME; directories are not merged. The
+source is left intact. Launch an installed EXE inside the copied drive_c normally;
+the public launcher inherits its imported application ID and registers it.
+
+The import copies registry architecture unchanged, including unannotated legacy
+registries. It does not convert a pure-win32 prefix to WoW64 or guarantee that an
+arbitrary old prefix works with a different engine. Architecture conversion and
+arbitrary older-engine compatibility retain separate limits. Native Debian
+and Ubuntu ordinary-user policy/import tests pass (33 total), including collision,
+concurrent publication, changed source and external-link cases; actual imported
+application/package acceptance is described below.
+
+
+The regular0.1.0-2 package now passes an actual upgrade from0.1.0-1 on both
+native bases. Synthetic data is created through the old installed public
+launcher before dpkg runs; every user file hash, mode, nanosecond mtime, uid/gid
+and link target remains unchanged. A fresh post-upgrade engine log confirms
+that --registered actually executes the Windows probe with NoNewPrivs1.
+
+The acceptance actor also creates a real win64 session-2 prefix with the frozen
+prototype launcher and installs official checksum-locked 7-Zip26.06. It requires
+actionable refusal while the real source GUI is running, a noncreating preview,
+exact copied regular-file bytes, source snapshot preservation and actual GUI
+launches from the copied EXE and registered entry. Both foreign protocols use
+the new registered ID. Repeat import preserves new edits and source data.
+The frozen fixture is QA-only, includes its original body hash/provenance and
+never executes as root. Each application run uses a fresh ordinary-user home,
+private compositor/bus, read-only source/root, no capabilities and no network.
+
+Builder docs/VALIDATION-WIN32-PREFIX-IMPORT.md records the native package/image
+hashes and retained tar/registry-flush/minimal-container preparation corrections.
+Cross-account aliases remain policy-tested rather than a real renamed-account
+GUI result. This win64-source case does not establish pure-win32 conversion,
+arbitrary older engine compatibility or completion of the wider DE migration.

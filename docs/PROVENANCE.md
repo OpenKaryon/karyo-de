@@ -721,3 +721,24 @@ with ignored disposable QA inputs. No proprietary fixture, personal executable
 or user prefix was accessed. The native Wine menu-inspection limitation was
 verified against checksum-locked original Wine10 win32u/menu.c, not patched by
 copying that code into the test tools.
+
+
+### Offline prefix import and package-upgrade QA
+
+The ordinary-account prefix importer, source-policy tests and acceptance actors
+are original GPL-3.0-or-later code. The compatibility fixture under
+integrations/win32/tests/fixtures is our prototype launcher from reviewed donor
+26bad17cef413d26c36c117f2f1123dca4edded7, original path
+distro/distro/packages/openkaryon-win32/usr/bin/openkaryon-win32. Its unchanged
+body SHA256 is e98f0c5ca047b611a7421d7a10f8ee00d20d7f53187964bba9c1b62ed1e855fb;
+only two leading license/fixture comments were added. It preserves the actual
+old session-slot layout for testing, is never installed as a runtime helper and
+requires no private repository access when reproducing the test.
+
+Synthetic user data is created with the old installed public launcher before a
+real native DEB upgrade. The legacy-source application is installed through the
+frozen launcher as an ordinary disposable account without capabilities or
+network. No personal prefix, credentials or machine configuration are included.
+The existing fixed upstream application manifest governs the optional 7-Zip
+input and its notices; neither that executable nor a generated Wine prefix
+belongs in the source tree or product package.

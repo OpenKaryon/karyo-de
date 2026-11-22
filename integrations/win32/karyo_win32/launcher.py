@@ -6,6 +6,7 @@ from pathlib import Path
 from .policy import LaunchError,VERSION,drop_privileges,executable,launch_context,user_home,validate_application,wine_environment
 from .storage import registered_application,secure_directory,write_json
 from .desktop import register_application
+from .prefix_import import analyze as analyze_prefix, import_prefix
 
 _qt_application=None
 
@@ -94,6 +95,10 @@ def main(argv=None):
     parser.add_argument('--app-id', help='Общий профиль для установщика и установленного приложения.')
     parser.add_argument('--registered', metavar='ID', help='Запустить сохранённый пункт меню.')
     parser.add_argument('--inspect', action='store_true', help='Показать JSON с выбранным prefix без запуска Wine.')
+    imports = parser.add_mutually_exclusive_group()
+    imports.add_argument('--import-prefix', metavar='DIR', help='Скопировать остановленный Wine-префикс в новый --app-id без замены данных.')
+    imports.add_argument('--inspect-import', metavar='DIR', help='Проверить исходный префикс без копирования или запуска Wine.')
+    parser.add_argument('--windows-user', metavar='NAME', help='Выбрать профиль Windows-пользователя при импорте.')
     parser.add_argument('--no-register', action='store_true', help='Не добавлять EXE в меню приложений.')
     parser.add_argument('file', nargs='?')
     parser.add_argument('arguments', nargs=argparse.REMAINDER)
@@ -102,6 +107,18 @@ def main(argv=None):
         home = user_home()
         if not args.inspect:drop_privileges()
         os.umask(0o077)
+        source_prefix = args.import_prefix if args.import_prefix is not None else args.inspect_import
+        if source_prefix is not None:
+            if not args.app_id or args.file or args.arguments or args.registered or args.inspect or args.no_register:
+                raise LaunchError('Для импорта укажите источник и --app-id без файла запуска или других режимов.')
+            if args.inspect_import:
+                result, _ = analyze_prefix(source_prefix, home, args.app_id, args.windows_user)
+            else:
+                result = import_prefix(source_prefix, home, args.app_id, os.environ, args.windows_user)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0
+        if args.windows_user:
+            raise LaunchError('--windows-user применяется только с --import-prefix или --inspect-import.')
         if args.registered:
             if args.file or args.app_id:
                 raise LaunchError('--registered нельзя сочетать с файлом или --app-id.')
