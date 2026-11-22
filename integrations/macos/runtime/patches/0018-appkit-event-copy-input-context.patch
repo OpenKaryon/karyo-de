@@ -1,0 +1,234 @@
+diff --git a/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent.m b/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent.m
+--- a/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent.m
++++ b/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent.m
+@@ -32,6 +32,13 @@
+ 
+ @implementation NSEvent
+ 
++// Published events expose immutable value payloads. Private backend setters
++// finish construction before posting; an immutable copy owns this same event.
++- (id) copyWithZone: (NSZone *) zone {
++    (void) zone;
++    return [self retain];
++}
++
+ + (NSPoint) mouseLocation {
+     return [[NSDisplay currentDisplay] mouseLocation];
+ }
+diff --git a/src/external/cocotron/AppKit/include/AppKit/NSEvent.h b/src/external/cocotron/AppKit/include/AppKit/NSEvent.h
+--- a/src/external/cocotron/AppKit/include/AppKit/NSEvent.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSEvent.h
+@@ -202,7 +202,7 @@
+ 
+ enum { NSApplicationActivated = 0, NSApplicationDeactivated = 1 };
+ 
+-@interface NSEvent : NSObject {
++@interface NSEvent : NSObject <NSCopying> {
+     NSEventType _type;
+     NSTimeInterval _timestamp;
+     NSPoint _locationInWindow;
+@@ -283,6 +283,8 @@
+ - (NSInteger) windowNumber;
+ 
+ - (NSInteger) clickCount;
++- (NSInteger) eventNumber;
++- (float) pressure;
+ - (CGFloat) deltaX;
+ - (CGFloat) deltaY;
+ - (CGFloat) deltaZ;
+diff --git a/src/external/cocotron/AppKit/NSTextInput.m b/src/external/cocotron/AppKit/NSTextInput.m
+--- a/src/external/cocotron/AppKit/NSTextInput.m
++++ b/src/external/cocotron/AppKit/NSTextInput.m
+@@ -1,5 +1,13 @@
+ #include <AppKit/NSTextInput.h>
+ #include <AppKit/NSTextInput_Internal.h>
++#import <AppKit/NSApplication.h>
++#import <AppKit/NSWindow.h>
++#import <AppKit/NSView.h>
++
++// Only the required callback used by this limited context is invoked here.
++@protocol DarlingTextInputUnmarking
++- (void) unmarkText;
++@end
+ 
+ NSString *const NSTextInputContextKeyboardSelectionDidChangeNotification = @"NSTextInputContextKeyboardSelectionDidChangeNotification";
+ 
+@@ -7,4 +15,45 @@
+ 
+ @implementation NSTextInputContext
+ 
+++ (NSTextInputContext *) currentInputContext {
++    id responder = [[NSApp keyWindow] firstResponder];
++    if (![responder respondsToSelector: @selector(inputContext)])
++        return nil;
++    return [responder inputContext];
++}
++
++- (instancetype) initWithClient: (id<NSTextInputClient>) client {
++    self = [super init];
++    if (self != nil) {
++        Protocol *protocol = NSProtocolFromString(@"NSTextInputClient");
++        if (client == nil || protocol == nil ||
++                ![(id) client conformsToProtocol: protocol]) {
++            [self release];
++            return nil;
++        }
++        _darlingClient = client;
++    }
++    return self;
++}
++
++- (id<NSTextInputClient>) client {
++    return _darlingClient;
++}
++
++- (void) discardMarkedText {
++    if ([(id) _darlingClient respondsToSelector: @selector(unmarkText)])
++        [(id<DarlingTextInputUnmarking>) _darlingClient unmarkText];
++}
++
++- (BOOL) handleEvent: (NSEvent *) event {
++    // There is no native composition engine here. Leave the event available
++    // to the existing responder/Qt path rather than claiming it was consumed.
++    (void) event;
++    return NO;
++}
++
++- (void) _darlingInvalidateClient {
++    _darlingClient = nil;
++}
++
+ @end
+diff --git a/src/external/cocotron/AppKit/include/AppKit/NSTextInput.h b/src/external/cocotron/AppKit/include/AppKit/NSTextInput.h
+--- a/src/external/cocotron/AppKit/include/AppKit/NSTextInput.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSTextInput.h
+@@ -23,7 +23,19 @@
+ 
+ APPKIT_EXPORT NSString *const NSTextInputContextKeyboardSelectionDidChangeNotification;
+ 
+-@interface NSTextInputContext : NSObject
++@class NSEvent;
++@protocol NSTextInputClient;
++
++@interface NSTextInputContext : NSObject {
++@private
++    id<NSTextInputClient> _darlingClient; // Assigned; the client owns its context.
++}
++
+++ (NSTextInputContext *) currentInputContext;
++- (instancetype) initWithClient: (id<NSTextInputClient>) client;
++- (id<NSTextInputClient>) client;
++- (void) discardMarkedText;
++- (BOOL) handleEvent: (NSEvent *) event;
+ 
+ @end
+ 
+diff --git a/src/external/cocotron/AppKit/NSView.m b/src/external/cocotron/AppKit/NSView.m
+--- a/src/external/cocotron/AppKit/NSView.m
++++ b/src/external/cocotron/AppKit/NSView.m
+@@ -37,6 +37,7 @@
+ #import <AppKit/NSRaise.h>
+ #import <AppKit/NSScrollView.h>
+ #import <AppKit/NSTrackingArea.h>
++#import <AppKit/NSTextInput.h>
+ #import <AppKit/NSView.h>
+ #import <AppKit/NSViewBackingLayer.h>
+ #import <AppKit/NSWindow-Private.h>
+@@ -66,6 +67,10 @@
+ - (CGAffineTransform) transformToWindow;
+ - (CGAffineTransform) transformToLayer;
+ - (void) _trackingAreasChanged;
++@end
++
++@interface NSTextInputContext (DarlingViewOwnership)
++- (void) _darlingInvalidateClient;
+ @end
+ 
+ @implementation NSView
+@@ -461,6 +466,12 @@
+ 
+     [_identifier release];
+ 
++    // Unbinding/subview cleanup finishes while this context still has a client.
++    // An externally retained context must not keep a dangling client pointer.
++    [_darlingInputContext _darlingInvalidateClient];
++    [_darlingInputContext release];
++    _darlingInputContext = nil;
++
+     [super dealloc];
+ }
+ 
+@@ -1511,8 +1522,13 @@
+ }
+ 
+ - (NSTextInputContext *) inputContext {
+-    NSUnimplementedMethod();
+-    return nil;
++    Protocol *protocol = NSProtocolFromString(@"NSTextInputClient");
++    if (protocol == nil || ![self conformsToProtocol: protocol])
++        return nil;
++    if (_darlingInputContext == nil)
++        _darlingInputContext = [[NSTextInputContext alloc]
++                initWithClient: (id<NSTextInputClient>) self];
++    return _darlingInputContext;
+ }
+ 
+ - (void) registerForDraggedTypes: (NSArray *) types {
+diff --git a/src/external/cocotron/AppKit/include/AppKit/NSView.h b/src/external/cocotron/AppKit/include/AppKit/NSView.h
+--- a/src/external/cocotron/AppKit/include/AppKit/NSView.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSView.h
+@@ -139,6 +139,7 @@
+     NSLayoutPriority _verticalContentCompressionResistancePriority;
+ 
+     NSAppearance *_appearance;
++    NSTextInputContext *_darlingInputContext;
+ }
+ 
+ @property(class, readonly) BOOL requiresConstraintBasedLayout;
+diff --git a/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent_mouse.m b/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent_mouse.m
+--- a/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent_mouse.m
++++ b/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent_mouse.m
+@@ -45,6 +45,14 @@
+     return _clickCount;
+ }
+ 
++- (NSInteger) eventNumber {
++    return _eventNumber;
++}
++
++- (float) pressure {
++    return _pressure;
++}
++
+ - (instancetype) initWithType: (NSEventType) type
+                      location: (NSPoint) location
+                 modifierFlags: (NSEventModifierFlags) modifierFlags
+@@ -76,6 +84,7 @@
+                  modifierFlags: modifierFlags
+                         window: (id) windowNumber];
+     if (self != nil) {
++        _eventNumber = eventNumber;
+         _trackingNumber = tracking;
+         _userData = userData;
+     }
+@@ -97,6 +106,8 @@
+             modifierFlags: modifierFlags
+                    window: (id) windowNumber];
+     _clickCount = clickCount;
++    _eventNumber = eventNumber;
++    _pressure = pressure;
+     return self;
+ }
+ 
+diff --git a/src/external/cocotron/AppKit/NSEvent_mouse.h b/src/external/cocotron/AppKit/NSEvent_mouse.h
+--- a/src/external/cocotron/AppKit/NSEvent_mouse.h
++++ b/src/external/cocotron/AppKit/NSEvent_mouse.h
+@@ -27,6 +27,8 @@
+     NSInteger _trackingNumber;
+     void *_userData;
+     NSInteger _buttonNumber;
++    NSInteger _eventNumber;
++    float _pressure;
+ }
+ 
+ - (instancetype) initWithType: (NSEventType) type

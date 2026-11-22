@@ -1,0 +1,19 @@
+diff --git a/src/startup/darling.c b/src/startup/darling.c
+--- a/src/startup/darling.c
++++ b/src/startup/darling.c
+@@ -795,7 +795,13 @@ pid_t spawnInitProcess(void)
+-	if (unshare(CLONE_NEWUTS | CLONE_NEWIPC) != 0)
++	/* X11's MIT-SHM transport needs the caller's desktop IPC namespace.
++	 * Keep IPC isolation unless the launcher explicitly requests sharing. */
++	const char* shareX11IPC = getenv("DARLING_SHARE_X11_IPC");
++	int namespaceFlags = CLONE_NEWUTS;
++	if (!shareX11IPC || strcmp(shareX11IPC, "1") != 0)
++		namespaceFlags |= CLONE_NEWIPC;
++	if (unshare(namespaceFlags) != 0)
+ 	{
+-		fprintf(stderr, "Cannot unshare UTS and IPC namespaces to create darling-init: %s\n", strerror(errno));
++		fprintf(stderr, "Cannot unshare namespaces to create darling-init: %s\n", strerror(errno));
+ 		exit(1);
+ 	}
+ 
+ 	pid = fork();

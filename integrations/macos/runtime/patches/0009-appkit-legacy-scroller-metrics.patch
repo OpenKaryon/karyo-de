@@ -1,0 +1,50 @@
+diff --git a/src/external/cocotron/AppKit/NSScroller.m b/src/external/cocotron/AppKit/NSScroller.m
+--- a/src/external/cocotron/AppKit/NSScroller.m
++++ b/src/external/cocotron/AppKit/NSScroller.m
+@@ -34,8 +34,32 @@
+     return [[NSDisplay currentDisplay] scrollerWidth];
+ }
+ 
+++ (CGFloat) scrollerWidthForControlSize: (NSControlSize) controlSize {
++    /* The current display/graphics-style backend has one legacy scroller
++     * metric. Its track, knob and arrow drawing use the supplied frame for
++     * every control size, so report that same real metric consistently. */
++    switch (controlSize) {
++    case NSRegularControlSize:
++    case NSSmallControlSize:
++    case NSMiniControlSize:
++    default:
++        return [self scrollerWidth];
++    }
++}
++
+ + (NSScrollerStyle) preferredScrollerStyle {
+-    NSUnimplementedMethod();
++    /* NSGraphicsStyle draws the legacy track/buttons/knob; overlay drawing
++     * and auto-hiding are not provided by this backend. */
++    return NSScrollerStyleLegacy;
++}
++
+++ (CGFloat) scrollerWidthForControlSize: (NSControlSize) controlSize
++                         scrollerStyle: (NSScrollerStyle) style
++{
++    /* The installed renderer uses legacy geometry for its scrollers. Its
++     * preferred style above therefore never requests an overlay-only width. */
++    (void)style;
++    return [self scrollerWidthForControlSize: controlSize];
+ }
+ /* OS X has a global default "AppleScrollBarVariant" with the values: Single,
+  DoubleMin, DoubleMax, and DoubleBoth This controls the default position of the
+diff --git a/src/external/cocotron/AppKit/include/AppKit/NSScroller.h b/src/external/cocotron/AppKit/include/AppKit/NSScroller.h
+--- a/src/external/cocotron/AppKit/include/AppKit/NSScroller.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSScroller.h
+@@ -75,6 +75,9 @@
+ }
+ 
+ + (CGFloat) scrollerWidth;
+++ (CGFloat) scrollerWidthForControlSize: (NSControlSize) controlSize;
+++ (CGFloat) scrollerWidthForControlSize: (NSControlSize) controlSize
++                         scrollerStyle: (NSScrollerStyle) style;
+ 
+ - (CGFloat) knobProportion;
+ - (NSScrollArrowPosition) arrowsPosition;

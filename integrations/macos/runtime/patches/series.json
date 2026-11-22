@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "root_revision": "60ba801decee7a00782f74f6be4c8ffb013f79ff",
+  "cocotron_revision": "c8d38d16a9f613d300157bebbab2b9501bc0c274",
+  "patches": [
+    {
+      "file": "0001-limit-prefix-socket-path.patch",
+      "sha256": "b6810aa2bb2ff839c42326638d9baabe3d048ccf56409e7c94962b7004be6608"
+    },
+    {
+      "file": "0002-coregraphics-online-display.patch",
+      "sha256": "4b3e7a3f9c5d14133b48b2fc2f33204c93a240a9ba221cdcba20c943368fc9f2"
+    },
+    {
+      "file": "0003-fsevents-linux-uapi-multiarch.patch",
+      "sha256": "d785bbb3d1b3d1e248c220918cfaf841ac9c1216d48a79531ca12e57bd2ac678"
+    },
+    {
+      "file": "0004-appkit-color-space-convenience.patch",
+      "sha256": "cc7aa90907521491d35deedd23fb3c3e5268f21e286b81695a75f7e312790975"
+    },
+    {
+      "file": "0005-opt-in-x11-desktop-ipc.patch",
+      "sha256": "60e1fe0416757bae4776752ac65e98a8659878a65d18e4010353fc62ccca297e"
+    },
+    {
+      "file": "0006-appkit-catalog-color-ownership.patch",
+      "sha256": "03d2b0933d2c4950978ec156fe84f28acd07cc8936b51d36a5b88296559c7b84"
+    },
+    {
+      "file": "0007-coretext-fonts.patch",
+      "sha256": "7d4f1fd3c25b738064995895184ef8671210986153ebd205c279c6bf79a9f6ab"
+    },
+    {
+      "file": "0008-coregraphics-font-drawing.patch",
+      "sha256": "87189d87981e75b46b2f8fa044905c6c1b03586302f13b4b349c62c112a60f28"
+    },
+    {
+      "file": "0009-appkit-legacy-scroller-metrics.patch",
+      "sha256": "113576ca62aa99a25bce5dcd4eda402b7f3e9cf1d1480d35c8f2662ddce683c1"
+    },
+    {
+      "file": "0010-appkit-private-platform-window.patch",
+      "sha256": "fe1e325c2f259e97ce2653b1f6f386961082bdbde9c48e39c08ca88feb719ee9"
+    },
+    {
+      "file": "0011-appkit-window-depth.patch",
+      "sha256": "4cb16f01b6310d2bfedfb1ba80e1b7d6bf16e080977b8c76409bc2058e1f66d2"
+    },
+    {
+      "file": "0012-onyx-bitmap-formats.patch",
+      "sha256": "0692b7dc9b1b744d4b23161f53cb941b015a245eb2f3f4081a49a9f8da4f903a"
+    },
+    {
+      "file": "0013-image-colorspace-copy.patch",
+      "sha256": "40814a89a6eba55133ecc13edcb279ede169f166ddb71539a952eeba16576b2a"
+    },
+    {
+      "file": "0014-nsimage-respect-flipped.patch",
+      "sha256": "b126fc07233b2da1ce58288fc3295ce804fa300d6bfcc773a3245c903071d951"
+    },
+    {
+      "file": "0015-data-provider-release-callback.patch",
+      "sha256": "e97a4c294a103b1bd0e3f2d1b054cb6239003ea390da818a55a6dfe850b3814e"
+    },
+    {
+      "file": "0016-nscolor-pattern-conversion.patch",
+      "sha256": "a61754ae92b45e297c3909decd95b194557a81888e1809917c6133e1dfd4ebed"
+    },
+    {
+      "file": "0017-appkit-ordinary-input-contract.patch",
+      "sha256": "2e87b55e788a8f95ee462a285f59c9bb70c53d483affbfd82a9ffa725b40e602"
+    },
+    {
+      "file": "0018-appkit-event-copy-input-context.patch",
+      "sha256": "2450f184fac61ac36e3dabbd6d11c0b14df2610ce71e2bf2044ffc8bbaea532a"
+    },
+    {
+      "file": "0019-appkit-natural-cgimage-getter.patch",
+      "sha256": "32574fff64ae424eb4bac1144198a4b45b16426b540e7ad636c2dbf05cc2d6d0"
+    },
+    {
+      "file": "0020-appkit-rgba8-byte-order.patch",
+      "sha256": "119c6ac5b11fc7ad57d0eb0e17309bd62363fc14d4bdeb5fc6495ecc92cb83ac"
+    },
+    {
+      "file": "0021-appkit-layer-backed-subview-display.patch",
+      "sha256": "4efb8ce6fcceb6f132b7317399af48e7465db7fd6e1c227bdba3c4993fc385f8"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+--- a/src/external/cocotron/CoreGraphics/CGDirectDisplay.m
++++ b/src/external/cocotron/CoreGraphics/CGDirectDisplay.m
+@@ -20,6 +20,7 @@
+ #import <AppKit/NSDisplay.h>
+ #import <AppKit/NSScreen.h>
+ #import <CoreGraphics/CGDirectDisplay.h>
++#import <CoreGraphics/CGDisplayConfiguration.h>
+ #import <CoreGraphics/CGError.h>
+ #import <IOKit/graphics/IOGraphicsLib.h>
+ #import <IOKit/graphics/IOGraphicsTypes.h>
+@@ -253,6 +254,16 @@
+     printf("STUB %s\n", __PRETTY_FUNCTION__);
+ 
+     return FALSE;
++}
++
++boolean_t CGDisplayIsOnline(CGDirectDisplayID displayIndex) {
++    NSDisplay *display = currentDisplay();
++    if (!display || displayIndex == kCGNullDirectDisplay)
++        return FALSE;
++
++    // CGGetOnlineDisplayList assigns IDs i + 1 to this same backend screen list.
++    NSArray<NSScreen *> *screens = [display screens];
++    return displayIndex <= [screens count];
+ }
+ 
+ Boolean CGDisplayIsMain(CGDirectDisplayID display) {
+--- a/src/external/cocotron/CoreGraphics/include/CoreGraphics/CGDisplayConfiguration.h
++++ b/src/external/cocotron/CoreGraphics/include/CoreGraphics/CGDisplayConfiguration.h
+@@ -18,5 +18,7 @@
+ 
+ typedef void (*CGDisplayReconfigurationCallBack)(CGDirectDisplayID display, CGDisplayChangeSummaryFlags flags, void *userInfo);
+ 
++COREGRAPHICS_EXPORT boolean_t CGDisplayIsOnline(CGDirectDisplayID display);
++
+ extern CGError CGDisplayRegisterReconfigurationCallback(CGDisplayReconfigurationCallBack callback, void *userInfo);
+ extern CGError CGDisplayRemoveReconfigurationCallback(CGDisplayReconfigurationCallBack callback, void *userInfo);

@@ -1,0 +1,114 @@
+diff --git a/src/external/cocotron/CoreGraphics/CGAffineTransform.m b/src/external/cocotron/CoreGraphics/CGAffineTransform.m
+--- a/src/external/cocotron/CoreGraphics/CGAffineTransform.m
++++ b/src/external/cocotron/CoreGraphics/CGAffineTransform.m
+@@ -100,6 +100,23 @@
+ }
+ 
+ CGRect CGRectApplyAffineTransform(CGRect rect, CGAffineTransform t) {
+-    printf("CGRectApplyAffineTransform STUB\n");
+-    return rect;
++    if (CGRectIsNull(rect))
++        return CGRectNull;
++    if (CGRectIsInfinite(rect))
++        return CGRectInfinite;
++    /* A rotated/sheared rectangle needs all four corners, not just its size. */
++    CGPoint points[4] = {
++        rect.origin,
++        {rect.origin.x + rect.size.width, rect.origin.y},
++        {rect.origin.x, rect.origin.y + rect.size.height},
++        {rect.origin.x + rect.size.width, rect.origin.y + rect.size.height}
++    };
++    CGPoint point = CGPointApplyAffineTransform(points[0], t);
++    CGFloat minX = point.x, maxX = point.x, minY = point.y, maxY = point.y;
++    for (unsigned index = 1; index < 4; index++) {
++        point = CGPointApplyAffineTransform(points[index], t);
++        minX = fmin(minX, point.x); maxX = fmax(maxX, point.x);
++        minY = fmin(minY, point.y); maxY = fmax(maxY, point.y);
++    }
++    return CGRectMake(minX, minY, maxX - minX, maxY - minY);
+ }
+diff --git a/src/external/cocotron/CoreGraphics/CGFont.m b/src/external/cocotron/CoreGraphics/CGFont.m
+--- a/src/external/cocotron/CoreGraphics/CGFont.m
++++ b/src/external/cocotron/CoreGraphics/CGFont.m
+@@ -20,8 +20,20 @@
+ #import <CoreGraphics/CGFont.h>
+ #import <Onyx2D/O2Font.h>
+ 
++/* Backend query avoids introducing a CoreGraphics dependency on native FreeType. */
++@interface O2Font (CoreGraphicsPostScriptName)
++- (NSString *) copyPostScriptName;
++@end
++
+ CGFontRef CGFontCreateWithFontName(CFStringRef name) {
+     return (CGFontRef)O2FontCreateWithFontName((NSString *) name);
++}
++
++CFStringRef CGFontCopyPostScriptName(CGFontRef self) {
++    O2Font *font = (O2Font *)self;
++    if (!font || ![font respondsToSelector:@selector(copyPostScriptName)])
++        return NULL;
++    return (CFStringRef)[font copyPostScriptName];
+ }
+ 
+ CGFontRef CGFontRetain(CGFontRef self) {
+diff --git a/src/external/cocotron/CoreGraphics/include/CoreGraphics/CGFont.h b/src/external/cocotron/CoreGraphics/include/CoreGraphics/CGFont.h
+--- a/src/external/cocotron/CoreGraphics/include/CoreGraphics/CGFont.h
++++ b/src/external/cocotron/CoreGraphics/include/CoreGraphics/CGFont.h
+@@ -36,6 +36,7 @@
+ COREGRAPHICS_EXPORT void CGFontRelease(CGFontRef self);
+ 
+ COREGRAPHICS_EXPORT CFStringRef CGFontCopyFullName(CGFontRef self);
++COREGRAPHICS_EXPORT CFStringRef CGFontCopyPostScriptName(CGFontRef self);
+ COREGRAPHICS_EXPORT int CGFontGetUnitsPerEm(CGFontRef self);
+ COREGRAPHICS_EXPORT int CGFontGetAscent(CGFontRef self);
+ COREGRAPHICS_EXPORT int CGFontGetDescent(CGFontRef self);
+diff --git a/src/external/cocotron/CoreGraphics/CGContext.m b/src/external/cocotron/CoreGraphics/CGContext.m
+--- a/src/external/cocotron/CoreGraphics/CGContext.m
++++ b/src/external/cocotron/CoreGraphics/CGContext.m
+@@ -614,8 +614,26 @@
+ }
+ 
+ void CGContextShowGlyphsAtPositions(CGContextRef c,
+-                                    const CGGlyph * glyphs, const CGPoint * Lpositions,
++                                    const CGGlyph *glyphs, const CGPoint *positions,
+                                     size_t count)
+ {
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-}
++    if (c == NULL || glyphs == NULL || positions == NULL || count == 0)
++        return;
++
++    O2ContextRef context = (O2ContextRef)c;
++    O2AffineTransform textMatrix = O2ContextGetTextMatrix(context);
++
++    /* Explicit positions are relative to the original text matrix. Dispatch
++       one glyph at a time because the existing backend accepts advances,
++       rather than absolute positions. Do not let backend advances accumulate
++       into the next explicit position or the caller's text position. */
++    for (size_t i = 0; i < count; i++) {
++        O2Point point = O2PointApplyAffineTransform(positions[i], textMatrix);
++        if (!isfinite(point.x) || !isfinite(point.y))
++            continue;
++        O2ContextSetTextPosition(context, point.x, point.y);
++        O2ContextShowGlyphs(context, glyphs + i, 1);
++    }
++
++    O2ContextSetTextMatrix(context, textMatrix);
++}
+diff --git a/src/external/cocotron/Onyx2D/O2Font_freetype.m b/src/external/cocotron/Onyx2D/O2Font_freetype.m
+--- a/src/external/cocotron/Onyx2D/O2Font_freetype.m
++++ b/src/external/cocotron/Onyx2D/O2Font_freetype.m
+@@ -161,6 +161,13 @@
+     _sourceFilename = [filename copy];
+     _sourceFaceIndex = face->face_index;
+     return [self initWithFace:face];
++}
++
++- (NSString *) copyPostScriptName {
++    @synchronized(self) {
++        const char *name = FT_Get_Postscript_Name(_face);
++        return name ? [[NSString alloc] initWithUTF8String:name] : nil;
++    }
+ }
+ 
+ - (NSString *) fontFilename { return _sourceFilename; }

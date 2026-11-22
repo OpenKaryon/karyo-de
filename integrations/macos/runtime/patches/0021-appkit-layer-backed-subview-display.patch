@@ -1,0 +1,19 @@
+diff --git a/src/external/cocotron/AppKit/NSView.m b/src/external/cocotron/AppKit/NSView.m
+--- a/src/external/cocotron/AppKit/NSView.m
++++ b/src/external/cocotron/AppKit/NSView.m
+@@ -1208,7 +1208,14 @@
+ 
+     invalidateTransform(view);
+ 
+-    [self setNeedsDisplayInRect: [view frame]];
++    // A layer-backed subview renders into its own layer, so adding it does
++    // not invalidate the superview's content. Qt's macOS style relies on this
++    // when it inserts and removes a transient control view while drawing; a
++    // display pass clipped to that view's frame would discard other updates.
++    if ([view wantsLayer])
++        [view setNeedsDisplay: YES];
++    else
++        [self setNeedsDisplayInRect: [view frame]];
+ 
+     [view viewDidMoveToSuperview];
+ 

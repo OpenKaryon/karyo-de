@@ -1,0 +1,169 @@
+--- a/src/external/cocotron/AppKit/NSGraphics.m
++++ b/src/external/cocotron/AppKit/NSGraphics.m
+@@ -50,6 +50,70 @@
+ NSString *const NSDeviceResolution = @"NSDeviceResolution";
+ NSString *const NSDeviceColorSpaceName = @"NSDeviceColorSpaceName";
+ NSString *const NSDeviceBitsPerSample = @"NSDeviceBitsPerSample";
++
++// X11Window creates an eight-bit-component, interleaved BGRA O2Surface.
++// Its RGB window depth excludes the alpha channel used for compositing.
++static const NSWindowDepth availableWindowDepths[] = {
++    NSWindowDepthTwentyfourBitRGB, 0
++};
++
++const NSWindowDepth *NSAvailableWindowDepths(void) {
++    return availableWindowDepths;
++}
++
++NSString *NSColorSpaceFromDepth(NSWindowDepth depth) {
++    switch (depth) {
++    case NSWindowDepthTwentyfourBitRGB:
++    case NSWindowDepthSixtyfourBitRGB:
++    case NSWindowDepthOnehundredtwentyeightBitRGB:
++        return NSDeviceRGBColorSpace;
++    }
++    return nil;
++}
++
++NSInteger NSBitsPerSampleFromDepth(NSWindowDepth depth) {
++    switch (depth) {
++    case NSWindowDepthTwentyfourBitRGB:
++        return 8;
++    case NSWindowDepthSixtyfourBitRGB:
++        return 16;
++    case NSWindowDepthOnehundredtwentyeightBitRGB:
++        return 32;
++    }
++    return 0;
++}
++
++NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
++    switch (depth) {
++    case NSWindowDepthTwentyfourBitRGB:
++        return 24;
++    case NSWindowDepthSixtyfourBitRGB:
++        return 64;
++    case NSWindowDepthOnehundredtwentyeightBitRGB:
++        return 128;
++    }
++    return 0;
++}
++
++BOOL NSPlanarFromDepth(NSWindowDepth depth) {
++    // The RGB depths declared by AppKit describe interleaved samples.
++    return NO;
++}
++
++NSWindowDepth NSBestDepth(NSString *colorSpaceName, NSInteger bitsPerSample,
++                         NSInteger bitsPerPixel, BOOL planar, BOOL *exactMatch) {
++    BOOL colorMatches = colorSpaceName == nil ||
++            [colorSpaceName isEqualToString: NSDeviceRGBColorSpace];
++    if (exactMatch != NULL) {
++        *exactMatch = colorMatches &&
++                (bitsPerSample == 0 || bitsPerSample == 8) &&
++                (bitsPerPixel == 0 || bitsPerPixel == 24) && !planar;
++    }
++    // Requests for deep color or other color models use the actual closest
++    // supported window depth; exactMatch records that conversion is needed.
++    return availableWindowDepths[0];
++}
++
+ 
+ static inline CGBlendMode blendModeForCompositeOp(NSCompositingOperation op) {
+     static CGBlendMode table[] = {
+--- a/src/external/cocotron/AppKit/include/AppKit/NSGraphics.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSGraphics.h
+@@ -69,6 +69,16 @@
+     NSAnimationEffectPoof = 10,
+ };
+ typedef NSUInteger NSAnimationEffect;
++
++APPKIT_EXPORT NSString *NSColorSpaceFromDepth(NSWindowDepth depth);
++APPKIT_EXPORT NSInteger NSBitsPerSampleFromDepth(NSWindowDepth depth);
++APPKIT_EXPORT NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth);
++APPKIT_EXPORT BOOL NSPlanarFromDepth(NSWindowDepth depth);
++APPKIT_EXPORT const NSWindowDepth *NSAvailableWindowDepths(void);
++APPKIT_EXPORT NSWindowDepth NSBestDepth(NSString *colorSpaceName,
++                                       NSInteger bitsPerSample,
++                                       NSInteger bitsPerPixel, BOOL planar,
++                                       BOOL *exactMatch);
+ 
+ APPKIT_EXPORT const CGFloat NSBlack;
+ APPKIT_EXPORT const CGFloat NSDarkGray;
+--- a/src/external/cocotron/AppKit/NSWindow.m
++++ b/src/external/cocotron/AppKit/NSWindow.m
+@@ -107,19 +107,6 @@
+ const NSNotificationName NSWindowDidExposeNotification =
+         @"NSWindowDidExposeNotification";
+ 
+-NSInteger NSBitsPerPixelFromDepth(NSWindowDepth depth) {
+-    switch (depth) {
+-    case NSWindowDepthOnehundredtwentyeightBitRGB:
+-        return 128;
+-    case NSWindowDepthSixtyfourBitRGB:
+-        return 64;
+-    case NSWindowDepthTwentyfourBitRGB:
+-        return 24;
+-    }
+-
+-    return 0;
+-}
+-
+ @interface CGWindow (private)
+ - (void) dirtyRect: (CGRect) rect;
+ @end
+@@ -212,7 +199,7 @@
+ static BOOL _allowsAutomaticWindowTabbing;
+ 
+ + (NSWindowDepth) defaultDepthLimit {
+-    return 0;
++    return NSAvailableWindowDepths()[0];
+ }
+ 
+ /* This method is Cococtron specific and can be override by subclasses, do not
+@@ -706,7 +693,7 @@
+ }
+ 
+ - (NSWindowDepth) depthLimit {
+-    return 0;
++    return _depthLimit != 0 ? _depthLimit : [[self class] defaultDepthLimit];
+ }
+ 
+ - (NSSize) resizeIncrements {
+@@ -1034,7 +1021,10 @@
+ }
+ 
+ - (void) setDynamicDepthLimit: (BOOL) value {
+-    _dynamicDepthLimit = value;
++    if (_dynamicDepthLimit != value) {
++        _dynamicDepthLimit = value;
++        _depthLimit = 0;
++    }
+ }
+ 
+ - (void) setOneShot: (BOOL) flag {
+@@ -1304,7 +1294,13 @@
+ }
+ 
+ - (void) setDepthLimit: (NSWindowDepth) value {
+-    NSUnimplementedMethod();
++    if (value == 0) {
++        _depthLimit = 0;
++        return;
++    }
++    _depthLimit = NSBestDepth(NSColorSpaceFromDepth(value),
++            NSBitsPerSampleFromDepth(value), NSBitsPerPixelFromDepth(value),
++            NSPlanarFromDepth(value), NULL);
+ }
+ 
+ - (void) setDisplaysWhenScreenProfileChanges: (BOOL) value {
+--- a/src/external/cocotron/AppKit/include/AppKit/NSWindow.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSWindow.h
+@@ -197,6 +197,7 @@
+     BOOL _excludedFromWindowsMenu;
+     BOOL _isDeferred;
+     BOOL _dynamicDepthLimit;
++    NSWindowDepth _depthLimit;
+     BOOL _canStoreColor;
+     BOOL _isOneShot;
+     BOOL _useOptimizedDrawing;

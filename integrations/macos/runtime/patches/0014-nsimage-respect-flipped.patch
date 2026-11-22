@@ -1,0 +1,33 @@
+--- a/src/external/cocotron/AppKit/NSImage.m
++++ b/src/external/cocotron/AppKit/NSImage.m
+@@ -1255,12 +1255,24 @@
+      respectFlipped: (BOOL) respectFlipped
+                  hints: (NSDictionary<NSString *, id> *) hints
+ {
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-
+-    [self drawInRect: rect
+-            fromRect: source
+-           operation: operation
+-            fraction: fraction];
++    NSGraphicsContext *graphicsContext = [NSGraphicsContext currentContext];
++    BOOL flipImage = respectFlipped && [graphicsContext isFlipped];
++    CGContextRef context = [graphicsContext graphicsPort];
++    if (flipImage) {
++        // Image/source coordinates remain bottom-up. Reflect only within the
++        // destination rectangle so partial redraws keep their original bounds.
++        CGContextSaveGState(context);
++        CGContextTranslateCTM(context, 0, NSMinY(rect) + NSMaxY(rect));
++        CGContextScaleCTM(context, 1, -1);
++    }
++    @try {
++        [self drawInRect: rect
++                fromRect: source
++               operation: operation
++                fraction: fraction];
++    } @finally {
++        if (flipImage) CGContextRestoreGState(context);
++    }
+ }
+ 
+ - (NSString *) description {

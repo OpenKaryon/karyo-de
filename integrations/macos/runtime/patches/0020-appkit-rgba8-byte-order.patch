@@ -1,0 +1,18 @@
+diff --git a/src/external/cocotron/AppKit/NSBitmapImageRep.m b/src/external/cocotron/AppKit/NSBitmapImageRep.m
+--- a/src/external/cocotron/AppKit/NSBitmapImageRep.m
++++ b/src/external/cocotron/AppKit/NSBitmapImageRep.m
+@@ -821,6 +821,14 @@
+ 
+ - (CGBitmapInfo) CGBitmapInfo {
+     CGBitmapInfo result = kCGBitmapByteOrderDefault;
++    // Packed integer RGBA consists of four ordered eight-bit samples. It is
++    // not a native-endian 32-bit sample: on little-endian hosts Default selects
++    // Onyx's ABGR reader. Explicit Big selects the actual R,G,B,A byte reader.
++    // Keep unknown and explicit sample-endian flags on their existing path.
++    if (!_isPlanar && _bitsPerSample == 8 && _bitsPerPixel == 32 &&
++            _samplesPerPixel == 4 && [self hasAlpha] &&
++            (_bitmapFormat & ~NSAlphaNonpremultipliedBitmapFormat) == 0)
++        result = kCGBitmapByteOrder32Big;
+ 
+     if (![self hasAlpha])
+         result |= kCGImageAlphaNone;

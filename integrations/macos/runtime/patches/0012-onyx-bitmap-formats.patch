@@ -1,0 +1,381 @@
+--- a/src/external/cocotron/Onyx2D/O2Image.m
++++ b/src/external/cocotron/Onyx2D/O2Image.m
+@@ -34,6 +34,10 @@
+ #import <Onyx2D/O2Image.h>
+ #import <Onyx2D/O2Surface.h>
+ 
++static O2argb8u *O2ImageRead_XBGR8888_to_argb8u(O2Image *, int, int, O2argb8u *, int);
++static O2argb8u *O2ImageRead_RGBX8888_to_argb8u(O2Image *, int, int, O2argb8u *, int);
++static O2argb8u *O2ImageRead_float_to_argb8u(O2Image *, int, int, O2argb8u *, int);
++
+ @implementation O2Image
+ 
+ ONYX2D_STATIC BOOL initFunctionsForMonochrome(O2Image *self,
+@@ -71,11 +75,13 @@
+             case kO2BitmapByteOrder16Little:
+             case kO2BitmapByteOrder32Little:
+                 self->_read_argb32f = O2ImageRead_argb32fLittle_to_argb32f;
++                self->_read_argb8u = O2ImageRead_float_to_argb8u;
+                 return YES;
+ 
+             case kO2BitmapByteOrder16Big:
+             case kO2BitmapByteOrder32Big:
+                 self->_read_argb32f = O2ImageRead_argb32fBig_to_argb32f;
++                self->_read_argb8u = O2ImageRead_float_to_argb8u;
+                 return YES;
+             }
+         }
+@@ -113,9 +119,6 @@
+ 
+         case 32:
+             switch (bitmapInfo & kO2BitmapAlphaInfoMask) {
+-            case kO2ImageAlphaNone:
+-                break;
+-
+             case kO2ImageAlphaLast:
+             case kO2ImageAlphaPremultipliedLast:
+                 switch (bitmapInfo & kO2BitmapByteOrderMask) {
+@@ -143,16 +146,17 @@
+             case kO2ImageAlphaFirst:
+                 break;
+ 
++            case kO2ImageAlphaNone:
+             case kO2ImageAlphaNoneSkipLast:
+                 switch (bitmapInfo & kO2BitmapByteOrderMask) {
+                 case kO2BitmapByteOrder16Little:
+                 case kO2BitmapByteOrder32Little:
+-                    self->_read_argb8u = O2ImageRead_ABGR8888_to_argb8u;
++                    self->_read_argb8u = O2ImageRead_XBGR8888_to_argb8u;
+                     return YES;
+ 
+                 case kO2BitmapByteOrder16Big:
+                 case kO2BitmapByteOrder32Big:
+-                    self->_read_argb8u = O2ImageRead_RGBA8888_to_argb8u;
++                    self->_read_argb8u = O2ImageRead_RGBX8888_to_argb8u;
+                     return YES;
+                 }
+                 break;
+@@ -355,7 +359,7 @@
+         NSLog(@"O2Image failed to init with bpc=%zu, "
+               @"bpp=%zu,colorSpace=%@,bitmapInfo=0x%0X",
+               bitsPerComponent, bitsPerPixel, colorSpace, bitmapInfo);
+-        [self dealloc];
++        [self release];
+         return nil;
+     }
+ 
+@@ -1064,11 +1068,56 @@
+     for (i = 0; i < length; i++) {
+         O2argb8u result;
+ 
+-        result.a = *scanline++;
++        scanline++;
++        result.a = 255;
+         result.r = *scanline++;
+         result.g = *scanline++;
+         result.b = *scanline++;
+         *span++ = result;
++    }
++    return NULL;
++}
++
++static O2argb8u *O2ImageRead_XBGR8888_to_argb8u(O2Image *self, int x, int y,
++                                                 O2argb8u *span, int length) {
++    const uint8_t *bytes = scanlineAtY(self, y);
++    if (bytes == NULL) return NULL;
++    bytes += x * 4;
++    for (int i = 0; i < length; i++, bytes += 4) {
++        span[i].a = 255;
++        span[i].b = bytes[1];
++        span[i].g = bytes[2];
++        span[i].r = bytes[3];
++    }
++    return NULL;
++}
++
++static O2argb8u *O2ImageRead_RGBX8888_to_argb8u(O2Image *self, int x, int y,
++                                                 O2argb8u *span, int length) {
++    const uint8_t *bytes = scanlineAtY(self, y);
++    if (bytes == NULL) return NULL;
++    bytes += x * 4;
++    for (int i = 0; i < length; i++, bytes += 4) {
++        span[i].a = 255;
++        span[i].r = bytes[0];
++        span[i].g = bytes[1];
++        span[i].b = bytes[2];
++    }
++    return NULL;
++}
++
++static O2argb8u *O2ImageRead_float_to_argb8u(O2Image *self, int x, int y,
++                                               O2argb8u *span, int length) {
++    O2argb32f floats[length];
++    O2argb32f *direct = self->_read_argb32f(self, x, y, floats, length);
++    if (direct != NULL) {
++        for (int i = 0; i < length; i++) floats[i] = direct[i];
++    }
++    for (int i = 0; i < length; i++) {
++        span[i].a = O2ByteFromFloat(floats[i].a);
++        span[i].r = O2ByteFromFloat(floats[i].r);
++        span[i].g = O2ByteFromFloat(floats[i].g);
++        span[i].b = O2ByteFromFloat(floats[i].b);
+     }
+     return NULL;
+ }
+--- a/src/external/cocotron/Onyx2D/O2Surface.m
++++ b/src/external/cocotron/Onyx2D/O2Surface.m
+@@ -29,6 +29,8 @@
+ #import <Onyx2D/O2ColorSpace.h>
+ #import <Onyx2D/O2DataProvider.h>
+ #import <Onyx2D/O2Surface.h>
++#include <stdint.h>
++#include <limits.h>
+ 
+ @implementation O2Surface
+ 
+@@ -374,6 +376,47 @@
+     self->_writeargb8u(self, x, y, span8888, length);
+ }
+ 
++static void O2SurfaceWrite_argb8u_to_argb32f(O2Surface *self, int x, int y,
++                                               O2argb8u *span, int length) {
++    O2argb32f floats[length];
++    for (int i = 0; i < length; i++) {
++        floats[i].a = span[i].a / 255.0f;
++        floats[i].r = span[i].r / 255.0f;
++        floats[i].g = span[i].g / 255.0f;
++        floats[i].b = span[i].b / 255.0f;
++    }
++    self->_writeargb32f(self, x, y, floats, length);
++}
++
++static void O2SurfaceWrite_argb8u_to_skip32(O2Surface *self, int x, int y,
++                                              O2argb8u *span, int length) {
++    uint8_t *bytes = self->_pixelBytes + y * self->_bytesPerRow + x * 4;
++    O2BitmapInfo order = self->_bitmapInfo & kO2BitmapByteOrderMask;
++    BOOL little = order == kO2BitmapByteOrder16Little ||
++                  order == kO2BitmapByteOrder32Little;
++    if (order == kO2BitmapByteOrderDefault) {
++#ifdef __LITTLE_ENDIAN__
++        little = YES;
++#endif
++    }
++    BOOL first = (self->_bitmapInfo & kO2BitmapAlphaInfoMask) == kO2ImageAlphaNoneSkipFirst;
++    for (int i = 0; i < length; i++, bytes += 4) {
++        if (first && little) {
++            bytes[0] = span[i].b; bytes[1] = span[i].g;
++            bytes[2] = span[i].r; bytes[3] = 255;
++        } else if (first) {
++            bytes[0] = 255; bytes[1] = span[i].r;
++            bytes[2] = span[i].g; bytes[3] = span[i].b;
++        } else if (little) {
++            bytes[0] = 255; bytes[1] = span[i].b;
++            bytes[2] = span[i].g; bytes[3] = span[i].r;
++        } else {
++            bytes[0] = span[i].r; bytes[1] = span[i].g;
++            bytes[2] = span[i].b; bytes[3] = 255;
++        }
++    }
++}
++
+ static BOOL initFunctionsForParameters(O2Surface *self, size_t bitsPerComponent,
+                                        size_t bitsPerPixel,
+                                        O2ColorSpaceRef colorSpace,
+@@ -458,9 +501,16 @@
+                     break;
+ 
+                 case kO2ImageAlphaNoneSkipLast:
+-                    break;
+-
+                 case kO2ImageAlphaNoneSkipFirst:
++                    switch (bitmapInfo & kO2BitmapByteOrderMask) {
++                    case kO2BitmapByteOrderDefault:
++                    case kO2BitmapByteOrder16Little:
++                    case kO2BitmapByteOrder32Little:
++                    case kO2BitmapByteOrder16Big:
++                    case kO2BitmapByteOrder32Big:
++                        self->_writeargb8u = O2SurfaceWrite_argb8u_to_skip32;
++                        return YES;
++                    }
+                     break;
+                 }
+             } else if ([colorSpace type] == kO2ColorSpaceModelCMYK) {
+@@ -536,55 +586,75 @@
+               colorSpace: (O2ColorSpaceRef) colorSpace
+               bitmapInfo: (O2BitmapInfo) bitmapInfo
+ {
++    // A failed O2Image initializer releases the dynamic O2Surface instance.
++    // Initialize the lock before any path can invoke our dealloc method.
++    pthread_mutex_init(&_lock, NULL);
++    O2ImageAlphaInfo alpha = bitmapInfo & kO2BitmapAlphaInfoMask;
++    if (colorSpace == nil || alpha == kO2ImageAlphaOnly ||
++            alpha > kO2ImageAlphaOnly || width == 0 || height == 0 ||
++            width > INT_MAX || height > INT_MAX || bitsPerComponent == 0 ||
++            bitsPerComponent == 2 ||
++            (bitsPerComponent == 32 &&
++             (((bitmapInfo & kO2BitmapFloatComponents) == 0) ||
++              alpha != kO2ImageAlphaPremultipliedLast)) ||
++            ((bitmapInfo & kO2BitmapFloatComponents) != 0 && bitsPerComponent != 32)) {
++        [self release];
++        return nil;
++    }
++    size_t samples = O2ColorSpaceGetNumberOfComponents(colorSpace);
++    if (alpha != kO2ImageAlphaNone) samples++;
++    if (samples == 0 || bitsPerComponent > SIZE_MAX / samples) {
++        [self release];
++        return nil;
++    }
++    size_t bitsPerPixel = samples * bitsPerComponent;
++    if (width > (SIZE_MAX - 7) / bitsPerPixel) {
++        [self release];
++        return nil;
++    }
++    size_t minimumRow = (width * bitsPerPixel + 7) / 8;
++    if (bytesPerRow == 0) bytesPerRow = minimumRow;
++    if (bytesPerRow < minimumRow || bytesPerRow % ((bitsPerPixel + 7) / 8) != 0 ||
++            height > SIZE_MAX / bytesPerRow) {
++        [self release];
++        return nil;
++    }
++    if (!initFunctionsForParameters(self, bitsPerComponent, bitsPerPixel,
++                                    colorSpace, bitmapInfo) ||
++            (self->_writeargb8u == NULL && self->_writeargb32f ==
++                    O2SurfaceWrite_argb32f_to_argb8u_to_ANY)) {
++        [self release];
++        return nil;
++    }
++    if (self->_writeargb8u == NULL)
++        self->_writeargb8u = O2SurfaceWrite_argb8u_to_argb32f;
++
+     O2DataProvider *provider;
+-    int bitsPerPixel = 32;
+-
+     if (bytes != NULL) {
+         provider = [[[O2DataProvider alloc] initWithBytes: bytes
+-                                                   length: bytesPerRow * height]
+-                autorelease];
++                         length: bytesPerRow * height] autorelease];
+         m_ownsData = NO;
+     } else {
+-        if (bytesPerRow > 0 && bytesPerRow < (width * bitsPerPixel) / 8) {
+-            NSLog(@"invalid bytes per row=%zu", bytesPerRow);
+-            bytesPerRow = 0;
+-        }
+-
+-        if (bytesPerRow == 0)
+-            bytesPerRow = (width * bitsPerPixel) / 8;
+-
+-        NSMutableData *data = [NSMutableData
+-                dataWithLength: bytesPerRow * height *
+-                                sizeof(uint8_t)]; // this will also zero the
+-                                                  // bytes
+-        provider =
+-                [O2DataProviderCreateWithCFData((CFDataRef) data) autorelease];
++        NSMutableData *data = [NSMutableData dataWithLength: bytesPerRow * height];
++        if (data == nil) {
++            [self release];
++            return nil;
++        }
++        provider = [O2DataProviderCreateWithCFData((CFDataRef)data) autorelease];
+         m_ownsData = YES;
+     }
+-
+-    if ([super initWithWidth: width
+-                          height: height
+-                bitsPerComponent: bitsPerComponent
+-                    bitsPerPixel: bitsPerPixel
+-                     bytesPerRow: bytesPerRow
+-                      colorSpace: colorSpace
+-                      bitmapInfo: bitmapInfo
+-                         decoder: NULL
+-                        provider: provider
+-                          decode: NULL
+-                     interpolate: YES
+-                 renderingIntent: kO2RenderingIntentDefault] == nil)
++    if (provider == nil) {
++        [self release];
+         return nil;
+-
+-    if ([provider isDirectAccess])
+-        _pixelBytes = (void *) [provider bytes];
+-
+-    if (!initFunctionsForParameters(self, bitsPerComponent, _bitsPerPixel,
+-                                    colorSpace, bitmapInfo))
+-        NSLog(@"O2Surface -init error, return");
+-
+-    _clampExternalPixels = NO; // only set to yes if premultiplied
+-    pthread_mutex_init(&_lock, NULL);
++    }
++    if ([super initWithWidth: width height: height
++            bitsPerComponent: bitsPerComponent bitsPerPixel: bitsPerPixel
++            bytesPerRow: bytesPerRow colorSpace: colorSpace bitmapInfo: bitmapInfo
++            decoder: NULL provider: provider decode: NULL interpolate: YES
++            renderingIntent: kO2RenderingIntentDefault] == nil)
++        return nil;
++    if ([provider isDirectAccess]) _pixelBytes = (void *)[provider bytes];
++    _clampExternalPixels = NO;
+     return self;
+ }
+ 
+--- a/src/external/cocotron/Onyx2D/O2BitmapContext.m
++++ b/src/external/cocotron/Onyx2D/O2BitmapContext.m
+@@ -63,7 +63,11 @@
+                                             colorSpace: colorSpace
+                                             bitmapInfo: bitmapInfo];
+ 
+-    [self initWithSurface: surface flipped: NO];
++    if (surface == nil) {
++        [self release];
++        return nil;
++    }
++    self = [self initWithSurface: surface flipped: NO];
+     [surface release];
+     return self;
+ }
+@@ -127,43 +131,9 @@
+     return O2ImageGetBitsPerComponent(self->_surface);
+ }
+ 
+-size_t O2BitmapContextGetBitsPerPixel(O2ContextRef self) {
+-    size_t result = O2BitmapContextGetBitsPerComponent(self) *
+-                    O2ColorSpaceGetNumberOfComponents(
+-                            O2BitmapContextGetColorSpace(self));
+-
+-    switch (O2BitmapContextGetAlphaInfo(self)) {
+-
+-    case kO2ImageAlphaNone:
+-        break;
+-
+-    case kO2ImageAlphaPremultipliedLast:
+-        result += O2BitmapContextGetBitsPerComponent(self);
+-        break;
+-
+-    case kO2ImageAlphaPremultipliedFirst:
+-        result += O2BitmapContextGetBitsPerComponent(self);
+-        break;
+-
+-    case kO2ImageAlphaLast:
+-        result += O2BitmapContextGetBitsPerComponent(self);
+-        break;
+-
+-    case kO2ImageAlphaFirst:
+-        result += O2BitmapContextGetBitsPerComponent(self);
+-        break;
+-
+-    case kO2ImageAlphaNoneSkipLast:
+-        break;
+-
+-    case kO2ImageAlphaNoneSkipFirst:
+-        break;
+-
+-    case kO2ImageAlphaOnly:
+-        break;
+-    }
+-
+-    return result;
++size_t O2BitmapContextGetBitsPerPixel(O2ContextRef selfX) {
++    O2BitmapContextRef self = (O2BitmapContextRef) selfX;
++    return O2ImageGetBitsPerPixel(self->_surface);
+ }
+ 
+ size_t O2BitmapContextGetBytesPerRow(O2ContextRef selfX) {

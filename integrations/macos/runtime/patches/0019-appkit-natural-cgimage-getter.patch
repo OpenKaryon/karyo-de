@@ -1,0 +1,145 @@
+diff --git a/src/external/cocotron/AppKit/NSImage.m b/src/external/cocotron/AppKit/NSImage.m
+--- a/src/external/cocotron/AppKit/NSImage.m
++++ b/src/external/cocotron/AppKit/NSImage.m
+@@ -280,6 +280,15 @@
+ }
+ @end
+ 
++// A representation may expose a natural CGImage through the modern selector.
++// The base NSImageRep drawing method is a no-op; do not manufacture a blank
++// fallback bitmap for representations without a supported image conversion.
++@interface NSImageRep (DarlingNaturalCGImage)
++- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
++                            context: (NSGraphicsContext *) referenceContext
++                              hints: (NSDictionary *) hints;
++@end
++
+ @implementation NSImage
+ 
+ + (NSArray *) imageFileTypes {
+@@ -707,6 +716,29 @@
+ - (BOOL) isValid {
+     NSUnimplementedMethod();
+     return 0;
++}
++
++- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
++                            context: (NSGraphicsContext *) referenceContext
++                              hints: (NSDictionary *) hints
++{
++    // These arguments are optional selection hints. A natural existing bitmap
++    // is valid without resampling or changing the caller's context or rect.
++    for (NSImageRep *rep in _representations) {
++        CGImageRef image = NULL;
++        if ([rep respondsToSelector: @selector(CGImageForProposedRect:context:hints:)]) {
++            image = [rep CGImageForProposedRect: proposedDestRect
++                                      context: referenceContext hints: hints];
++        } else if ([rep isKindOfClass: [NSBitmapImageRep class]]) {
++            image = [(NSBitmapImageRep *) rep CGImage];
++        }
++        if (image != NULL) {
++            // The caller may release NSImage/its representation immediately.
++            // This +0 lease still keeps the actual CGImage alive until drain.
++            return (CGImageRef) [(id) CGImageRetain(image) autorelease];
++        }
++    }
++    return NULL;
+ }
+ 
+ - (NSArray *) representations {
+diff --git a/src/external/cocotron/AppKit/include/AppKit/NSImage.h b/src/external/cocotron/AppKit/include/AppKit/NSImage.h
+--- a/src/external/cocotron/AppKit/include/AppKit/NSImage.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSImage.h
+@@ -20,7 +20,7 @@
+ #import <AppKit/NSBitmapImageRep.h>
+ #import <AppKit/NSGraphics.h>
+ 
+-@class NSImageRep;
++@class NSImageRep, NSGraphicsContext;
+ 
+ typedef enum {
+     NSImageCacheDefault,
+@@ -62,6 +62,12 @@
+ - initWithContentsOfFile: (NSString *) path;
+ - initWithContentsOfURL: (NSURL *) url;
+ - initWithCGImage: (CGImageRef) cgImage size: (NSSize) size;
++
++// Natural raster images are returned at +0 and survive the current pool.
++- (CGImageRef) CGImageForProposedRect: (NSRect *) proposedDestRect
++                            context: (NSGraphicsContext *) referenceContext
++                              hints: (NSDictionary *) hints
++        __attribute__((cf_returns_not_retained));
+ 
+ - initWithPasteboard: (NSPasteboard *) pasteboard;
+ - initByReferencingFile: (NSString *) path;
+diff --git a/src/external/cocotron/AppKit/NSBitmapImageRep.m b/src/external/cocotron/AppKit/NSBitmapImageRep.m
+--- a/src/external/cocotron/AppKit/NSBitmapImageRep.m
++++ b/src/external/cocotron/AppKit/NSBitmapImageRep.m
+@@ -23,6 +23,8 @@
+ #import <AppKit/NSPasteboard.h>
+ #import <AppKit/NSRaise.h>
+ #import <AppKit/NSView.h>
++#import <Foundation/NSData.h>
++#include <stdint.h>
+ 
+ NSBitmapImageRepPropertyKey NSImageCompressionFactor =
+         @"NSImageCompressionFactor";
+@@ -750,25 +752,45 @@
+     if (_cgImage != NULL)
+         return CGImageRetain(_cgImage);
+ 
+-    if (_isPlanar)
+-        NSUnimplementedMethod();
+-
+-    CGDataProviderRef provider = CGDataProviderCreateWithData(
+-            NULL, _bitmapPlanes[0], _bytesPerRow * _pixelsHigh, NULL);
+-
+-    CGImageRef image = CGImageCreate(
+-            _pixelsWide, _pixelsHigh, _bitsPerPixel / _samplesPerPixel,
+-            _bitsPerPixel, _bytesPerRow, [self CGColorSpace],
+-            [self CGBitmapInfo], provider, NULL, NO, kCGRenderingIntentDefault);
+-
++    // Planar conversion is not implemented. Validate real packed geometry
++    // before reading storage; never substitute a fabricated empty bitmap.
++    if (_isPlanar || _bitmapPlanes == NULL || _bitmapPlanes[0] == NULL ||
++            _pixelsWide <= 0 || _pixelsHigh <= 0 || _bytesPerRow <= 0 ||
++            _bitsPerSample <= 0 || _bitsPerPixel <= 0 || _samplesPerPixel <= 0)
++        return NULL;
++    size_t width = (size_t) _pixelsWide, height = (size_t) _pixelsHigh;
++    size_t bitsPerPixel = (size_t) _bitsPerPixel;
++    size_t bytesPerRow = (size_t) _bytesPerRow;
++    if ((size_t) _samplesPerPixel > bitsPerPixel / (size_t) _bitsPerSample ||
++            width > (SIZE_MAX - 7) / bitsPerPixel ||
++            bytesPerRow < (width * bitsPerPixel + 7) / 8 ||
++            height > SIZE_MAX / bytesPerRow)
++        return NULL;
++    CGColorSpaceRef colorSpace = [self CGColorSpace];
++    if (colorSpace == NULL)
++        return NULL;
++
++    // A CGImage can outlive the bitmap representation and its mutable planes.
++    // The provider retains this real byte copy, exactly as O2Surface snapshots.
++    NSData *snapshot = [[NSData alloc] initWithBytes: _bitmapPlanes[0]
++                                             length: bytesPerRow * height];
++    if (snapshot == nil)
++        return NULL;
++    CGDataProviderRef provider = CGDataProviderCreateWithCFData((CFDataRef) snapshot);
++    [snapshot release];
++    if (provider == NULL)
++        return NULL;
++
++    CGImageRef image = CGImageCreate(width, height, _bitsPerSample,
++            bitsPerPixel, bytesPerRow, colorSpace, [self CGBitmapInfo],
++            provider, NULL, NO, kCGRenderingIntentDefault);
+     CGDataProviderRelease(provider);
+-
+     return image;
+ }
+ 
+ - (CGImageRef) CGImage {
+     if (_cgImage != NULL)
+-        return _cgImage;
++        return (CGImageRef) [(id) CGImageRetain(_cgImage) autorelease];
+ 
+     return (CGImageRef)[(id)[self createCGImageIfNeeded] autorelease];
+ }

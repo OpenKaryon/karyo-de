@@ -1,0 +1,21 @@
+diff --git a/src/startup/darling.c b/src/startup/darling.c
+--- a/src/startup/darling.c
++++ b/src/startup/darling.c
+@@ -78,8 +78,15 @@ int main(int argc, char ** argv)
+ 		prefix = defaultPrefixPath();
+ 	if (!prefix)
+ 		return 1;
+-	if (strlen(prefix) > 255)
++	/* Expanded socket paths also pass through Darwin's 104-byte sun_path
++	 * (src/external/xnu/bsd/sys/un.h), even when Linux allows 108 bytes. */
++	const size_t linuxSocketPathCapacity = sizeof(((struct sockaddr_un*)0)->sun_path);
++	const size_t socketPathCapacity = linuxSocketPathCapacity < 104
++		? linuxSocketPathCapacity : 104;
++	const size_t socketPrefixLimit = socketPathCapacity - sizeof(SHELLSPAWN_SOCKPATH);
++	if (strlen(prefix) > socketPrefixLimit)
+ 	{
+-		fprintf(stderr, "Prefix path too long\n");
++		fprintf(stderr, "Prefix path too long for Unix sockets (maximum %zu bytes)\n",
++			socketPrefixLimit);
+ 		return 1;
+ 	}

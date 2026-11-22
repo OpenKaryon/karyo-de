@@ -1,0 +1,14 @@
+diff --git a/src/external/cocotron/AppKit/NSColor.subproj/NSColor_CGColor.m b/src/external/cocotron/AppKit/NSColor.subproj/NSColor_CGColor.m
+--- a/src/external/cocotron/AppKit/NSColor.subproj/NSColor_CGColor.m
++++ b/src/external/cocotron/AppKit/NSColor.subproj/NSColor_CGColor.m
+@@ -202,6 +202,10 @@ static inline CGFloat calibratedWhiteFromRGB(CGFloat r, CGFloat g, CGFloat b) {
+             REC601_LUMINANCE_B * b);
+ }
+ 
++- (NSColor *) colorUsingColorSpaceName: (NSColorSpaceName) colorSpace {
++    return [self colorUsingColorSpaceName: colorSpace device: nil];
++}
++
+ - (NSColor *) colorUsingColorSpaceName: (NSString *) otherSpaceName
+                                 device: (NSDictionary *) device
+ {

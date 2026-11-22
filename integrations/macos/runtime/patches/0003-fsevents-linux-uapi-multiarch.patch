@@ -1,0 +1,20 @@
+diff --git a/src/frameworks/CoreServices/src/FSEvents/CMakeLists.txt b/src/frameworks/CoreServices/src/FSEvents/CMakeLists.txt
+--- a/src/frameworks/CoreServices/src/FSEvents/CMakeLists.txt
++++ b/src/frameworks/CoreServices/src/FSEvents/CMakeLists.txt
+@@ -25,6 +25,16 @@ add_framework(FSEvents
+ )
+ 
+ add_darling_executable(fseventsd fseventsd.m)
++# fanotify uses Linux UAPI types, while this target otherwise uses Darwin headers.
++# Debian installs the architecture-specific asm/ headers in its multiarch path.
++find_path(FSEVENTSD_LINUX_UAPI_ARCH_INCLUDE_DIR asm/types.h
++	PATHS "/usr/include/${CMAKE_LIBRARY_ARCHITECTURE}" "/usr/include"
++	NO_DEFAULT_PATH REQUIRED
++)
++# Search after Darwin's SDK headers so host libc headers cannot shadow them.
++target_compile_options(fseventsd PRIVATE
++	"-idirafter${FSEVENTSD_LINUX_UAPI_ARCH_INCLUDE_DIR}"
++)
+ target_link_libraries(fseventsd system Foundation CarbonCore)
+ 
+ install(TARGETS fseventsd DESTINATION libexec/darling/usr/sbin)

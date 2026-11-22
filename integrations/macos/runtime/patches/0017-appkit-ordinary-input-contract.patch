@@ -1,0 +1,60 @@
+diff --git a/src/external/cocotron/AppKit/NSApplication.m b/src/external/cocotron/AppKit/NSApplication.m
+--- a/src/external/cocotron/AppKit/NSApplication.m
++++ b/src/external/cocotron/AppKit/NSApplication.m
+@@ -923,6 +923,13 @@
+ 
+ - (void) updateWindows {
+     [_windows makeObjectsPerformSelector: @selector(update)];
++}
++
++// Full Keyboard Access includes non-text controls when bit 1 is set.
++// Read the current preference on every query, as AppKit specifies.
++- (BOOL) isFullKeyboardAccessEnabled {
++    return ([[NSUserDefaults standardUserDefaults]
++                    integerForKey: @"AppleKeyboardUIMode"] & 0x2) != 0;
+ }
+ 
+ - (void) activateIgnoringOtherApps: (BOOL) flag {
+diff --git a/src/external/cocotron/AppKit/include/AppKit/NSApplication.h b/src/external/cocotron/AppKit/include/AppKit/NSApplication.h
+--- a/src/external/cocotron/AppKit/include/AppKit/NSApplication.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSApplication.h
+@@ -203,6 +203,7 @@
+                              inMode: (NSRunLoopMode) mode
+                             dequeue: (BOOL) dequeue;
+ - (NSEvent *) currentEvent;
++- (BOOL) isFullKeyboardAccessEnabled;
+ - (void) discardEventsMatchingMask: (NSEventMask) mask
+                        beforeEvent: (NSEvent *) event;
+ - (void) postEvent: (NSEvent *) event atStart: (BOOL) atStart;
+diff --git a/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent_mouse.m b/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent_mouse.m
+--- a/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent_mouse.m
++++ b/src/external/cocotron/AppKit/NSEvent.subproj/NSEvent_mouse.m
+@@ -142,8 +142,27 @@
+     return _userData;
+ }
+ 
++// These mouse factories and the X11 backend create ordinary mouse
++// events, whose subtype is the default mouse subtype (not tablet).
++- (short) subtype {
++    return 0;
++}
++
+ - (NSInteger) buttonNumber {
+-    return _buttonNumber;
++    // Left/right NSEvent types identify the button independently of
++    // the backend numbering; Cocoa uses zero for left and one for right.
++    switch (_type) {
++    case NSLeftMouseDown:
++    case NSLeftMouseUp:
++    case NSLeftMouseDragged:
++        return 0;
++    case NSRightMouseDown:
++    case NSRightMouseUp:
++    case NSRightMouseDragged:
++        return 1;
++    default:
++        return _buttonNumber;
++    }
+ }
+ 
+ - (void) _setButtonNumber: (NSInteger) num {

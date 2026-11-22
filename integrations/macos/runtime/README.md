@@ -82,3 +82,34 @@ missing-frontend unit fixture explicitly selects a nonexistent picker so its
 result does not depend on whether the optional GUI is installed on the test host.
 Unit fixtures substitute tiny inventory/archive constants internally; the public
 CLI has no bypass for the44-object inventory or fixed official archive identity.
+
+## Reviewed patch stack
+
+patches/series.json captures all21 general fixes against Darling60ba801 and
+Cocotronc8d38d1. verify_patches.py checks archive/recipe hashes and a bounded
+source-only footprint, copies only52 regular source files into a private shadow,
+then applies and reverses the complete stack. Both native bases recover every
+original byte and remove the one patch-created private header. Reports match
+exactly between bases, and the original source archive remains unchanged.
+
+Six additional policy regressions cover the actual ordered patch hashes,
+changed/unlisted patches, source pins, unsafe paths/modes/renames, counted hunks
+whose source text resembles headers, and real forward/reverse Git operations
+with an unrelated inherited GIT_DIR. The source-input suite now has13 cases;
+standalone core CTest passes both entries on both bases (35 backend cases plus
+13 source-input cases). Windows passes12 with the native DEB case skipped.
+
+```sh
+python3 verify_patches.py /out/darling-inventory/karyo-source-snapshot-JOB \
+  --output /out/patch-stack.json
+```
+
+The first real source inventory includes161 pinned repositories and292917
+tracked files. Its SHA256 is
+9991624da4e72530f844e14aafae91e196505a3e98b65f047e9bafdd48379d09
+(bytes780871273). Both native preparers recover the same44 exact Swift inputs
+(total16128448 bytes), with identical provenance and preserved license hash
+770af8291f708538d8ff885a0bbc4e045cd700531741c4f99528d435c14d7f55.
+This input verification reads the official archive as data; it executes neither
+its Linux runtime nor its Mac libraries. Builder records current local artifacts
+and native environment evidence separately for review.

@@ -1,0 +1,137 @@
+--- a/src/external/cocotron/Onyx2D/O2Image.m
++++ b/src/external/cocotron/Onyx2D/O2Image.m
+@@ -28,6 +28,8 @@
+  *-------------------------------------------------------------------*/
+ 
+ #import <Foundation/NSData.h>
++#include <stdint.h>
++#include <string.h>
+ #import <Onyx2D/O2ColorSpace.h>
+ #import <Onyx2D/O2DataProvider.h>
+ #import <Onyx2D/O2Exceptions.h>
+@@ -363,6 +365,21 @@
+         return nil;
+     }
+ 
++    if (decode != NULL) {
++        size_t components = colorSpace != nil ?
++                O2ColorSpaceGetNumberOfComponents(colorSpace) : 1;
++        if (components == 0 || components > SIZE_MAX / (2 * sizeof(O2Float))) {
++            [self release];
++            return nil;
++        }
++        size_t decodeBytes = components * 2 * sizeof(O2Float);
++        _decode = NSZoneMalloc(NULL, decodeBytes);
++        if (_decode == NULL) {
++            [self release];
++            return nil;
++        }
++        memcpy(_decode, decode, decodeBytes);
++    }
+     return self;
+ }
+ 
+@@ -432,8 +449,22 @@
+ }
+ 
+ - (O2Image *) copyWithColorSpace: (O2ColorSpaceRef) colorSpace {
+-    O2UnimplementedMethod();
+-    return nil;
++    if (_isMask || _colorSpace == nil || colorSpace == nil ||
++            O2ColorSpaceGetNumberOfComponents(_colorSpace) !=
++                    O2ColorSpaceGetNumberOfComponents(colorSpace))
++        return nil;
++    // Retag the immutable image. The initializer owns its metadata and retains
++    // the shared provider/decoder, so pixels survive release of the source.
++    O2Image *result = [[O2Image alloc] initWithWidth: _width height: _height
++            bitsPerComponent: _bitsPerComponent bitsPerPixel: _bitsPerPixel
++            bytesPerRow: _bytesPerRow colorSpace: colorSpace bitmapInfo: _bitmapInfo
++            decoder: _decoder provider: _provider decode: _decode
++            interpolate: _interpolate renderingIntent: _renderingIntent];
++    if (result != nil) {
++        result->_clampExternalPixels = _clampExternalPixels;
++        [result setMask: _mask];
++    }
++    return result;
+ }
+ 
+ - (void) setMask: (O2Image *) image {
+--- a/src/external/cocotron/AppKit/NSWindow.m
++++ b/src/external/cocotron/AppKit/NSWindow.m
+@@ -20,6 +20,7 @@
+ 
+ #import <AppKit/NSApplication.h>
+ #import <AppKit/NSColor.h>
++#import <AppKit/NSColorSpace.h>
+ #import <AppKit/NSCursor.h>
+ #import <AppKit/NSDisplay.h>
+ #import <AppKit/NSDraggingManager.h>
+@@ -397,6 +398,7 @@
+     [_menuView release];
+     [_contentView release];
+     [_backgroundColor release];
++    [_darlingColorSpace release];
+     [_sharedFieldEditor release];
+     [_draggedTypes release];
+     [_trackingAreas release];
+@@ -1460,12 +1462,21 @@
+ }
+ 
+ - (NSColorSpace *) colorSpace {
+-    NSUnimplementedMethod();
+-    return nil;
++    // The X11 software backing surface stores eight-bit RGB plus alpha.
++    return _darlingColorSpace != nil ? _darlingColorSpace :
++            [NSColorSpace deviceRGBColorSpace];
+ }
+ 
+ - (void) setColorSpace: (NSColorSpace *) newColorSpace {
+-    NSUnimplementedMethod();
++    if (newColorSpace != nil) {
++        CGColorSpaceRef space = [newColorSpace CGColorSpace];
++        if (space == NULL || CGColorSpaceGetModel(space) != kCGColorSpaceModelRGB)
++            [NSException raise: NSInvalidArgumentException
++                        format: @"This window backing surface supports RGB color spaces"];
++    }
++    [newColorSpace retain];
++    [_darlingColorSpace release];
++    _darlingColorSpace = newColorSpace;
+ }
+ 
+ - (BOOL) isOnActiveSpace {
+--- a/src/external/cocotron/AppKit/include/AppKit/NSWindow.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSWindow.h
+@@ -171,6 +171,7 @@
+     NSView *_menuView;
+     NSView *_contentView;
+     NSColor *_backgroundColor;
++    NSColorSpace *_darlingColorSpace;
+ 
+     id<NSWindowDelegate> _delegate;
+     NSResponder *_firstResponder;
+--- a/src/external/cocotron/AppKit/NSBitmapImageRep.m
++++ b/src/external/cocotron/AppKit/NSBitmapImageRep.m
+@@ -401,6 +401,10 @@
+ }
+ 
+ - initWithCGImage: (CGImageRef) cgImage {
++    if (cgImage == NULL || CGImageGetColorSpace(cgImage) == NULL) {
++        [self release];
++        return nil;
++    }
+     _cgImage = CGImageRetain(cgImage);
+     _size.width = CGImageGetWidth(_cgImage);
+     _size.height = CGImageGetHeight(_cgImage);
+--- a/src/external/cocotron/AppKit/NSImage.m
++++ b/src/external/cocotron/AppKit/NSImage.m
+@@ -514,6 +514,10 @@
+     if (self = [self initWithSize: size]) {
+         NSBitmapImageRep *rep = [[[NSBitmapImageRep alloc]
+                 initWithCGImage: cgImage] autorelease];
++        if (rep == nil) {
++            [self release];
++            return nil;
++        }
+         [_representations addObject: rep];
+     }
+     return self;

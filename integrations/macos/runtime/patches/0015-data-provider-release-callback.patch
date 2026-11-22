@@ -1,0 +1,53 @@
+--- a/src/external/cocotron/Onyx2D/O2DataProvider.m
++++ b/src/external/cocotron/Onyx2D/O2DataProvider.m
+@@ -72,7 +72,15 @@
+ O2DataProviderCreateWithData(void *info, const void *data, size_t size,
+                              O2DataProviderReleaseDataCallback releaseCallback)
+ {
+-    return [[O2DataProvider alloc] initWithBytes: data length: size];
++    if (data == NULL && size != 0) return nil;
++    O2DataProvider *provider = [[O2DataProvider alloc] initWithBytes: data length: size];
++    if (provider != nil) {
++        provider->_darlingReleaseInfo = info;
++        provider->_darlingReleaseDataCallback = releaseCallback;
++        provider->_bytes = data;
++        provider->_length = size;
++    }
++    return provider;
+ }
+ 
+ O2DataProviderRef O2DataProviderCreateWithCFData(CFDataRef data) {
+@@ -98,7 +106,10 @@
+ 
+ CFDataRef O2DataProviderCopyData(O2DataProviderRef self) {
+     if (self->_data != nil)
+-        return (CFDataRef)[self->_data copy];
++        // NSData's immutable copy may retain its borrowed backing bytes.
++        // The returned CFData must own pixels independently of this provider.
++        return (CFDataRef)[[NSData alloc] initWithBytes: [self->_data bytes]
++                                               length: [self->_data length]];
+     else
+         return (CFDataRef) [[NSData alloc] initWithContentsOfFile: self->_path];
+ }
+@@ -108,6 +119,10 @@
+     [_inputStream release];
+     [_data release];
+     [_path release];
++    O2DataProviderReleaseDataCallback releaseCallback = _darlingReleaseDataCallback;
++    _darlingReleaseDataCallback = NULL;
++    if (releaseCallback != NULL)
++        releaseCallback(_darlingReleaseInfo, _bytes, _length);
+     [super dealloc];
+ }
+ 
+--- a/src/external/cocotron/Onyx2D/include/Onyx2D/O2DataProvider.h
++++ b/src/external/cocotron/Onyx2D/include/Onyx2D/O2DataProvider.h
+@@ -37,6 +37,8 @@
+     BOOL _isDirectAccess;
+     const void *_bytes;
+     size_t _length;
++    void *_darlingReleaseInfo;
++    O2DataProviderReleaseDataCallback _darlingReleaseDataCallback;
+ }
+ 
+ - initWithURL: (NSURL *) url;
