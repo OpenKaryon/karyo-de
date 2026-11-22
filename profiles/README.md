@@ -1299,3 +1299,21 @@ must exist before a new catalog-enabled manager is prepared.
 The inert optional provider package is built separately by Karyo Builder. Public
 VPN startup requires this trusted payload and explicit administrator runtime
 activation; catalog publication is not browser enrollment or complete migration.
+
+
+### Real browser enrollment acceptance
+
+The public NetBird startup path has installed actual S256 browser enrollment
+acceptance on Debian with cold Chromium and Ubuntu with cold MiniBrowser/WebKit.
+The fixed disposable QA child selects its ordinary HTTP/HTTPS XDG browser
+association; the final gate uses the normal Karyo environment without a BROWSER
+override. The asynchronous installed opener permits the private callback to
+start, the real browser displays successful login, and the ordinary scoped CLI
+and provider reach Connected before supervised logout returns Home.
+
+The gate retains real renderer NNP/seccomp, a distinct user namespace and zero
+ambient/inheritable capabilities. Browser automation tools and temporary owner
+credentials belong only to disposable QA, not the DE package or user profiles.
+This is distinct from the earlier synthetic callback and setup-key checks.
+Onward provider GUI/tray behavior, arbitrary external identity providers and
+Home-tunnel interaction retain their own validation boundaries.

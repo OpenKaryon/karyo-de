@@ -4,7 +4,7 @@
 import hashlib,json,os,shutil,signal,socket,stat,subprocess,sys,time,uuid
 from pathlib import Path
 if (os.getuid()!=0 or os.geteuid()!=0 or socket.gethostname() not in
-        {'karyo-de-acceptance','karyo-de-ubuntu-acceptance'} or sys.argv[1:] not in ([],['--missing'],['--connected'])):
+        {'karyo-de-acceptance','karyo-de-ubuntu-acceptance'} or sys.argv[1:] not in ([],['--missing'],['--connected'],['--pkce'])):
     raise SystemExit('Use only the fixed disposable hosts as root')
 sys.dont_write_bytecode=True;sys.path.insert(0,'/usr/libexec/karyo/profiles')
 from karyo_profiles.credentials import LocalAccounts
@@ -69,7 +69,7 @@ def status():
     return json.loads(result.stdout)
 
 
-missing=sys.argv[1:]==['--missing'];connected=sys.argv[1:]==['--connected']
+missing=sys.argv[1:]==['--missing'];pkce=sys.argv[1:]==['--pkce'];connected=sys.argv[1:] in (['--connected'],['--pkce'])
 helper=Path('/usr/local/libexec/karyo-qa-public-runtime');info=helper.lstat()
 require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and not info.st_mode&0o022 and
         hashlib.sha256(helper.read_bytes()).hexdigest()=='3be27e4ef96458f2400d7ea68058db6cdfe40916c4299ecdb68d152cedea1d83','Fixed context helper changed')
@@ -117,7 +117,10 @@ try:
                     and any(e.startswith(b'KARYO_NETBIRD_ENDPOINT=') for e in env),'Public manager missed provider environment')
             home=subprocess.run(['/usr/sbin/runuser','-u','karyoqa','--','/usr/bin/karyo-netbird-cli','status','--json'],capture_output=True,text=True,timeout=10)
             require(home.returncode==1,'Unscoped Home client reached Work provider')
-            if connected:
+            if pkce:
+                subprocess.run(['/usr/local/libexec/karyo-qa-netbird-pkce'],check=True,timeout=240)
+                require(status().get('daemonStatus')=='Connected','Real browser PKCE did not enroll Work')
+            elif connected:
                 admission=Path('/var/lib/karyo-qa-netbird-admission/setup-key');s=admission.lstat()
                 require(stat.S_ISREG(s.st_mode) and s.st_uid==s.st_gid==0 and stat.S_IMODE(s.st_mode)==0o600 and s.st_nlink==1 and s.st_size<65,'Unsafe lab admission')
                 key=admission.read_bytes();uuid.UUID(key.decode().strip());keyfile=Path(child.home)/'.karyo-qa-public-setup-key'
@@ -147,7 +150,7 @@ try:
             require(sessions.get(source.id)==source and snapshot()==original,'Original Home/network changed')
             with KernelConsoles() as consoles:require(consoles.state().active==source.vt,'Public provider did not return Home')
             print(json.dumps({'mode':mode,'cold_public_provider':True,'ordinary_status':value.get('daemonStatus'),
-                              'connected':connected,'state_reused':identity==state_identity,'existing_switch_unchanged':True,
+                              'connected':connected,'browser_pkce':pkce,'state_reused':identity==state_identity,'existing_switch_unchanged':True,
                               'home_return':True,'cleanup':'complete'}),flush=True)
             with store.locked():store.save_settings(child.name,policy)
 finally:
