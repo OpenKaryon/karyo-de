@@ -165,7 +165,8 @@ def checks(env, output, baseline):
         connection.close()
 
 
-def main(checker=checks, description=__doc__, actor_path=Path(__file__), config_xml=None):
+def main(checker=checks, description=__doc__, actor_path=Path(__file__), config_xml=None,
+        private_pointer=True, real_wine_application=False):
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--baseline', action='store_true', help='Require the earlier missing Windows buttons; not positive acceptance')
@@ -197,8 +198,8 @@ def main(checker=checks, description=__doc__, actor_path=Path(__file__), config_
                 env['WAYLAND_DISPLAY'] = next(p.name for p in runtime.glob('wayland-*') if p.is_socket())
                 env['KARYO_TEST_SERVER_PID'] = str(server.pid)
                 frames = checker(env, args.output, args.baseline)
-                report = {'accepted':True, 'baseline':args.baseline, 'uid':os.getuid(), 'real_wine_application':False,
-                    'private_pointer':True, 'frames':frames,
+                report = {'accepted':True, 'baseline':args.baseline, 'uid':os.getuid(), 'real_wine_application':real_wine_application and not args.baseline,
+                    'private_pointer':private_pointer, 'frames':frames,
                     'labwc_version':subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', 'labwc'], text=True),
                     'actor_sha256':hashlib.sha256(actor_path.read_bytes()).hexdigest()}
                 (args.output / 'acceptance.json').write_text(json.dumps(report, indent=2) + '\n')

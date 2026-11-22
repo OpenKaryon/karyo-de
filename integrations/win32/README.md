@@ -281,3 +281,44 @@ Wine XWayland class. Runtime installation does not replace labwc or Wine, activa
 a desktop session, or write a user's theme configuration. It does not install
 a program-specific compatibility rule. The root LICENSE covers these original
 resources; native compositor derivative patches retain GPL-2.0-only separately.
+
+
+## Pinned third-party application acceptance
+
+The optional QA manifest tests official 7-Zip26.06 installers and Notepad++8.9.9.1
+portable ZIPs in both PE32 and PE64 forms. Release URLs, sizes, publisher SHA256s,
+API asset IDs and upstream license links are fixed in tests/third-party-inputs.json.
+The original binaries remain in ignored QA output, never a committed source file,
+DE package or image payload. Full upstream distributions and their notices are
+kept intact in the disposable user's application directories.
+
+    python integrations/win32/tests/fetch-third-party-inputs.py --output <qa-inputs>
+
+The fetcher checks existing bytes before downloading and refuses inconsistent
+inputs rather than replacing them. It verifies new releases against pinned sizes
+and SHA256s before publishing the input. There is no floating latest download.
+Builder tests/acceptance/check-win32-applications.py consumes those inputs and an
+accepted actual-shell runtime receipt from the shell-icons milestone. No native
+runtime rebuild or host installation is needed for this separate scenario.
+
+The real ordinary-user applications use the installed public karyo-win32 launcher.
+7-Zip installs in its private prefix, creates/extracts a Unicode-named archive
+with exact file-byte comparison, and opens the real File Manager. Notepad++ opens
+a Unicode-named document, accepts real Win32 Unicode input and saves exact UTF-8
+bytes. Both applications/architectures pass repeated mouse movement across three
+actual menus, popup/no-input protocol checks, same-window minimize/restore without
+process death, an owned dialog opened with normal accelerators, Escape dismissal
+and normal exit. Both foreign protocols expose the registered desktop ID; real
+PE icons are extracted and representative caption/taskbar snapshots inspected.
+
+The original Win32 QA inspector preserves focus in an existing owned dialog. Its
+window/owner/key observations do not require injecting code into an application.
+Wine10 rejects cross-process menu item data; the actor locates the menu words in
+the actual rendered frame instead. It requires three distinct popup positions and
+a changed popup on every transition, so splitting a word cannot falsely satisfy
+the gate. The private Wayland pointer never addresses a user's display.
+
+No application-specific runtime rule, registry theme or private prefix edit was
+needed. These tested releases and operations do not establish every Windows
+application, network/updater behavior, physical GPU or arbitrary legacy-prefix
+import/upgrade. The full migration remains active beyond this QA milestone.

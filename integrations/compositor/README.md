@@ -423,5 +423,62 @@ check-win32-palettes.py --rounded-frames additionally checks the four corners of
 the actual PE32/64 main and four owned tools after group restore, with mapped and
 unmapped tiny owners. Real menu, child-glyph, native model/protocol and lock gates
 remain separate. These are headless/Pixman scale 1 tests; physical GPU, fractional
-scaling, app icon matching, third-party programs and full current-HEAD deployment
+scaling, third-party programs, actual shell icon rendering and full current-HEAD deployment
 are not established by this checkpoint.
+
+
+## Newly registered Windows icons and taskbar identity
+
+Debian labwc +karyo12 and Ubuntu +karyo9 refresh the user applications database
+when a Windows icon/foreign-ID lookup observes a changed applications directory.
+The normal launcher atomically creates karyo-win32-<id>.desktop before starting
+Wine. The first launch works even if the compositor started before the user's
+applications directory existed. Inode/device/nanosecond time stamps detect atomic
+replacement and missing/restored directories without polling unrelated Linux
+lookups; transient stat/load errors retain the previous database. Ubuntu keeps
+its selected locale when refreshing. Existing icon fallback behavior is retained.
+
+Only XWayland .exe IDs matching a desktop entry in the karyo-win32- namespace
+are remapped for wlr-foreign-toplevel and ext-foreign-toplevel-list. The raw view
+class is unchanged, preserving Windows theme selection, ownership and grouping.
+Native Linux and non-Karyo application identities retain native behavior. This
+is common policy, with no executable-name whitelist or private prefix changes.
+
+Builder check-caption-buttons.py --scenario desktop-icons freezes the actor,
+shared harness, C observer and wlr protocol XML. The ordinary-user actor extracts
+a real PE icon with the installed registration API; checks caption pixels and
+both actual protocols through initial miss, fresh registration, atomic icon-path
+update, directory removal/restoration, native/late EXE class and ordinary desktop
+entry cases; then runs the public launcher and Wine with actual PE32/64 fixtures.
+The negative --baseline control uses previous compositor packages separately.
+The actor does not use a virtual pointer and records that distinction.
+
+These tests establish compositor icon lookup and the identities supplied to a
+taskbar. Rendering/grouping in the actual Karyo shell is verified by the separate joined
+scenario below. Third-party programs and physical GPU/fractional scaling remain
+separate acceptance gates.
+The Wine/runtime/library payloads did not change in this step.
+
+
+### Joined Karyo shell rendering
+
+The shell-icons scenario additionally requires --shell-package pointing to a
+captured regular karyo-shell package. Its native runtime must satisfy the package
+dependencies, including Qt Wayland, SVG plugins, LayerShellQt, PolkitQt and XDG
+utilities. The driver verifies/captures the DEB and records regular-package Git
+revisions, then runs the installed shell before any user applications directory
+or launcher entry exists. It does not substitute a mocked taskbar widget.
+
+Eleven phases run on both native bases: the existing icon/cache cases plus a
+two-window group. Actual bottom-layer screenshots must contain one 28x28 resource
+tile rather than a monogram or duplicate tiles. Actual PE32/64 launches must show
+the extracted icon in both caption and taskbar and paint the expected GDI client
+frame. The capture waits for that first client frame, rather than accepting an
+early mapped titlebar. The default non-panel scenario remains independently
+checked after sharing the actor.
+
+The test uses a private headless compositor/session bus and no logind session;
+Polkit registration warnings in this container do not establish authentication
+agent coverage. Installed-session authentication has its own checks. This joined
+icon scenario also does not establish full current-HEAD installed DE, third-party
+Windows compatibility or physical GPU/fractional scaling.

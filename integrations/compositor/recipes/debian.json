@@ -62,13 +62,17 @@
     {
       "path": "../patches/debian/win32-rounded-frames.patch",
       "sha256": "4bc68c0b93d628e73f3e5098e31806c0df17a3fcc5b279bd72c816ba4cb62a3c"
+    },
+    {
+      "path": "../patches/debian/win32-desktop-icons.patch",
+      "sha256": "14e11059dab287bccb7958ce8bc8c3e60168b929708a863407d5f28021b247d4"
     }
   ],
   "build": {
-    "revision": "karyo11",
+    "revision": "karyo12",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Round floating Windows frames and owned dialog content with native scene masks.",
+    "message": "Resolve fresh Windows desktop icons and publish registered application identities.",
     "binaries": [
       "labwc"
     ],

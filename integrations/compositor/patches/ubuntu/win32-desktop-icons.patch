@@ -1,0 +1,229 @@
+Subject: Resolve newly registered Windows desktop icons and foreign app IDs
+Origin: Karyo; adapted from the prototype libsfdo integration
+License: GPL-2.0-only
+
+--- a/include/desktop-entry.h
++++ b/include/desktop-entry.h
+@@ -8,6 +8,9 @@
+ 
+ void desktop_entry_init(struct server *server);
+ void desktop_entry_finish(struct server *server);
++
++/* Borrowed until the next desktop-entry refresh; foreign handles copy it. */
++const char *desktop_entry_win32_id(struct server *server, const char *app_id);
+ 
+ struct lab_img *desktop_entry_load_icon_from_app_id(
+ 	struct server *server, const char *app_id, int size, float scale);
+--- a/include/foreign-toplevel/foreign.h
++++ b/include/foreign-toplevel/foreign.h
+@@ -5,6 +5,8 @@
+ struct view;
+ struct foreign_toplevel;
+ 
++const char *foreign_toplevel_app_id(struct view *view);
++
+ struct foreign_toplevel *foreign_toplevel_create(struct view *view);
+ void foreign_toplevel_set_parent(struct foreign_toplevel *toplevel,
+ 	struct foreign_toplevel *parent);
+--- a/src/desktop-entry.c
++++ b/src/desktop-entry.c
+@@ -1,4 +1,8 @@
+ // SPDX-License-Identifier: GPL-2.0-only
++#define _POSIX_C_SOURCE 200809L
++#include <errno.h>
++#include <glib.h>
++#include <sys/stat.h>
+ #include "desktop-entry.h"
+ #include <locale.h>
+ #include <sfdo-desktop.h>
+@@ -21,6 +25,9 @@
+ 	struct sfdo_icon_ctx *icon_ctx;
+ 	struct sfdo_desktop_db *desktop_db;
+ 	struct sfdo_icon_theme *icon_theme;
++	char *desktop_locale;
++	bool apps_known, apps_present;
++	struct stat apps_state;
+ };
+ 
+ static void
+@@ -87,7 +94,8 @@
+ 	locale = setlocale(LC_ALL, "");
+ #endif
+ 
+-	sfdo->desktop_db = sfdo_desktop_db_load(sfdo->desktop_ctx, locale);
++	sfdo->desktop_locale = locale ? xstrdup(locale) : NULL;
++	sfdo->desktop_db = sfdo_desktop_db_load(sfdo->desktop_ctx, sfdo->desktop_locale);
+ 	if (!sfdo->desktop_db) {
+ 		goto err_desktop_db;
+ 	}
+@@ -140,6 +148,7 @@
+ err_icon_theme:
+ 	sfdo_desktop_db_destroy(sfdo->desktop_db);
+ err_desktop_db:
++	free(sfdo->desktop_locale);
+ 	sfdo_icon_ctx_destroy(sfdo->icon_ctx);
+ err_icon_ctx:
+ 	sfdo_desktop_ctx_destroy(sfdo->desktop_ctx);
+@@ -166,6 +175,7 @@
+ 	sfdo_desktop_db_destroy(sfdo->desktop_db);
+ 	sfdo_icon_ctx_destroy(sfdo->icon_ctx);
+ 	sfdo_desktop_ctx_destroy(sfdo->desktop_ctx);
++	free(sfdo->desktop_locale);
+ 	free(sfdo);
+ 	server->sfdo = NULL;
+ }
+@@ -316,6 +326,46 @@
+ 	return NULL;
+ }
+ 
++static bool
++is_win32_app_id(const char *app_id)
++{
++	size_t length = app_id ? strlen(app_id) : 0;
++	return length > 4 && !strcasecmp(app_id + length - 4, ".exe");
++}
++
++static void
++refresh_win32_desktop_entries(struct sfdo *sfdo, const char *app_id)
++{
++	if (!is_win32_app_id(app_id)) {
++		return;
++	}
++	char *path = g_build_filename(g_get_user_data_dir(), "applications", NULL);
++	struct stat info = {0};
++	int status = stat(path, &info);
++	int error = errno;
++	g_free(path);
++	if (status < 0 && error != ENOENT && error != ENOTDIR) {
++		return;
++	}
++	bool present = status == 0 && S_ISDIR(info.st_mode);
++	const struct stat *old = &sfdo->apps_state;
++	bool unchanged = !present || (info.st_dev == old->st_dev && info.st_ino == old->st_ino
++		&& info.st_mtim.tv_sec == old->st_mtim.tv_sec && info.st_mtim.tv_nsec == old->st_mtim.tv_nsec
++		&& info.st_ctim.tv_sec == old->st_ctim.tv_sec && info.st_ctim.tv_nsec == old->st_ctim.tv_nsec);
++	if (sfdo->apps_known && present == sfdo->apps_present && unchanged) {
++		return;
++	}
++	struct sfdo_desktop_db *updated = sfdo_desktop_db_load(sfdo->desktop_ctx, sfdo->desktop_locale);
++	if (!updated) {
++		return;
++	}
++	sfdo_desktop_db_destroy(sfdo->desktop_db);
++	sfdo->desktop_db = updated;
++	sfdo->apps_state = info;
++	sfdo->apps_present = present;
++	sfdo->apps_known = true;
++}
++
+ static struct sfdo_desktop_entry *
+ get_desktop_entry(struct sfdo *sfdo, const char *app_id)
+ {
+@@ -386,6 +436,19 @@
+ 	return img;
+ }
+ 
++const char *
++desktop_entry_win32_id(struct server *server, const char *app_id)
++{
++	struct sfdo *sfdo = server->sfdo;
++	if (!sfdo || !is_win32_app_id(app_id)) {
++		return app_id;
++	}
++	refresh_win32_desktop_entries(sfdo, app_id);
++	struct sfdo_desktop_entry *entry = get_desktop_entry(sfdo, app_id);
++	const char *id = entry ? sfdo_desktop_entry_get_id(entry, NULL) : NULL;
++	return id && !strncmp(id, "karyo-win32-", 12) ? id : app_id;
++}
++
+ struct lab_img *
+ desktop_entry_load_icon_from_app_id(struct server *server,
+ 		const char *app_id, int size, float scale)
+@@ -399,6 +462,7 @@
+ 		return NULL;
+ 	}
+ 
++	refresh_win32_desktop_entries(sfdo, app_id);
+ 	const char *icon_name = NULL;
+ 	struct sfdo_desktop_entry *entry = get_desktop_entry(sfdo, app_id);
+ 	if (entry) {
+--- a/src/foreign-toplevel/ext-foreign.c
++++ b/src/foreign-toplevel/ext-foreign.c
+@@ -1,4 +1,5 @@
+ // SPDX-License-Identifier: GPL-2.0-only
++#include "foreign-toplevel/foreign.h"
+ #include "foreign-toplevel/ext-foreign.h"
+ #include <assert.h>
+ #include <wlr/types/wlr_ext_foreign_toplevel_list_v1.h>
+@@ -33,7 +34,7 @@
+ 
+ 	struct wlr_ext_foreign_toplevel_handle_v1_state state = {
+ 		.title = ext_toplevel->view->title,
+-		.app_id = ext_toplevel->view->app_id,
++		.app_id = foreign_toplevel_app_id(ext_toplevel->view),
+ 	};
+ 	wlr_ext_foreign_toplevel_handle_v1_update_state(ext_toplevel->handle,
+ 		&state);
+@@ -48,7 +49,7 @@
+ 
+ 	struct wlr_ext_foreign_toplevel_handle_v1_state state = {
+ 		.title = ext_toplevel->view->title,
+-		.app_id = ext_toplevel->view->app_id,
++		.app_id = foreign_toplevel_app_id(ext_toplevel->view),
+ 	};
+ 	wlr_ext_foreign_toplevel_handle_v1_update_state(ext_toplevel->handle,
+ 		&state);
+@@ -64,7 +65,7 @@
+ 
+ 	struct wlr_ext_foreign_toplevel_handle_v1_state state = {
+ 		.title = view->title,
+-		.app_id = view->app_id,
++		.app_id = foreign_toplevel_app_id(view),
+ 	};
+ 	ext_toplevel->handle = wlr_ext_foreign_toplevel_handle_v1_create(
+ 		view->server->foreign_toplevel_list, &state);
+--- a/src/foreign-toplevel/foreign.c
++++ b/src/foreign-toplevel/foreign.c
+@@ -1,4 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0-only
++#include "config.h"
++#include "desktop-entry.h"
+ #include "foreign-toplevel/foreign.h"
+ #include <assert.h>
+ #include "common/mem.h"
+@@ -13,6 +15,18 @@
+ 
+ 	/* TODO: add struct xdg_x11_mapped_toplevel at some point */
+ };
++
++const char *
++foreign_toplevel_app_id(struct view *view)
++{
++	const char *app_id = view->app_id;
++#if HAVE_LIBSFDO && HAVE_XWAYLAND
++	if (view->type == LAB_XWAYLAND_VIEW) {
++		return desktop_entry_win32_id(view->server, app_id);
++	}
++#endif
++	return app_id;
++}
+ 
+ struct foreign_toplevel *
+ foreign_toplevel_create(struct view *view)
+--- a/src/foreign-toplevel/wlr-foreign.c
++++ b/src/foreign-toplevel/wlr-foreign.c
+@@ -1,4 +1,5 @@
+ // SPDX-License-Identifier: GPL-2.0-only
++#include "foreign-toplevel/foreign.h"
+ #include "foreign-toplevel/wlr-foreign.h"
+ #include <assert.h>
+ #include <wlr/types/wlr_foreign_toplevel_management_v1.h>
+@@ -95,7 +96,7 @@
+ 	assert(wlr_toplevel->handle);
+ 
+ 	wlr_foreign_toplevel_handle_v1_set_app_id(wlr_toplevel->handle,
+-		wlr_toplevel->view->app_id);
++		foreign_toplevel_app_id(wlr_toplevel->view));
+ }
+ 
+ static void

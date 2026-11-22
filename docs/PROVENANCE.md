@@ -679,3 +679,45 @@ the previous unmapped-parent hint refresh and public ABI, rather than importing
 Ubuntu binaries or changing structures. Existing MIT source/copyright notices
 and patches/WLROOTS-LICENSE apply. The independent shared harness, rounded-frame
 actor and real Wine corner QA are original GPL-3.0-or-later code.
+
+
+### Registered Windows desktop icons
+
+The native GPL-2.0-only libsfdo/foreign-toplevel derivatives review prototype
+26bad17cef413d26c36c117f2f1123dca4edded7, with actual Git blobs checked against
+the reviewed files:
+
+- wine-desktop-icons.patch: SHA256 3c71fa30ed5c58fe7f038ade09a85bd4656518184c579998282c47ae96031140.
+- wine-foreign-app-ids.patch: SHA256 d1250d6973908602af05a7b7666e1ddf39df98d74e2978b8477775363135588b.
+
+The public launcher namespace is karyo-win32-, without prototype paths. Both
+native APIs retain upstream notices. Directory refresh uses inode, device and
+nanosecond mtime/ctime, handles missing/restored directories, preserves Ubuntu's
+locale and retains the old database on transient failures. Raw view identities
+remain unchanged; only the two foreign-toplevel protocols expose registered IDs.
+The PE-resource, X11 caption/cache actor and read-only dual-protocol C observer
+are original GPL-3.0-or-later QA. Protocol bindings are generated from the existing
+MIT wlr XML and the installed native wayland-protocols XML, retaining their notices.
+
+
+The joined shell-icon wrapper and pixel/group checks are original GPL-3.0-or-later
+QA. They use the actual regular Karyo shell package and generated protocol
+bindings, without importing a foreign taskbar or third-party executable. Synthetic
+PE fixtures retain the existing original icon resource and show an explicit GDI
+client frame before capture.
+
+
+### Optional real Windows application QA
+
+The third-party actor, Win32 inspector and fixed-input fetcher are original
+GPL-3.0-or-later test tools. No application code or binary is copied into the
+DE source or runtime payload. The JSON manifest references official
+[7-Zip26.06](https://github.com/ip7z/7zip/releases/tag/26.06) and
+[Notepad++8.9.9.1](https://github.com/notepad-plus-plus/notepad-plus-plus/releases/tag/v8.9.9.1)
+assets; exact GitHub asset digests and release metadata were checked before use.
+Npp ZIP hashes also match its published release-body digests. Upstream license
+URLs are retained in the manifest; intact distributions/installed notices stay
+with ignored disposable QA inputs. No proprietary fixture, personal executable
+or user prefix was accessed. The native Wine menu-inspection limitation was
+verified against checksum-locked original Wine10 win32u/menu.c, not patched by
+copying that code into the test tools.

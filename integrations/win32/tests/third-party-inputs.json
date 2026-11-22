@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "purpose": "Optional third-party QA inputs; never product payloads",
+  "inputs": [
+    {
+      "id": "7zip-64",
+      "product": "7zip",
+      "version": "26.06",
+      "bits": 64,
+      "file": "7z2606-x64.exe",
+      "bytes": 1659704,
+      "sha256": "9b697f65ecc2d9b0152f5ee96d72dde522a7827690349d9307935dacf40f42ec",
+      "url": "https://github.com/ip7z/7zip/releases/download/26.06/7z2606-x64.exe",
+      "release": "https://github.com/ip7z/7zip/releases/tag/26.06",
+      "release_api": "https://api.github.com/repos/ip7z/7zip/releases/tags/26.06",
+      "asset_id": 720544254,
+      "license_url": "https://www.7-zip.org/license.txt"
+    },
+    {
+      "id": "7zip-32",
+      "product": "7zip",
+      "version": "26.06",
+      "bits": 32,
+      "file": "7z2606.exe",
+      "bytes": 1359350,
+      "sha256": "5e38f80c3752de43887e7a99ad10668c14bf64dcc929a636510b54616ea7dec7",
+      "url": "https://github.com/ip7z/7zip/releases/download/26.06/7z2606.exe",
+      "release": "https://github.com/ip7z/7zip/releases/tag/26.06",
+      "release_api": "https://api.github.com/repos/ip7z/7zip/releases/tags/26.06",
+      "asset_id": 720542218,
+      "license_url": "https://www.7-zip.org/license.txt"
+    },
+    {
+      "id": "notepadpp-64",
+      "product": "notepadpp",
+      "version": "8.9.9.1",
+      "bits": 64,
+      "file": "npp.8.9.9.1.portable.x64.zip",
+      "bytes": 8369720,
+      "sha256": "cbcefa34677e10fe6dd19802f7d6b3b9860cd6de62afeaae7680e09c51b47779",
+      "url": "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.9.9.1/npp.8.9.9.1.portable.x64.zip",
+      "release": "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/tag/v8.9.9.1",
+      "release_api": "https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/tags/v8.9.9.1",
+      "asset_id": 737586358,
+      "license_url": "https://github.com/notepad-plus-plus/notepad-plus-plus/blob/v8.9.9.1/LICENSE"
+    },
+    {
+      "id": "notepadpp-32",
+      "product": "notepadpp",
+      "version": "8.9.9.1",
+      "bits": 32,
+      "file": "npp.8.9.9.1.portable.zip",
+      "bytes": 7937849,
+      "sha256": "7b48fceec762e80c2bc781a59739403f7af8b6136ed0ffc369a2680c535ab78a",
+      "url": "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v8.9.9.1/npp.8.9.9.1.portable.zip",
+      "release": "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/tag/v8.9.9.1",
+      "release_api": "https://api.github.com/repos/notepad-plus-plus/notepad-plus-plus/releases/tags/v8.9.9.1",
+      "asset_id": 737586507,
+      "license_url": "https://github.com/notepad-plus-plus/notepad-plus-plus/blob/v8.9.9.1/LICENSE"
+    }
+  ]
+}
