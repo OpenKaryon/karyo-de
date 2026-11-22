@@ -5,7 +5,7 @@
   "patches": [
     {
       "file": "0001-limit-prefix-socket-path.patch",
-      "sha256": "b6810aa2bb2ff839c42326638d9baabe3d048ccf56409e7c94962b7004be6608"
+      "sha256": "fc5a91192ee71b53e76686af2da9d1a6e36b7f852822dae4b20b4fa2e3b5912d"
     },
     {
       "file": "0002-coregraphics-online-display.patch",
@@ -25,7 +25,7 @@
     },
     {
       "file": "0006-appkit-catalog-color-ownership.patch",
-      "sha256": "03d2b0933d2c4950978ec156fe84f28acd07cc8936b51d36a5b88296559c7b84"
+      "sha256": "720d9128a637dc6d5e8701ff3381e5cea3944e50b22b49b1fa7a60c85237fc4d"
     },
     {
       "file": "0007-coretext-fonts.patch",
@@ -86,6 +86,10 @@
     {
       "file": "0021-appkit-layer-backed-subview-display.patch",
       "sha256": "4efb8ce6fcceb6f132b7317399af48e7465db7fd6e1c227bdba3c4993fc385f8"
+    },
+    {
+      "file": "0022-explicit-source-archive-version.patch",
+      "sha256": "3c6dd66a3d82a955be9c23732496267e0d0d27bc354246f805c600acd02acbfd"
     }
   ]
 }

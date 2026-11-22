@@ -1,7 +1,6 @@
-diff --git a/src/external/cocotron/AppKit/NSColor.subproj/NSColor_catalog.m b/src/external/cocotron/AppKit/NSColor.subproj/NSColor_catalog.m
 --- a/src/external/cocotron/AppKit/NSColor.subproj/NSColor_catalog.m
 +++ b/src/external/cocotron/AppKit/NSColor.subproj/NSColor_catalog.m
-@@ -127,7 +127,5 @@
+@@ -128,9 +128,7 @@
      if ([colorSpace isEqualToString: [self colorSpaceName]])
          return self;
  
@@ -10,3 +9,5 @@ diff --git a/src/external/cocotron/AppKit/NSColor.subproj/NSColor_catalog.m b/sr
 -    return _color;
 +    return [_color colorUsingColorSpaceName: colorSpace device: device];
  }
+ 
+ - (CGColorRef) CGColorRef {

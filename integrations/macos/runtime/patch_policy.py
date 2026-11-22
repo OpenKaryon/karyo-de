@@ -7,7 +7,8 @@ import shlex
 DARLING_REVISION = '60ba801decee7a00782f74f6be4c8ffb013f79ff'
 COCOTRON_REVISION = 'c8d38d16a9f613d300157bebbab2b9501bc0c274'
 COCOTRON_PREFIX = 'src/external/cocotron/'
-EXACT_ROOT_FILES = {'src/startup/darling.c',
+EXPECTED_PATCH_COUNT = 22
+EXACT_ROOT_FILES = {'src/startup/darling.c', 'src/CMakeLists.txt',
                     'src/frameworks/CoreServices/src/FSEvents/CMakeLists.txt',
                     'src/external/cocotron/AppKit/NSApplication.m',
                     'src/external/cocotron/AppKit/NSView.m',

@@ -113,3 +113,31 @@ tracked files. Its SHA256 is
 This input verification reads the official archive as data; it executes neither
 its Linux runtime nor its Mac libraries. Builder records current local artifacts
 and native environment evidence separately for review.
+
+## Source archive version metadata
+
+The original21 runtime patches are preserved unchanged. Patch0022 adds the
+explicit DARLING_SOURCE_REVISION configure input for source archives without
+.git. It accepts only a complete lowercase40-digit commit, records the exact
+revision and source-archive origin, and retains normal Git discovery when the
+input is absent. Packaging passes the reviewed root revision. This changes no
+application selection or profile configuration.
+
+Both native bases apply/reverse all22 patches and restore53 pristine files.
+The source-version CMake test executes the actual added block and rejects
+empty, floating, truncated, uppercase and list-like revisions. The joined
+source-version gate passes14 input cases on both bases; later source-package
+checks add three ordinary DSC/overlay tests (17 total). Runtime compilation and
+application execution are separate gates.
+
+## Native quilt consumer
+
+The first real Debian source build found that Git-only applicability was an
+incomplete gate: GNU patch2.8 rejected two hand-written hunks at fuzz0 because
+they had truncated trailing context. Patches0001/0006 now have complete context;
+all resulting source bytes exactly match the original Git applications. The
+remaining patch bytes are unchanged. context-refresh.json preserves the old/new
+hashes and source-effect proof. The verifier now checks both Git and the actual
+quilt push/pop sequence with zero fuzz, compares final patched bytes and restores
+all53 pristine files. Native quilt versions can differ while results agree;
+per-base receipts retain tool versions separately from shared source effects.

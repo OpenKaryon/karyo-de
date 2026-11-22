@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "source_archive": {
+    "file": "source.tar.gz",
+    "sha256": "da3f1745d149802418fdb3878561dd8a36f4440a7f86775cf0e60c0b96735458",
+    "bytes": 785407024
+  },
+  "old_series_sha256": "fafa77f59cb49408cf565c39a113c4b6510cfdc69d6741bafdf824f1ab3afd2c",
+  "patches": [
+    {
+      "file": "0001-limit-prefix-socket-path.patch",
+      "old_sha256": "b6810aa2bb2ff839c42326638d9baabe3d048ccf56409e7c94962b7004be6608",
+      "new_sha256": "fc5a91192ee71b53e76686af2da9d1a6e36b7f852822dae4b20b4fa2e3b5912d",
+      "context_refreshed": true,
+      "old_gnu_zero_fuzz_exit": 1,
+      "old_gnu_output": "checking file src/startup/darling.c\nHunk #1 FAILED at 78.\n1 out of 1 hunk FAILED\n",
+      "result_identical_to_original_git_apply": true,
+      "files": {
+        "src/startup/darling.c": {
+          "before_sha256": "532bded802fe6da343b780595d82f5fd8ebdae2fc6b4c5cae5d3a74d727ea3d9",
+          "after_sha256": "a1821fce39a599b3734685ff6723bbb3cab65f29a1ff374df19f9c8954549e80"
+        }
+      }
+    },
+    {
+      "file": "0006-appkit-catalog-color-ownership.patch",
+      "old_sha256": "03d2b0933d2c4950978ec156fe84f28acd07cc8936b51d36a5b88296559c7b84",
+      "new_sha256": "720d9128a637dc6d5e8701ff3381e5cea3944e50b22b49b1fa7a60c85237fc4d",
+      "context_refreshed": true,
+      "old_gnu_zero_fuzz_exit": 1,
+      "old_gnu_output": "checking file src/external/cocotron/AppKit/NSColor.subproj/NSColor_catalog.m\nHunk #1 FAILED at 127.\n1 out of 1 hunk FAILED\n",
+      "result_identical_to_original_git_apply": true,
+      "files": {
+        "src/external/cocotron/AppKit/NSColor.subproj/NSColor_catalog.m": {
+          "before_sha256": "27d13c913763719227332fa9578f33e8be1f585e1ba0a32607c204495b8beb27",
+          "after_sha256": "8f5f95ea5f935f24773998c92607ad8e32dfc03e1daf962a9c7b1bcea3f4c926"
+        }
+      }
+    }
+  ],
+  "gnu_zero_fuzz_forward_reverse": true,
+  "all_results_identical_to_original_git_apply": true,
+  "pristine_files_restored": true
+}

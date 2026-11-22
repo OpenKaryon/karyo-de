@@ -1,0 +1,42 @@
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -51,18 +51,27 @@
+ 
+ set(DARLING TRUE)
+ 
+-execute_process(
+-	COMMAND git rev-parse --abbrev-ref HEAD
+-	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+-	OUTPUT_VARIABLE GIT_BRANCH
+-	OUTPUT_STRIP_TRAILING_WHITESPACE
+-)
+-execute_process(
+-	COMMAND git log -1 --format=%h
+-	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+-	OUTPUT_VARIABLE GIT_COMMIT_HASH
+-	OUTPUT_STRIP_TRAILING_WHITESPACE
+-)
++if(DEFINED DARLING_SOURCE_REVISION)
++	string(LENGTH "${DARLING_SOURCE_REVISION}" source_revision_length)
++	if(NOT source_revision_length EQUAL 40 OR NOT DARLING_SOURCE_REVISION MATCHES "^[0-9a-f]+$")
++		message(FATAL_ERROR "DARLING_SOURCE_REVISION must be a complete lowercase Git commit ID")
++	endif()
++	set(GIT_BRANCH "source-archive")
++	set(GIT_COMMIT_HASH "${DARLING_SOURCE_REVISION}")
++else()
++	execute_process(
++		COMMAND git rev-parse --abbrev-ref HEAD
++		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
++		OUTPUT_VARIABLE GIT_BRANCH
++		OUTPUT_STRIP_TRAILING_WHITESPACE
++	)
++	execute_process(
++		COMMAND git log -1 --format=%h
++		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
++		OUTPUT_VARIABLE GIT_COMMIT_HASH
++		OUTPUT_STRIP_TRAILING_WHITESPACE
++	)
++endif()
+ 
+ configure_file(include/darling-config.h.in include/darling-config.h)
+ include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")

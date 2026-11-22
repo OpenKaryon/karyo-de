@@ -12,7 +12,7 @@ import sys
 import tarfile
 import tempfile
 
-from patch_policy import DARLING_REVISION, COCOTRON_REVISION, MAX_FILE_BYTES, parse_paths
+from patch_policy import DARLING_REVISION, COCOTRON_REVISION, MAX_FILE_BYTES, EXPECTED_PATCH_COUNT, parse_paths
 from prepare_swift import digest, matches
 
 
@@ -23,8 +23,8 @@ def capture_patches(folder):
             or record["cocotron_revision"] != COCOTRON_REVISION):
         raise ValueError("Unexpected patch source identity")
     expected = record["patches"]
-    if not isinstance(expected, list) or len(expected) != 21:
-        raise ValueError("The reviewed recipe must contain exactly21 patches")
+    if not isinstance(expected, list) or len(expected) != EXPECTED_PATCH_COUNT:
+        raise ValueError("The reviewed recipe must contain exactly " + str(EXPECTED_PATCH_COUNT) + " patches")
     patches, files, added = [], set(), set()
     for number, item in enumerate(expected, 1):
         if (not isinstance(item, dict) or set(item) != {"file", "sha256"}
@@ -114,10 +114,35 @@ def verify(snapshot, recipe, output):
             command(shadow, patch, check=True)
             command(shadow, patch)
             report["forward"].append(patch["file"])
+        final_git_bytes = {name: (shadow / name).read_bytes() if (shadow / name).exists() else None for name in files}
         for patch in reversed(patches):
             command(shadow, patch, reverse=True, check=True)
             command(shadow, patch, reverse=True)
             report["reverse"].append(patch["file"])
+        # Check the actual Builder consumer, not merely Git's different diff
+        # context rules. GNU patch2.8 rejects truncated trailing context at
+        # fuzz=0 even when Git accepts the hunk at the expected location.
+        patch_dir = shadow / "debian/patches"
+        patch_dir.mkdir(parents=True)
+        for patch in patches:
+            (patch_dir / patch["file"]).write_bytes(patch["data"])
+        (patch_dir / "series").write_text("\n".join(p["file"] for p in patches) + "\n")
+        env = {key: value for key, value in os.environ.items() if not key.startswith("QUILT_")}
+        env.update(QUILT_PATCHES="debian/patches", QUILT_PATCH_OPTS="--fuzz=0", QUILTRC=os.devnull)
+        for action in ("push", "pop"):
+            result = subprocess.run(["quilt", action, "-a"], cwd=shadow, env=env,
+                                    capture_output=True, text=True, timeout=120)
+            if result.returncode:
+                raise ValueError("Native zero-fuzz quilt " + action + " failed: " + result.stdout[-4000:] + result.stderr[-2000:])
+            if action == "push":
+                actual = {name: (shadow / name).read_bytes() if (shadow / name).exists() else None for name in files}
+                if actual != final_git_bytes:
+                    raise ValueError("Quilt's patched bytes differ from Git's complete result")
+        report["quilt_zero_fuzz"] = True
+        report["quilt_forward"] = [p["file"] for p in patches]
+        report["quilt_reverse"] = list(reversed(report["quilt_forward"]))
+        report["gnu_patch_version"] = subprocess.check_output(["patch", "--version"], text=True).splitlines()[0]
+        report["quilt_version"] = subprocess.check_output(["quilt", "--version"], text=True).strip()
         for name in sorted(files):
             path = shadow.joinpath(*PurePosixPath(name).parts)
             if path.is_symlink() or path.exists() != (name in originals):
@@ -134,7 +159,7 @@ def verify(snapshot, recipe, output):
     with output.open("x", encoding="utf-8") as stream:
         json.dump(report, stream, indent=2)
         stream.write("\n")
-    print("Verified21 patches and pristine reversal of " + str(len(files)) + " selected source files")
+    print("Verified " + str(len(patches)) + " patches and pristine reversal of " + str(len(files)) + " selected source files")
     return report
 
 
