@@ -29,6 +29,10 @@ if command -v dbus-update-activation-environment >/dev/null 2>&1; then
         XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP \
         QT_QPA_PLATFORM QT_STYLE_OVERRIDE ${catalog_environment:+$catalog_environment} >/dev/null 2>&1 || true
 fi
+# Optional family sharing runs as this ordinary user, only after startup PAM.
+if command -v karyo-profile-clipboard >/dev/null 2>&1; then
+    karyo-profile-clipboard &
+fi
 # Optional Files claims FileManager1 only if another manager does not own it.
 if command -v karyo-files >/dev/null 2>&1; then
     karyo-files --dbus-service &

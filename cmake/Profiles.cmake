@@ -12,7 +12,8 @@ install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-desktops"
     DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-accounts-runtime)
 install(DIRECTORY "${profile_source}/karyo_profiles"
     DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo/profiles
-    COMPONENT profile-accounts-runtime FILES_MATCHING PATTERN "*.py" PATTERN "__pycache__" EXCLUDE)
+    COMPONENT profile-accounts-runtime FILES_MATCHING PATTERN "*.py" PATTERN "__pycache__" EXCLUDE
+    PATTERN "clipboard.py" EXCLUDE PATTERN "clipboard_client.py" EXCLUDE)
 configure_file("${profile_source}/org.karyo.desktops.policy.in"
     "${CMAKE_CURRENT_BINARY_DIR}/org.karyo.desktops.policy" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.karyo.desktops.policy"
@@ -106,3 +107,19 @@ configure_file("${profile_source}/application-catalog.in"
     "${CMAKE_CURRENT_BINARY_DIR}/karyo-application-catalog" @ONLY)
 install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-application-catalog"
     DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-accounts-runtime)
+
+# Separate opt-in family clipboard. No service starts at package installation.
+configure_file("${profile_source}/clipboard.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-clipboard" @ONLY)
+configure_file("${profile_source}/karyo-profile-clipboard.service.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-clipboard.service" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-clipboard"
+    DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-clipboard-runtime)
+install(FILES "${profile_source}/karyo_profiles/clipboard.py"
+    "${profile_source}/karyo_profiles/clipboard_client.py"
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo/profiles/karyo_profiles COMPONENT profile-clipboard-runtime)
+install(FILES "${profile_source}/karyo-profile-clipboard.socket"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-clipboard.service"
+    DESTINATION ${KARYO_SYSTEMD_SYSTEM_UNIT_DIR} COMPONENT profile-clipboard-runtime)
+install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-clipboard COMPONENT profile-clipboard-runtime)

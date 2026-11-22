@@ -1379,3 +1379,50 @@ verification. Captured logout/provider/account/host-runtime and Home tunnel
 teardown restore the original host snapshots. This does not accept ExternalProvider's
 legacy firewall/broker integration, simultaneous Work exit-node routing or live
 Home-VPN reconnects; those are distinct external/lifecycle gates.
+
+### Optional family clipboard
+
+The separately packaged karyo-profile-clipboard socket is inactive on install.
+Its two clipboard modules belong to this optional package; common trusted account
+metadata helpers remain owned by the required accounts package.
+An administrator can opt in with systemctl enable --now
+karyo-profile-clipboard.socket. Its DynamicUser broker has no capabilities,
+network access or home-directory access. It shares only current UTF-8 text or
+PNG (at most8MiB), in volatile bounded RAM, between unique ordinary local UIDs
+in the same trusted desktops.conf family. It uses kernel peer credentials, not
+a user-supplied account name. Local account database generations and family
+metadata changes invalidate the server cache; other families never receive it.
+The cache is bounded to32MiB and16 families; concurrent requests are bounded.
+No clipboard selection is written to disk or application logs.
+
+The ordinary Wayland client starts after startup PAM, preserves unsupported or
+sensitive selections locally and avoids republishing its own remote echo. First
+startup seeds an empty broker without overwriting a newer shared value. Local
+copy failures do not acknowledge a revision; stalled/large producers are bounded.
+Client locks are per user runtime/compositor. Installation changes no networking,
+PAM, accounts or display manager; enabling this feature is separate from network
+isolation. No helper receives administrator privileges or executes clipboard text.
+
+The wl-clipboard protocol marks password-manager hints as sensitive. Its nil
+selection and explicit clear states differ; a merely absent selection does not
+erase the shared value. File/URI and rich multi-MIME selections stay local. See
+https://github.com/bugaevc/wl-clipboard/blob/master/data/wl-clipboard.1 for the
+upstream watch/state semantics. Protected session entry and account access remain
+their separate boundaries; opting in deliberately shares clipboard content across
+the configured family, including its background sessions.
+
+The fixed disposable-host installed-family-clipboard.py gate accepts actual
+Home/Work text in both directions and exact binary PNG on Debian 13 and Ubuntu
+26.04. It verifies that sensitive content stays local and survives a remote
+copy, spoofed outsiders are denied, the real broker runs without capabilities
+in a private network namespace, sharing resumes after its volatile restart,
+and switching reuses the running graphical sessions. A new local copy takes
+precedence over an older in-flight reply or pending restart seed. Native QA
+keeps each foreground selection owner alive rather than using a transient
+service that kills wl-copy's default background process on exit.
+
+The gate removes its captured child session, broker/socket, Home bridge and
+selection owners, then checks package integrity and the original Home. The
+optional broker remains disabled/inactive afterward. This does not establish
+X11 clipboard interoperability, file transfer, unmarked-secret detection or a
+VMware host bridge; those remain separate protocols and acceptance scenarios.

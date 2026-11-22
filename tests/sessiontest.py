@@ -146,7 +146,7 @@ printf '%s\\n' "$@" > "$PROBE"
     def test_startup_auth_failure_never_launches_session_clients(self):
         self.program("karyo-lock", '#!/bin/sh\nprintf "%s\\n" "$*" > "$PROBE"\nexit 1\n')
         self.program("labwc", '#!/bin/sh\nprintf "%s\\n" "$*" >> "$PROBE"\n')
-        for program in ("karyo-shell", "karyo-files", "dex", "dbus-update-activation-environment", "karyo-application-catalog"):
+        for program in ("karyo-shell", "karyo-files", "dex", "dbus-update-activation-environment", "karyo-application-catalog", "karyo-profile-clipboard"):
             self.program(program, '#!/bin/sh\necho forbidden >> "$FORBIDDEN_PROBE"\n')
         self.env["FORBIDDEN_PROBE"] = str(self.root / "forbidden")
         autostart = self.root / "share/karyo/session/labwc/autostart"
@@ -158,11 +158,13 @@ printf '%s\\n' "$@" > "$PROBE"
     def test_role_catalog_environment_reaches_session_clients_after_authentication(self):
         self.env["CATALOG_PROBE"] = str(self.root / "catalog-client")
         self.env["BUS_PROBE"] = str(self.root / "catalog-bus")
+        self.env["CLIPBOARD_PROBE"] = str(self.root / "catalog-clipboard")
         self.env["XDG_DATA_DIRS"] = "/vendor/share:/usr/share"
         self.env["XDG_CONFIG_DIRS"] = "/vendor/config:/etc/xdg"
         self.program("karyo-application-catalog", '#!/bin/sh\nprintf "%s/catalog with spaces" "$XDG_RUNTIME_DIR"\n')
         self.program("karyo-files", '#!/bin/sh\nprintf "%s\\n" "$XDG_DATA_DIRS" "$XDG_CONFIG_DIRS" > "$CATALOG_PROBE"\n')
         self.program("dbus-update-activation-environment", '#!/bin/sh\nprintf "%s\\n" "$@" > "$BUS_PROBE"\n')
+        self.program("karyo-profile-clipboard", '#!/bin/sh\nprintf "%s\\n" "$XDG_DATA_DIRS" "$XDG_CONFIG_DIRS" > "$CLIPBOARD_PROBE"\n')
         self.program("karyo-shell", "#!/bin/sh\nexit 1\n")
         self.program("date", "#!/bin/sh\necho 100\n")
         self.program("sleep", "#!/bin/sh\nexit 0\n")
@@ -174,12 +176,14 @@ printf '%s\\n' "$@" > "$PROBE"
                          [base+"/share:/vendor/share:/usr/share", base+"/config:/vendor/config:/etc/xdg"])
         self.assertEqual((self.root / "catalog-bus").read_text().splitlines()[-2:],
                          ["XDG_DATA_DIRS", "XDG_CONFIG_DIRS"])
+        self.assertEqual((self.root / "catalog-clipboard").read_text().splitlines(),
+                         (self.root / "catalog-client").read_text().splitlines())
 
     def test_invalid_optional_catalog_never_starts_normal_clients(self):
         self.env["FORBIDDEN_PROBE"] = str(self.root / "forbidden")
         self.program("karyo-application-catalog", "#!/bin/sh\nexit 1\n")
         self.program("labwc", '#!/bin/sh\nprintf "%s\\n" "$*" > "$PROBE"\n')
-        for name in ("karyo-files", "dex", "karyo-shell", "dbus-update-activation-environment"):
+        for name in ("karyo-files", "dex", "karyo-shell", "dbus-update-activation-environment", "karyo-profile-clipboard"):
             self.program(name, '#!/bin/sh\necho forbidden >> "$FORBIDDEN_PROBE"\n')
         autostart = self.root / "share/karyo/session/labwc/autostart"
         result = subprocess.run([str(autostart)], env=self.env, capture_output=True, text=True, timeout=5)

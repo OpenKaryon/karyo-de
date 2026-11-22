@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Unit]
+Description=Karyo volatile family clipboard
+Requires=karyo-profile-clipboard.socket
+After=karyo-profile-clipboard.socket
+
+[Service]
+Type=exec
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/karyo-profile-clipboard --serve
+DynamicUser=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+ProtectSystem=strict
+ProtectHome=yes
+PrivateNetwork=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+MemoryMax=160M
+TasksMax=16
+UMask=0077
+StandardInput=null
+StandardOutput=null
+StandardError=journal
