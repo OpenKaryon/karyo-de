@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "source": {
+    "url": "https://github.com/darlinghq/darling.git",
+    "revision": "60ba801decee7a00782f74f6be4c8ffb013f79ff"
+  },
+  "external_symlinks": {
+    "Developer/usr/bin/git": "/usr/bin/git",
+    "src/external/libxslt/libxslt/INSTALL": "/usr/local/Cellar/automake/1.15/share/automake-1.15/INSTALL"
+  }
+}

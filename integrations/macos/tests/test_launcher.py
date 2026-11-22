@@ -47,7 +47,9 @@ class Launcher(ProfileFixture, unittest.TestCase):
     def invoke(self,args):
         output,error=io.StringIO(),io.StringIO()
         with patch.object(launcher,'normal_user',return_value=(self.uid,self.home)),contextlib.redirect_stdout(output),contextlib.redirect_stderr(error):
-            code=launcher.main(args)
+            # The missing-frontend unit case must not depend on whether the
+            # machine running the tests also has the optional GUI installed.
+            code=launcher.main(args,picker_path=str(self.folder/'missing-picker'))
         return code,output.getvalue(),error.getvalue()
 
     def test_inspection_is_noncreating_and_does_not_launch_engine(self):
