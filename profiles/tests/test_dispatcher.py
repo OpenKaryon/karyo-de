@@ -13,7 +13,7 @@ from karyo_profiles.credentials import LocalAccount
 from karyo_profiles.dispatcher import HostDispatcher, operation, receive, send
 from karyo_profiles.logind import Session
 from karyo_profiles.peer import DesktopPeer
-from karyo_profiles.switching import DesktopStopped
+from karyo_profiles.switching import DesktopStopped, ProviderUnavailable
 
 HOME = LocalAccount("home", 1001, 1001, "/home/home", "/bin/bash")
 LOGIN = Session("c1", "home", 1001, 8, True)
@@ -170,7 +170,8 @@ class ProtocolTest(unittest.TestCase):
 
     def test_errors_are_typed_sanitized_and_peer_always_closed(self):
         for error,code in ((PermissionError("secret"),"denied"),(DesktopStopped("secret"),"stopped"),
-                           (RuntimeError("secret"),"failed"),(ValueError("secret"),"invalid")):
+                           (RuntimeError("secret"),"failed"),(ValueError("secret"),"invalid"),
+                           (ProviderUnavailable(),"provider-unavailable")):
             with self.subTest(code=code):
                 controller,caller,guard=self.dispatcher();caller.verify.side_effect=error
                 self.assertEqual(self.call(controller,{"version":1,"operation":"list"}),{"version":1,"error":code})
@@ -241,6 +242,18 @@ class SocketActivationTest(unittest.TestCase):
                 else:
                     with self.assertRaises(PermissionError):request({"version":1,"operation":"list"})
                     send.assert_not_called()
+
+    def test_missing_provider_response_recovers_only_the_fixed_public_message(self):
+        from karyo_profiles.dispatcher import request
+        native=MagicMock();connection=native.__enter__.return_value
+        connection.getsockopt.return_value=struct.pack("3i",1,0,0)
+        with patch("os.getuid",return_value=0),patch("os.geteuid",return_value=0), \
+             patch("karyo_profiles.dispatcher.socket_node",return_value=(1,2)), \
+             patch("karyo_profiles.dispatcher.socket.socket",return_value=native), \
+             patch("karyo_profiles.dispatcher.send"), \
+             patch("karyo_profiles.dispatcher.receive",return_value={"version":1,"error":"provider-unavailable"}):
+            with self.assertRaisesRegex(ProviderUnavailable,"optional Karyo NetBird"):
+                request({"version":1,"operation":"switch","name":"work"})
 
     def test_remote_process_session_rejects_noncanonical_pid_before_library(self):
         from karyo_profiles.logind import process_session

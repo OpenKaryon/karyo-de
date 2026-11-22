@@ -16,7 +16,7 @@ from .model import account_name
 from .peer import DesktopPeer
 from .services import host_controller
 from .storage import ConfigStore, trusted_directory
-from .switching import DesktopStopped, ExistingSwitcher
+from .switching import DesktopStopped, ExistingSwitcher, ProviderUnavailable
 
 ADDRESS = "/run/karyo/profiles.sock"
 REQUEST_LIMIT = 4096
@@ -104,6 +104,8 @@ class HostDispatcher:
             response = {"version": 1, "error": "denied"}
         except DesktopStopped:
             response = {"version": 1, "error": "stopped"}
+        except ProviderUnavailable:
+            response = {"version": 1, "error": "provider-unavailable"}
         except (ValueError, UnicodeError, RecursionError):
             response = {"version": 1, "error": "invalid"}
         except (OSError, RuntimeError, TimeoutError, SessionError):
@@ -175,10 +177,12 @@ def request(packet):
         raise ValueError("Invalid desktop controller response")
     if "error" in result:
         errors = {"denied": PermissionError, "stopped": DesktopStopped,
-                  "invalid": ValueError, "failed": RuntimeError}
+                  "invalid": ValueError, "failed": RuntimeError, "provider-unavailable": ProviderUnavailable}
         error = errors.get(result["error"]) if isinstance(result["error"], str) else None
         if error is None:
             raise ValueError("Invalid desktop controller error")
+        if error is ProviderUnavailable:
+            raise error()
         raise error("The host desktop operation did not finish: " + result["error"])
     return result["result"]
 

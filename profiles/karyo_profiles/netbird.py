@@ -2,8 +2,8 @@
 """Owned pre-login NetBird service in a profile's network and resolver context.
 
 This primitive does not enable the system NetBird service, import credentials,
-or adopt an existing provider. Public VPN activation additionally needs tunnel
-inventory and durable provider ownership in the host journal.
+or adopt an existing provider. Public startup combines this scope with the
+captured tunnel, graphical owner and durable host journal.
 """
 from dataclasses import asdict
 import json
@@ -16,10 +16,24 @@ import time
 
 from .model import root_file
 from .netbird_client import endpoint_record
-from .services import OwnedUnit, ServiceError, ServiceRetained, host_controller
+from .services import OwnedUnit, ServiceError, ServiceRetained, host_controller, program_identity
 from .storage import atomic_write, trusted_directory
+from .switching import ProviderUnavailable
 
 STATE_ROOT = Path("/var/lib/karyo/profile-vpn")
+
+
+def netbird_ready():
+    """Require trusted optional payload before allocating any profile resource."""
+    from .catalog import require_netbird_catalog
+    try:
+        for program in ("/usr/bin/netbird", "/usr/bin/netbird-ui",
+                        "/usr/bin/karyo-netbird-cli", "/usr/bin/karyo-netbird-gui",
+                        "/usr/libexec/karyo/netbird-opener/xdg-open"):
+            program_identity(program)
+        require_netbird_catalog()
+    except (OSError, ValueError, ServiceError) as error:
+        raise ProviderUnavailable() from error
 
 
 class NetBirdState:

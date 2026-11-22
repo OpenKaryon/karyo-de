@@ -1168,22 +1168,24 @@ closes GUI/manager, DNS, forwarding and network in ownership order.
 
 A stopped main/Home session still belongs to the login manager and is not
 started inside a private child namespace. Current public cold startup does not
-claim automatic DHCP/DNS refresh, VPN provisioning or half-created graphical
+claim automatic DHCP/DNS refresh, interactive VPN enrollment or half-created graphical
 session recovery. These remain migration work rather than hidden success paths.
 
 
 ### NetBird provider migration boundary
 
-A configured `VPN=netbird` child currently fails before public runtime allocation;
-it is not silently started with ordinary networking. The pre-login provider
-primitive owns a separate root-only state directory, private runtime socket and
+A configured `VPN=netbird` child now starts its own journaled provider before
+its graphical session through the public desktop switcher. Trusted optional CLI,
+GUI, scoped wrappers, opener and catalog must exist before any allocation; missing
+payload reports the required packages instead of starting ordinary networking.
+The pre-login provider primitive owns a separate root-only state directory, private runtime socket and
 transient native service inside the profile network/resolver context. Persistent
 state is stamped with the complete account identity and captured home device/inode, and never recursively adopted,
 chowned or deleted on a retry. It connects to the profile's private resolve1 bus,
 never the host NetworkManager/system bus, and grants no SYS_ADMIN/SYS_MODULE capability.
 
-This layer is deliberately not public VPN activation yet. Schema-5 host receipts
-now capture its persistent state/home generation, native service invocation,
+Public activation uses the same provider/session ownership lifecycle as recovery.
+Schema-5 and later host receipts capture its persistent state/home generation, native service invocation,
 process start/executable/namespace, runtime socket and published client endpoint.
 After a controller crash an offline pre-login provider can be verified and closed
 before private DNS, forwarding and network cleanup. A lost stop acknowledgement
@@ -1192,10 +1194,11 @@ unacknowledged state/service creation is retained for review. Credentials are no
 serialized, adopted or removed. A graphical owner or changed namespace consumer
 prevents this offline cleanup. Earlier journal schemas remain readable.
 
-Connected wt0/routes inventory, connected teardown, session/client launch and
-real enrollment acceptance still need to join the profile host before public VPN
-policy is enabled. The optional client and its synthetic callback gate alone
-do not complete that lifecycle.
+Connected tunnel ownership, graphical/client context and teardown remain journaled.
+First enrollment is initiated by the ordinary scoped client; startup neither imports
+credentials nor waits for interactive authentication while holding the host lock.
+Browser PKCE, Home-tunnel interaction and remaining provider UI acceptance retain
+their separate validation boundaries.
 The external NetBird package's maintainer script starts a system-wide service;
 installing that dependency must be an explicit packaging/administrator decision,
 not a side effect of the base DE or this primitive. The DE neither replaces that
@@ -1225,7 +1228,8 @@ working renderer sandbox. Only the provider client
 PATH includes the asynchronous opener shim. It accepts one HTTP(S) URL and hands
 it to the native browser without waiting, so the provider can start its callback
 listener even when the browser was cold. URL/code values are not logged on failure.
-The complete host provider/tunnel journal and public VPN activation remain separate.
+The public VPN startup path uses the captured provider/tunnel journal; actual
+browser enrollment retains a separate acceptance boundary.
 
 
 ### Captured provider and graphical owner
@@ -1243,10 +1247,10 @@ record. Login/manager closure completes before provider shutdown, which precedes
 DNS, forwarding and network cleanup. Offline prepared/closing session recovery
 can observe that provider while still refusing any unknown consumer.
 
-This joins the pre-login provider to the graphical owner's lifetime. It does not
-yet enable public VPN startup, adopt a connected wt0 or implement catalog/vendor
-packaging. Connected ownership/recovery and real account enrollment remain
-required before the public VPN policy gate is removed.
+This joins the provider to the graphical owner's lifetime in public startup and
+recovery. The tunnel declaration below and schema7 catalog record extend that
+ownership boundary. Optional inert vendor payload is built separately by Builder;
+interactive enrollment and Home-tunnel interaction keep their own validation gates.
 
 
 ### Delegated virtual tunnel contents of an owned namespace
@@ -1293,5 +1297,5 @@ never downgrades after catalog/session removal. Packaged root-owned catalog data
 must exist before a new catalog-enabled manager is prepared.
 
 The inert optional provider package is built separately by Karyo Builder. Public
-VPN startup still requires its explicit integration gate; catalog publication is
-not a browser enrollment or complete migration claim.
+VPN startup requires this trusted payload and explicit administrator runtime
+activation; catalog publication is not browser enrollment or complete migration.

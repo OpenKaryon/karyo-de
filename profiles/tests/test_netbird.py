@@ -153,3 +153,23 @@ class NetBirdStateTest(unittest.TestCase):
         self.assertEqual(value[-1], scope.socket.stat().st_ino)
         scope.directory.chmod(0o755)
         with self.assertRaises(ServiceError): scope.socket_node()
+
+
+class ProviderPreflightTest(unittest.TestCase):
+    def test_missing_or_untrusted_optional_payload_is_reported_before_start(self):
+        from karyo_profiles.netbird import netbird_ready, ServiceError, ProviderUnavailable
+        for error in (FileNotFoundError("missing"), PermissionError("unsafe"),
+                      ValueError("catalog"), ServiceError("executable")):
+            with self.subTest(error=type(error).__name__):
+                with patch("karyo_profiles.netbird.program_identity", side_effect=error), \
+                        patch("karyo_profiles.catalog.require_netbird_catalog") as catalog:
+                    with self.assertRaisesRegex(ProviderUnavailable, "optional Karyo NetBird"):
+                        netbird_ready()
+                    catalog.assert_not_called()
+
+    def test_missing_catalog_blocks_an_otherwise_available_provider(self):
+        from karyo_profiles.netbird import netbird_ready, ServiceError, ProviderUnavailable
+        with patch("karyo_profiles.netbird.program_identity"), \
+                patch("karyo_profiles.catalog.require_netbird_catalog", side_effect=FileNotFoundError):
+            with self.assertRaisesRegex(ProviderUnavailable, "client packages"):
+                netbird_ready()

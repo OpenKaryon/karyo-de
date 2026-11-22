@@ -11,6 +11,13 @@ class DesktopStopped(SessionError):
     """A fresh session needs the separate controlled startup path."""
 
 
+class ProviderUnavailable(SessionError):
+    """A fixed public prerequisite failure, without native diagnostic text."""
+    def __init__(self):
+        super().__init__("Install the optional Karyo NetBird provider and client packages "
+                         "before starting this VPN desktop")
+
+
 class ExistingSwitcher:
     def __init__(self, store, accounts=None, sessions=None, *, clock=time.monotonic,
                  sleep=time.sleep, today=lambda: int(time.time() // 86400)):

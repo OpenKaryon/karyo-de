@@ -7,10 +7,12 @@ from .journal import JournalRetained
 from .journal_dns import JournalDNS
 from .journal_forwarding import JournalForwarding
 from .journal_network import JournalNetwork
+from .journal_netbird import JournalNetBird
 from .journal_session import JournalSession
 from .logind import SessionError
 from .model import account_name
 from .networks import NetworkCommand
+from .netbird import netbird_ready
 from .runtime_policy import enabled, forwarding_ready
 from .switching import DesktopStopped, ExistingSwitcher
 from .underlay import discover_underlay
@@ -54,8 +56,9 @@ class RuntimeSwitcher(ExistingSwitcher):
                 raise JournalRetained("The desktop already has a retained runtime receipt")
             if not enabled():
                 raise DesktopStopped("Private desktop startup has not been enabled by the administrator")
-            if self.store.settings(target).vpn != "none":
-                raise RuntimeError("The configured profile VPN requires the separate provider integration")
+            provider_requested = self.store.settings(target).vpn == "netbird"
+            if provider_requested:
+                netbird_ready()
             forwarding_ready()
             supported_resolver_layout()
             command = NetworkCommand()
@@ -69,10 +72,17 @@ class RuntimeSwitcher(ExistingSwitcher):
                                                accounts=self.accounts, sessions=self.sessions, command=command)
                 JournalForwarding.start(self.registry.journal, network, physical)
                 dns = JournalDNS.start(self.registry.journal, network, seed, accounts=self.accounts)
-                scope = JournalSession.start(self.registry.journal, dns)
-                # Register before activation: a lost caller or failed enter must
-                # not orphan a fully captured graphical session's observers.
-                self.registry.profiles[scope.token] = scope
+                provider = JournalNetBird.start(self.registry.journal, dns) if provider_requested else None
+                try:
+                    scope = JournalSession.start(self.registry.journal, dns)
+                    # Register before activation or observer release: failures
+                    # must not orphan an acknowledged graphical session.
+                    self.registry.profiles[scope.token] = scope
+                finally:
+                    # JournalSession captured its own provider observers. The
+                    # preparation handle never owns a second running service.
+                    if provider is not None:
+                        provider.release_handles()
                 return scope.enter(caller, reauthorize=reauthorize)
             except BaseException:
                 if scope is None:

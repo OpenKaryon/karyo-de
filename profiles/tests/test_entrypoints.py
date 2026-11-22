@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from karyo_profiles.credentials import LocalAccount
 from karyo_profiles.entrypoints import add, execute, list_desktops, main, read_password, switch_existing
-from karyo_profiles.switching import DesktopStopped
+from karyo_profiles.switching import DesktopStopped, ProviderUnavailable
 from karyo_profiles.provision import CreationError
 
 HOME = LocalAccount("home", 1000, 1000, "/home/home", "/bin/bash")
@@ -174,6 +174,12 @@ class DesktopControlEntrypointTest(unittest.TestCase):
             self.assertEqual(paths, ["@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/desktop-" + role])
             self.assertEqual({item.tag: item.text for item in action.find("defaults")},
                              {"allow_any": "no", "allow_inactive": "no", "allow_active": "yes"})
+
+    def test_missing_optional_provider_has_actionable_fixed_public_failure(self):
+        with patch("karyo_profiles.entrypoints.execute", side_effect=ProviderUnavailable()), contextlib.redirect_stderr(io.StringIO()) as error:
+            self.assertEqual(main("switch"), 1)
+        self.assertIn("optional Karyo NetBird provider and client packages", error.getvalue())
+        self.assertNotIn("administrator review", error.getvalue())
 
     def test_stopped_session_has_distinct_exit_without_implicit_start(self):
         with patch("karyo_profiles.entrypoints.execute", side_effect=DesktopStopped("No running session")), contextlib.redirect_stderr(io.StringIO()) as error:

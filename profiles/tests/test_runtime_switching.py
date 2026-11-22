@@ -27,16 +27,17 @@ class RuntimeSwitchTest(unittest.TestCase):
         self.network = Mock(token="owned")
         self.network.network.fd = 23
         self.dns = Mock()
+        self.provider = Mock()
         self.scope = Mock(token="owned")
         self.scope.enter.return_value = {"user": "work", "vt": 8, "starting": True, "changed": True}
         self.patches = contextlib.ExitStack()
         self.addCleanup(self.patches.close)
         for name, result in (("enabled", True), ("forwarding_ready", None),
-                             ("supported_resolver_layout", "stub-resolv.conf"),
+                             ("supported_resolver_layout", "stub-resolv.conf"), ("netbird_ready", None),
                              ("discover_underlay", "physical"), ("discover_dns", "dns-seed")):
             self.patches.enter_context(patch.object(runtime, name, return_value=result))
         for name, result in (("JournalNetwork", self.network), ("JournalForwarding", Mock()),
-                             ("JournalDNS", self.dns), ("JournalSession", self.scope)):
+                             ("JournalDNS", self.dns), ("JournalNetBird", self.provider), ("JournalSession", self.scope)):
             def start(*args, _name=name, _result=result, **kwargs):
                 self.assertTrue(self.store.held)
                 self.events.append(_name)
@@ -65,6 +66,8 @@ class RuntimeSwitchTest(unittest.TestCase):
         self.assertTrue(self.switcher.switch(HOME, "work")["changed"])
         self.assertEqual(self.events, [])
         runtime.enabled.assert_not_called()
+        runtime.netbird_ready.assert_not_called()
+        runtime.JournalNetBird.start.assert_not_called()
 
     def test_disabled_or_unready_network_never_allocates(self):
         for phase in ("enabled", "forwarding_ready", "discover_dns"):
@@ -100,9 +103,41 @@ class RuntimeSwitchTest(unittest.TestCase):
         self.setup()
         from karyo_profiles.model import DesktopSettings
         self.store.policies["work"] = DesktopSettings(vpn="netbird")
+        runtime.netbird_ready.side_effect = RuntimeError("optional provider missing")
         with self.assertRaisesRegex(RuntimeError, "provider"):
             self.switcher.start(HOME, "work")
         self.assertEqual(self.events, [])
+        runtime.JournalNetwork.start.assert_not_called()
+
+    def test_public_vpn_start_joins_provider_before_graphical_owner(self):
+        self.setup()
+        from karyo_profiles.model import DesktopSettings
+        self.store.policies["work"] = DesktopSettings(vpn="netbird")
+        def enter(caller, **options):
+            self.assertIs(self.registry.profiles["owned"], self.scope)
+            self.provider.release_handles.assert_called_once_with()
+            return {"user": "work", "starting": True}
+        self.scope.enter.side_effect = enter
+        self.assertTrue(self.switcher.switch(HOME, "work")["starting"])
+        runtime.netbird_ready.assert_called_once_with()
+        self.assertEqual(self.events, ["JournalNetwork", "JournalForwarding", "JournalDNS",
+                                       "JournalNetBird", "JournalSession"])
+        runtime.JournalNetBird.start.assert_called_once_with(self.registry.journal, self.dns)
+        self.provider.close.assert_not_called()
+
+    def test_public_vpn_partial_graph_failure_retains_receipt_and_releases_observers(self):
+        self.setup()
+        from karyo_profiles.model import DesktopSettings
+        self.store.policies["work"] = DesktopSettings(vpn="netbird")
+        runtime.JournalSession.start.side_effect = RuntimeError("session failed")
+        with patch.object(runtime.os, "close") as close, self.assertRaises(RuntimeError):
+            self.switcher.start(HOME, "work")
+        self.provider.release_handles.assert_called_once_with()
+        self.provider.close.assert_not_called()
+        self.dns.release_handles.assert_called_once_with()
+        close.assert_called_once_with(23)
+        self.registry.journal.change.assert_not_called()
+        self.assertEqual(self.registry.profiles, {})
 
     def test_lost_authorization_before_allocation_never_starts(self):
         self.setup()
