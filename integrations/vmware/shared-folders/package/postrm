@@ -1,0 +1,18 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+case "${1:-}" in
+    remove)
+        deb-systemd-helper mask karyo-vmhgfs.service >/dev/null || true
+        ;;
+    purge)
+        deb-systemd-helper purge karyo-vmhgfs.service >/dev/null || true
+        deb-systemd-helper unmask karyo-vmhgfs.service >/dev/null || true
+        ;;
+esac
+if [ -d /run/systemd/system ]; then
+    systemctl --system daemon-reload
+fi
+exit 0

@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Unit]
+Description=VMware shared folders for Karyo
+ConditionVirtualization=vmware
+After=local-fs.target open-vm-tools.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+RuntimeDirectory=karyo-vmhgfs
+RuntimeDirectoryMode=0700
+ExecCondition=/usr/bin/timeout 5 /usr/bin/vmware-hgfsclient
+ExecStart=@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/vmware-shared-folders start
+ExecStop=@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/vmware-shared-folders stop
+NoNewPrivileges=yes
+TimeoutStartSec=20
+TimeoutStopSec=15
+# This service intentionally mounts in the system namespace. Filesystem sandbox
+# directives would hide the mount from desktop sessions.
+
+[Install]
+WantedBy=multi-user.target

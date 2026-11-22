@@ -13,3 +13,5 @@ if(BUILD_TESTING)
     add_test(NAME vmware-session-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover -s ${vmware_source}/tests -v)
     set_tests_properties(vmware-session-policy PROPERTIES ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
 endif()
+
+add_subdirectory("${vmware_source}/shared-folders" "${CMAKE_CURRENT_BINARY_DIR}/vmware-shared-folders")
