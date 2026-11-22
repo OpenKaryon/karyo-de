@@ -1317,3 +1317,52 @@ credentials belong only to disposable QA, not the DE package or user profiles.
 This is distinct from the earlier synthetic callback and setup-key checks.
 Onward provider GUI/tray behavior, arbitrary external identity providers and
 Home-tunnel interaction retain their own validation boundaries.
+
+
+### Optional Home/Work application visibility
+
+The ordinary karyo-application-catalog helper reads administrator-owned
+/etc/karyo/application-roles.json only when that explicit policy is installed.
+Its version1 maps applications and autostart desktop-file basenames separately
+to home/work role lists. Empty role lists disable that entry in both roles;
+listing both roles leaves a shared application's original launcher untouched.
+profiles/examples/application-roles.json illustrates Home-only Forge/example tunnel,
+Work-only NetBird/Mattermost and shared Bitwarden. It is not installed or enabled
+by the account package and contains no corporate endpoint or profile data.
+
+The role is derived from real-UID account metadata, not USER or a caller flag:
+WORKSTATION=yes selects Work; the other accounts of its family select Home.
+Unrelated families stay unchanged. After initial PAM succeeds, session autostart
+creates a private content-addressed runtime view containing only standard
+Hidden=true masks. The existing application binaries, launch commands, icons,
+licenses and user preferences stay at their original locations. The helper
+performs no privileged mutation, package install or global service operation.
+
+The session prepends its ordinary view to XDG_DATA_DIRS and XDG_CONFIG_DIRS and
+publishes these values to its captured user manager/D-Bus activation before
+Files, normal autostart or the shell run. Standard user-level XDG overrides keep
+their precedence. Application visibility and autostart selection are desktop
+preferences; the separate account/network/PAM boundaries enforce isolation.
+
+Identical views reuse verified ordinary-user cache bytes/inodes; changed policy
+produces a new atomic no-replace view. A mismatched/unsafe cache is retained and
+reported. Runtime views expire with the user's native runtime directory. Missing
+policy produces no view; invalid opted-in metadata stops session clients rather
+than running a partially configured application catalog.
+
+The fixed disposable-host installed-application-roles.py gate accepts the
+ordinary Home resolver/cache and a fresh public Work graphical session on
+Debian 13 and Ubuntu 26.04. It verifies native GLib visibility, actual allowed
+and suppressed autostart, identical shell/Files/activation environments, running
+session reuse, logout cleanup and the preserved original Home. It uses safe
+QA desktop files rather than installing corporate clients or Forge. A fresh
+Home graphical login and real vendor application acceptance remain separate.
+
+The installed-cold-home-roles.py fixed-host gate now also accepts fresh Home
+through actual LightDM on Debian 13 and Ubuntu 26.04. It ends the previous native
+user manager/runtime, verifies Home/common autostart and shell/Files/activation
+catalogs on a new compositor, then removes the owned policy and logs in cold
+again. No role cache or catalog environment survives that second native login.
+Temporary QA autologin and role entries are removed; account/PAM bytes and the
+original display-manager configuration are restored. This is an unprotected
+Home startup/lifecycle gate; interactive protected entry has separate acceptance.

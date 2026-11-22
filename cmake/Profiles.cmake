@@ -99,3 +99,10 @@ if(BUILD_TESTING)
         -s ${profile_source}/tests -v)
     set_tests_properties(profile-account-policy PROPERTIES TIMEOUT 45)
 endif()
+
+
+# Ordinary, optional role metadata. No policy is installed or activated here.
+configure_file("${profile_source}/application-catalog.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-application-catalog" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-application-catalog"
+    DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-accounts-runtime)

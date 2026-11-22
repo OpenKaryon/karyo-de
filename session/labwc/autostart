@@ -8,11 +8,26 @@ if ! karyo-lock --on-start; then
     labwc --exit
     exit 1
 fi
+# Optional application visibility is ordinary user state, prepared after PAM.
+# The helper reads administrator metadata and emits one private runtime path.
+catalog_environment=
+if command -v karyo-application-catalog >/dev/null 2>&1; then
+    if ! catalog=$(karyo-application-catalog); then
+        echo "karyo-session: profile application catalog did not finish" >&2
+        labwc --exit
+        exit 1
+    fi
+    if [ -n "$catalog" ]; then
+        export XDG_DATA_DIRS="$catalog/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+        export XDG_CONFIG_DIRS="$catalog/config:${XDG_CONFIG_DIRS:-/etc/xdg}"
+        catalog_environment='XDG_DATA_DIRS XDG_CONFIG_DIRS'
+    fi
+fi
 # labwc supplies WAYLAND_DISPLAY after the compositor is ready.
 if command -v dbus-update-activation-environment >/dev/null 2>&1; then
     dbus-update-activation-environment --systemd WAYLAND_DISPLAY \
         XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP \
-        QT_QPA_PLATFORM QT_STYLE_OVERRIDE >/dev/null 2>&1 || true
+        QT_QPA_PLATFORM QT_STYLE_OVERRIDE ${catalog_environment:+$catalog_environment} >/dev/null 2>&1 || true
 fi
 # Optional Files claims FileManager1 only if another manager does not own it.
 if command -v karyo-files >/dev/null 2>&1; then

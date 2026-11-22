@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "applications": {
+    "karyoforge.desktop": [
+      "home"
+    ],
+    "org.wails.netbird.desktop": [
+      "work"
+    ],
+    "mattermost-desktop.desktop": [
+      "work"
+    ],
+    "bitwarden.desktop": [
+      "home",
+      "work"
+    ],
+    "org.example.HomeTunnel.desktop": [
+      "home"
+    ]
+  },
+  "autostart": {
+    "netbird.desktop": [],
+    "mattermost-desktop.desktop": [
+      "work"
+    ],
+    "bitwarden.desktop": []
+  }
+}

@@ -361,3 +361,12 @@ activate forwarding/dependencies, handle failure/recovery and user logout, and
 expose the authenticated public operation before that full feature is complete.
 Actual private VPN/client integration and other remaining system features stay
 separate.
+
+
+The session launch/data component also configures independently with
+cmake -S session -B build-session and retains the session-runtime component
+name. This does not build or link the unrelated Qt application graph. Optional
+profile application visibility is prepared after initial PAM and before
+session clients; without the optional helper/policy, existing startup behavior
+is preserved. The shared implementation remains cmake/Session.cmake for both
+standalone and full-project builds.
