@@ -262,3 +262,31 @@ native debhelper control proves independent linking occurs after the deliberate
 compiler error while the packaging command still fails. No failed package or
 incomplete stage is accepted; successful builds perform the same target work.
 Full native engine packaging and real Mac execution remain required gates.
+
+
+## Complete Screen diagnostics and static bootstrap unwind
+
+The seventh complete Debian build, with independent failures collected through
+Ninja -k0, exposed30 additional Screen format-security calls and one dyld link
+failure after26425/26426 steps. Patch0028 passes allocation diagnostics, failed
+command names and configured lock text through literal formats. Compiler checks
+reject every original call and accept/execute every replacement with percent
+characters preserved as data; the normal error argument is unchanged.
+
+The dyld failure identifies a relative switch lookup table emitted by modern
+Clang in static libunwind. The pinned ld64 cannot encode that table in its
+chained-fixup bootstrap image. Patch0029 sets the documented -fno-jump-tables
+option only on unwind_static, keeping optimized compilation, native hardening,
+other targets and dyld chained fixups. Its exact libunwind module revision
+ a91da1a0e262e04eb601152a84228ff733e48422 is checked independently. A native CMake
+control proves target isolation and identical switch results; Mach-O LLVM IR
+contains a relative lookup table before the option and no table after it on
+both Clang19/Debian and Clang21/Ubuntu. See the upstream
+[Clang option reference](https://clang.llvm.org/docs/ClangCommandLineReference.html)
+and [LLVM's switch lookup attribute change](https://reviews.llvm.org/D35579).
+
+Both native source suites pass28 cases. All29 patches apply/reverse through
+Git and zero-fuzz quilt on both bases, restoring71 pristine source files.
+These checks cover source effects and compiler controls, not a completed dyld
+link or engine package; the next complete native build must establish those.
+Actual Mac application execution remains a separate required gate.

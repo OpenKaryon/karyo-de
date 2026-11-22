@@ -110,6 +110,14 @@
     {
       "file": "0027-screen-literal-message-format.patch",
       "sha256": "99016cd27e55160b52021519de865f076596220f1e74cad2028f1814781a07eb"
+    },
+    {
+      "file": "0028-screen-literal-diagnostics.patch",
+      "sha256": "e590e76eb78d1aae770d8cc22a4390fe97078165300b0aa724df587982f644cf"
+    },
+    {
+      "file": "0029-bootstrap-unwind-without-switch-tables.patch",
+      "sha256": "7183fd96e97200fb44ced707db893e7547cef2ea80c1c7be851902a86e301663"
     }
   ]
 }
