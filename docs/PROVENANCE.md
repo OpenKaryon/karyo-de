@@ -607,3 +607,15 @@ It removes relative-motion delivery from the absolute handler only, retaining
 the native relative handler and GPL-2.0-only upstream source notices. The before/
 after Win32/X11 pointer traces use identical own QA producer and actor bytes,
 with unchanged Wine2 and native wlroots. No third-party public ABI is added.
+
+
+The implicit child-region patch reviews rounded-child-windows.patch from donor
+26bad17cef413d26c36c117f2f1123dca4edded7, original SHA256
+8828f233d253faf99f705890c808cb7c6531f4a4929b3b344086337e116ed3ca.
+It adapts Wine server/window.c under LGPL-2.1-or-later, retaining native package
+copyright. The default captioned-child shape is cached separately from the
+application's explicit region and follows native DPI. An additional correction
+preserves old visible coverage before shape-changing styles so restored MDI
+icons do not leave corner pixels behind. GetWindowRgn's explicit-region API is
+unchanged. The original child/MDI producer and private-pointer/pixel actors are
+own GPL-3.0-or-later QA. They contain no Windows application or personal prefix.

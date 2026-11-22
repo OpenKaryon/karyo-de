@@ -26,13 +26,17 @@
     {
       "path": "../wine-patches/owned-close-button.patch",
       "sha256": "863af83b9d0ffa5488ea328b70e0af673d0ef684fc668ef9bed7492956b303e0"
+    },
+    {
+      "path": "../wine-patches/default-child-region.patch",
+      "sha256": "d7da3afe7a88f72f9ea79283eca750c34023b104bc4e526bba1da160b4b344cb"
     }
   ],
   "build": {
-    "revision": "karyo2",
+    "revision": "karyo4",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Preserve popup menu semantics and draw solid close buttons for default owned captions.",
+    "message": "Preserve menus and apply shared default child caption appearance and shape.",
     "binaries": [
       "libwine",
       "wine",

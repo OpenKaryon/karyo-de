@@ -238,3 +238,35 @@ not arbitrary themes, DPI, custom captions or physical GPUs. Rounding, caption
 metrics/icons, legacy import, real applications and complete installed-user
 upgrade remain separate. The runtime/menu launcher snapshot remains e782fb0;
 this engine acceptance is not a joined current-HEAD desktop installation.
+
+
+### Default regions for captioned children
+
+The optional native Wine karyo4 recipes add a shared server-side default shape
+for ordinary captioned WS_CHILD windows, including true MDI children. The two-
+logical-pixel corners scale with native DPI; straight borders, client content,
+DC clipping and input hit testing use the same shape. Application-provided
+SetWindowRgn regions take priority, including their holes. The implicit shape
+does not turn GetWindowRgn into an application-visible custom region.
+
+Maximized, minimized, layered, tiny, non-captioned and popup windows retain their
+native exception paths. Top-level and owned-popup compositor frames are a
+separate integration. Cache storage is per window and is released on destruction.
+Style changes which alter the implicit shape preserve the old visible region
+before updating flags, then expose/redraw the difference. This matters when a
+rectangular minimized MDI icon becomes a rounded normal child before it moves.
+
+The own child-region probe drives actual Win32 resize, MDI maximize/restore and
+minimize/restore, explicit rectangular/complex regions and the native exceptions.
+The matching actor compares real API hit results and compositor pixels, checks
+all four corners/straight edges and clicks both an ordinary and an MDI child
+using a persistent private Wayland pointer. It also requires complete erasure of
+the old minimized-icon footprint and vacated resize pixels. Native DPI is read
+from the real program; fresh QA-prefix DPI settings are not shipped app policy.
+
+Builder's check-win32-child-region.py freezes source/actor bytes and requires a
+matching accepted native baseline for every requested PE32/PE64 and DPI case.
+Runtime/menu, palettes, caption buttons and existing-prefix checks remain
+separate requirements. A server-only diagnostic or successful package compilation
+cannot substitute for installed native package acceptance. No RomArtist rule,
+user-prefix conversion or proprietary asset is introduced by this component.
