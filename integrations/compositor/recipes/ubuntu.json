@@ -42,13 +42,21 @@
     {
       "path": "../patches/ubuntu/win32-owner-hints-dependency.patch",
       "sha256": "0d279924d93ce6ce77e17f79f2b92824b30eaf04f81c60735a64ec840873f8ff"
+    },
+    {
+      "path": "../patches/ubuntu/win32-window-theme.patch",
+      "sha256": "c562866de722c473fd05bbb5731af0c2da88526e7c4179d673ddf00114cd6e51"
+    },
+    {
+      "path": "../patches/ubuntu/win32-caption-buttons.patch",
+      "sha256": "310f8c57979ddf8c6d7f2722c46c644757622896ca7d33b4800b3dd0ae92a91e"
     }
   ],
   "build": {
-    "revision": "karyo5",
+    "revision": "karyo7",
     "distribution": "resolute",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Use the paired native scene-mask and owner-hint library.",
+    "message": "Use independent Windows caption assets and accurate button hitboxes.",
     "binaries": [
       "labwc"
     ],

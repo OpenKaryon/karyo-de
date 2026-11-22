@@ -633,3 +633,30 @@ retain each release's unclipped behavior and reject masked full-buffer scanout.
 The new original renderer/input/ABI C fixture and Builder acceptance driver are
 GPL-3.0-or-later QA. They use native headers/libraries without incorporating a
 third-party application, private prefix or proprietary image.
+
+
+### Per-view Windows compositor theme
+
+Native labwc derivatives review windows-titlebars.patch (SHA256
+ a739ce9cd7d56f73180f7f7ed3971b643b4f86d37ade826bb4e99f9295f9c022)
+and wine-window-frame-selection.patch (SHA256
+ 3648455008f2694e0ee49f4685d01baff4f16d2598cfdd9f3de3eb0c63633e25)
+from distro/distro/patched/labwc at prototype
+26bad17cef413d26c36c117f2f1123dca4edded7. Actual Git blobs were checked against
+the reviewed files. Patches retain GPL-2.0-only and upstream C/header notices;
+the root own-code license does not override the compositor's license. Ubuntu
+adaptations use its native background patterns, SSD arrays and button module.
+The original mixed-theme/late-class/reconfigure QA is GPL-3.0-or-later. No donor
+application, personal path, executable resource or private prefix is incorporated.
+
+
+### Windows caption controls
+
+The native caption geometry patches review the width/layout/hitbox and asset
+lookup sections of wine-windows-caption-details.patch from donor26bad17,
+SHA256a72d24b57e366beab910d199be3149961c5815036fa90accff6e5f10e6a1a29f.
+The actual Git blob was checked. Native derivatives retain GPL-2.0-only and
+upstream notices. Caption rounding portions remain a subsequent step.
+The independent SVG glyph resources, CMake installation and pointer/pixel actor
+are original Karyo code/resources under GPL-3.0-or-later, without copied binary
+artwork, Windows fonts or application-specific configuration.

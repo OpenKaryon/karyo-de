@@ -1,0 +1,209 @@
+Description: Match Windows caption button geometry and load independent assets
+ Adapt the reviewed caption-details prototype to the native SSD implementation.
+ Measure actual button widths for layout, clipping, label offsets and hitboxes;
+ keep the native Linux theme layout unchanged.
+Origin: other, prototype 26bad17cef413d26c36c117f2f1123dca4edded7
+Author: Karyo Developers
+License: GPL-2.0-only (upstream files retain their original notices)
+Forwarded: not-needed
+
+--- a/include/ssd-internal.h
++++ b/include/ssd-internal.h
+@@ -16,6 +16,7 @@
+ #define FOR_EACH_END }
+ 
+ struct theme *ssd_theme(struct view *view);
++int ssd_title_button_width(const struct theme *theme, enum ssd_part_type type);
+ 
+ struct ssd_button {
+ 	struct view *view;
+--- a/src/ssd/ssd-part.c
++++ b/src/ssd/ssd-part.c
+@@ -99,16 +99,16 @@
+ 	button->view = view;
+ 
+ 	struct theme *theme = ssd_theme(view);
++	int button_width = ssd_title_button_width(theme, type);
++	int button_height = theme->window_button_height;
+ 
+ 	/* Hitbox */
+ 	float invisible[4] = { 0, 0, 0, 0 };
+ 	add_scene_rect(part_list, type, parent,
+-		theme->window_button_width, theme->window_button_height, 0, 0,
++		button_width, button_height, 0, 0,
+ 		invisible);
+ 
+ 	/* Icons */
+-	int button_width = theme->window_button_width;
+-	int button_height = theme->window_button_height;
+ 	/*
+ 	 * Ensure a small amount of horizontal padding within the button
+ 	 * area (2px on each side with the default 26px button width).
+@@ -136,8 +136,8 @@
+ 			}
+ 			struct ssd_part *icon_part = add_scene_part(part_list, type);
+ 			struct scaled_img_buffer *img_buffer = scaled_img_buffer_create(
+-				parent, imgs[state_set], theme->window_button_width,
+-				theme->window_button_height);
++				parent, imgs[state_set], button_width,
++				button_height);
+ 			assert(img_buffer);
+ 			icon_part->node = &img_buffer->scene_buffer->node;
+ 			wlr_scene_node_set_enabled(icon_part->node, false);
+--- a/src/ssd/ssd-titlebar.c
++++ b/src/ssd/ssd-titlebar.c
+@@ -78,12 +78,12 @@
+ 				theme->window[active].button_imgs[b->type];
+ 			add_scene_button(&subtree->parts, b->type, parent,
+ 				imgs, x, y, view);
+-			x += theme->window_button_width + theme->window_button_spacing;
++			x += ssd_title_button_width(theme, b->type) + theme->window_button_spacing;
+ 		}
+ 
+ 		x = width - theme->window_titlebar_padding_width + theme->window_button_spacing;
+ 		wl_list_for_each_reverse(b, &rc.title_buttons_right, link) {
+-			x -= theme->window_button_width + theme->window_button_spacing;
++			x -= ssd_title_button_width(theme, b->type) + theme->window_button_spacing;
+ 			struct lab_img **imgs =
+ 				theme->window[active].button_imgs[b->type];
+ 			add_scene_button(&subtree->parts, b->type, parent,
+@@ -200,18 +200,27 @@
+  * Usually this function just enables all the nodes for buttons, but some
+  * buttons can be hidden for small windows (e.g. xterm -geometry 1x1).
+  */
++static int
++buttons_width(const struct theme *theme, struct wl_list *list, int count, bool reverse)
++{
++	int width = 0;
++	struct wl_list *item = reverse ? list->prev : list->next;
++	for (int i = 0; i < count; ++i) {
++		struct title_button *button = wl_container_of(item, button, link);
++		width += ssd_title_button_width(theme, button->type) + theme->window_button_spacing;
++		item = reverse ? item->prev : item->next;
++	}
++	return width;
++}
++
+ static void
+ update_visible_buttons(struct ssd *ssd)
+ {
+ 	struct view *view = ssd->view;
+-	int width = view->current.width - (2 * ssd_theme(view)->window_titlebar_padding_width);
+-	int button_width = ssd_theme(view)->window_button_width;
+-	int button_spacing = ssd_theme(view)->window_button_spacing;
++	struct theme *theme = ssd->theme;
++	int width = MAX(0, view->current.width - 2 * theme->window_titlebar_padding_width);
+ 	int button_count_left = wl_list_length(&rc.title_buttons_left);
+ 	int button_count_right = wl_list_length(&rc.title_buttons_right);
+-
+-	/* Make sure infinite loop never occurs */
+-	assert(button_width > 0);
+ 
+ 	/*
+ 	 * The corner-left button is lastly removed as it's usually a window
+@@ -220,8 +229,8 @@
+ 	 * There is spacing to the inside of each button, including between the
+ 	 * innermost buttons and the window title. See also get_title_offsets().
+ 	 */
+-	while (width < ((button_width + button_spacing)
+-			* (button_count_left + button_count_right))) {
++	while (width < buttons_width(theme, &rc.title_buttons_left, button_count_left, false)
++			+ buttons_width(theme, &rc.title_buttons_right, button_count_right, true)) {
+ 		if (button_count_left > button_count_right) {
+ 			button_count_left--;
+ 		} else {
+@@ -307,7 +316,7 @@
+ 		wl_list_for_each(b, &rc.title_buttons_left, link) {
+ 			part = ssd_get_part(&subtree->parts, b->type);
+ 			wlr_scene_node_set_position(part->node, x, y);
+-			x += theme->window_button_width + theme->window_button_spacing;
++			x += ssd_title_button_width(theme, b->type) + theme->window_button_spacing;
+ 		}
+ 
+ 		x = width - corner_width;
+@@ -317,7 +326,7 @@
+ 		x = width - theme->window_titlebar_padding_width + theme->window_button_spacing;
+ 		wl_list_for_each_reverse(b, &rc.title_buttons_right, link) {
+ 			part = ssd_get_part(&subtree->parts, b->type);
+-			x -= theme->window_button_width + theme->window_button_spacing;
++			x -= ssd_title_button_width(theme, b->type) + theme->window_button_spacing;
+ 			wlr_scene_node_set_position(part->node, x, y);
+ 		}
+ 	} FOR_EACH_END
+@@ -423,7 +432,6 @@
+ get_title_offsets(struct ssd *ssd, int *offset_left, int *offset_right)
+ {
+ 	struct ssd_sub_tree *subtree = &ssd->titlebar.active;
+-	int button_width = ssd->theme->window_button_width;
+ 	int button_spacing = ssd->theme->window_button_spacing;
+ 	int padding_width = ssd->theme->window_titlebar_padding_width;
+ 	*offset_left = padding_width;
+@@ -433,13 +441,13 @@
+ 	wl_list_for_each(b, &rc.title_buttons_left, link) {
+ 		struct ssd_part *part = ssd_get_part(&subtree->parts, b->type);
+ 		if (part->node->enabled) {
+-			*offset_left += button_width + button_spacing;
++			*offset_left += ssd_title_button_width(ssd->theme, b->type) + button_spacing;
+ 		}
+ 	}
+ 	wl_list_for_each_reverse(b, &rc.title_buttons_right, link) {
+ 		struct ssd_part *part = ssd_get_part(&subtree->parts, b->type);
+ 		if (part->node->enabled) {
+-			*offset_right += button_width + button_spacing;
++			*offset_right += ssd_title_button_width(ssd->theme, b->type) + button_spacing;
+ 		}
+ 	}
+ }
+--- a/src/ssd/ssd.c
++++ b/src/ssd/ssd.c
+@@ -300,6 +300,13 @@
+ }
+ 
+ int
++ssd_title_button_width(const struct theme *theme, enum ssd_part_type type)
++{
++	return theme->windows_frame && type == LAB_SSD_BUTTON_WINDOW_ICON
++		? 24 : theme->window_button_width;
++}
++
++int
+ ssd_get_corner_width(void)
+ {
+ 	/* ensure a minimum corner width */
+--- a/src/theme.c
++++ b/src/theme.c
+@@ -152,15 +152,12 @@
+ 		struct theme *theme)
+ {
+ 	buf[0] = '\0';
+-	if (theme->windows_frame) {
+-		return;
+-	}
+ 
+ 	char filename[4096];
+ 	snprintf(filename, sizeof(filename), "%s%s", name, postfix);
+ 
+ 	struct wl_list paths;
+-	paths_theme_create(&paths, rc.theme_name, filename);
++	paths_theme_create(&paths, theme->windows_frame ? "Karyo-Windows" : rc.theme_name, filename);
+ 
+ 	/*
+ 	 * You can't really merge buttons, so let's just iterate forwards
+@@ -196,7 +193,7 @@
+ 	/* SVG */
+ 	if (!*img) {
+ 		get_button_filename(filename, sizeof(filename), b->name,
+-			active ? "-active.svg" : "-inactive.svg", theme);
++			theme->windows_frame ? ".svg" : (active ? "-active.svg" : "-inactive.svg"), theme);
+ 		*img = lab_img_load(LAB_IMG_SVG, filename, rgba);
+ 	}
+ #endif
+@@ -1504,7 +1501,7 @@
+ 	theme->windows_frame = theme_name && !strcmp(theme_name, "Karyo-Windows");
+ 	if (theme->windows_frame) {
+ 		theme->titlebar_height = 23;
+-		theme->window_button_width = 32;
++		theme->window_button_width = 46;
+ 		theme->window_button_height = 23;
+ 		theme->window_label_text_justify = LAB_JUSTIFY_LEFT;
+ 		parse_hexstr("#eaf1f8", theme->window[THEME_ACTIVE].title_bg_color);

@@ -270,3 +270,14 @@ Runtime/menu, palettes, caption buttons and existing-prefix checks remain
 separate requirements. A server-only diagnostic or successful package compilation
 cannot substitute for installed native package acceptance. No RomArtist rule,
 user-prefix conversion or proprietary asset is introduced by this component.
+
+
+## Optional native caption resources
+
+The win32-runtime install component also provides original GPL-3.0-or-later
+Karyo-Windows SVG caption controls under share/themes/Karyo-Windows/labwc.
+The separate native compositor integration selects and measures them by generic
+Wine XWayland class. Runtime installation does not replace labwc or Wine, activate
+a desktop session, or write a user's theme configuration. It does not install
+a program-specific compatibility rule. The root LICENSE covers these original
+resources; native compositor derivative patches retain GPL-2.0-only separately.

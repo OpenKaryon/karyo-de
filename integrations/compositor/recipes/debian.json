@@ -50,13 +50,21 @@
     {
       "path": "../patches/debian/absolute-pointer-motion.patch",
       "sha256": "c3dcf9f6257b5d10eb2fc04f6e7aa0c88f0e590f05293fce1802010640c038aa"
+    },
+    {
+      "path": "../patches/debian/win32-window-theme.patch",
+      "sha256": "c8e47bb20656acf68451a3841605a303a1db9df902cf58e1b5864b6823a41d1d"
+    },
+    {
+      "path": "../patches/debian/win32-caption-buttons.patch",
+      "sha256": "796018c2a75bf18e7f84fd59425cf89da77266732897dfbd18b48fa89d512c2f"
     }
   ],
   "build": {
-    "revision": "karyo7",
+    "revision": "karyo9",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Use the paired native scene-mask and owner-hint library.",
+    "message": "Use independent Windows caption assets and accurate button hitboxes.",
     "binaries": [
       "labwc"
     ],

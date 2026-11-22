@@ -22,6 +22,87 @@ from Xlib.protocol import event
 from PIL import Image
 
 
+def theme_checks(env, output):
+    """Use real X11 class events and measure rendered active/inactive frames."""
+    connection = display.Display(env['DISPLAY'])
+    root = connection.screen().root
+    atom = connection.intern_atom
+    windows = []
+
+    def activate(w):
+        root.send_event(event.ClientMessage(window=w, client_type=atom('_NET_ACTIVE_WINDOW'),
+            data=(32, [2, X.CurrentTime, 0, 0, 0])),
+            event_mask=X.SubstructureRedirectMask | X.SubstructureNotifyMask)
+        connection.sync()
+        time.sleep(.2)
+
+    def frame(w, label, color=None):
+        geometry = w.get_geometry()
+        shot = output / ('theme-' + label + '.png')
+        subprocess.run(['grim', str(shot)], env=env, check=True, timeout=5)
+        with Image.open(shot) as image:
+            rgb = image.convert('RGB')
+            x = geometry.x + geometry.width - 135
+            pixel = rgb.getpixel((x, geometry.y - 10))
+            rows = tuple(offset for offset in range(1, 61)
+                if rgb.getpixel((x, geometry.y - offset)) == pixel)
+        if color is not None:
+            assert pixel == color, (label, pixel, color)
+        return rows, pixel
+
+    try:
+        for kind, x in (('native-fixture', 40), ('fixture.EXE', 600)):
+            w = root.create_window(x, 180, 440, 240, 0, connection.screen().root_depth,
+                X.InputOutput, X.CopyFromParent, background_pixel=0x112233)
+            windows.append(w)
+            w.set_wm_name('Short')
+            w.set_wm_class(kind, kind)
+            w.change_property(atom('_NET_WM_PID'), Xatom.CARDINAL, 32, [os.getpid()])
+            w.change_property(atom('_NET_WM_WINDOW_TYPE'), Xatom.ATOM, 32,
+                [atom('_NET_WM_WINDOW_TYPE_NORMAL')])
+            w.map()
+            connection.sync()
+            time.sleep(.15)
+            w.configure(x=x, y=180)
+            connection.sync()
+            time.sleep(.25)
+        native, wine = windows
+        activate(native)
+        native_extents, native_active = frame(native, 'native-active')
+        assert native_active == (51, 34, 17) and len(native_extents) != 23
+        wine_extents, _ = frame(wine, 'wine-inactive', (244, 244, 244))
+        assert len(wine_extents) == 23, wine_extents
+        activate(wine)
+        frame(wine, 'wine-active', (234, 241, 248))
+        # A class set after mapping must rebuild the existing decoration.
+        native.set_wm_class('late.exe', 'late.exe')
+        connection.sync()
+        time.sleep(.25)
+        activate(native)
+        late_extents, _ = frame(native, 'late-wine', (234, 241, 248))
+        assert late_extents == wine_extents, (late_extents, wine_extents)
+        native.set_wm_class('native-fixture', 'native-fixture')
+        connection.sync()
+        time.sleep(.25)
+        activate(native)
+        restored, restored_pixel = frame(native, 'native-restored')
+        assert restored == native_extents and restored_pixel == native_active
+        # Reload both themes while clients remain mapped, then test lifetime.
+        os.kill(int(env['KARYO_TEST_SERVER_PID']), signal.SIGHUP)
+        time.sleep(.3)
+        frame(native, 'native-reconfigured', native_active)
+        activate(wine)
+        after, _ = frame(wine, 'wine-reconfigured', (234, 241, 248))
+        assert after == wine_extents
+        print('Window theme isolation, late class and reconfigure passed', flush=True)
+    finally:
+        for w in reversed(windows):
+            w.destroy()
+        connection.sync()
+        connection.close()
+        time.sleep(.2)
+
+
 def checks(env, output, baseline):
     connection = display.Display(env['DISPLAY'])
     root = connection.screen().root
@@ -196,6 +277,10 @@ def main():
         config = private / 'labwc'; config.mkdir()
         display_file = private / 'display'
         (config / 'rc.xml').write_text('<labwc_config><focus><followMouse>no</followMouse></focus></labwc_config>')
+        (config / 'themerc-override').write_text(
+            'window.active.title.bg.color: #332211\n'
+            'window.inactive.title.bg.color: #443322\n'
+            'window.button.width: 41\nwindow.button.height: 35\n')
         (config / 'autostart').write_text('#!/bin/sh\nprintf "%s\\n" "$DISPLAY" > "' + str(display_file) + '"\n')
         (config / 'autostart').chmod(0o700)
         env = {**os.environ, 'XDG_RUNTIME_DIR':str(runtime), 'XDG_CONFIG_HOME':str(private / 'config'),
@@ -213,12 +298,16 @@ def main():
                     time.sleep(.05)
                 env['DISPLAY'] = display_file.read_text().strip()
                 env['WAYLAND_DISPLAY'] = next(p.name for p in runtime.glob('wayland-*') if p.is_socket())
+                env['KARYO_TEST_SERVER_PID'] = str(server.pid)
+                if not args.baseline:
+                    theme_checks(env, args.output)
                 checks(env, args.output, args.baseline)
                 (args.output/'acceptance.json').write_text(json.dumps({'uid':os.getuid(),'version':manifest['version'],
                     'image_id':manifest['environment']['image_id'],'baseline_missing_group':args.baseline,
                     'checks':['wine palette stacking','native class unchanged','visible owner unchanged',
                         'multiple frames unchanged','custom frame unchanged'],
-                    'group_minimize_restore':not args.baseline,'late_palettes':0 if args.baseline else 4,'real_wine_application':False},indent=2)+'\n')
+                    'group_minimize_restore':not args.baseline,'late_palettes':0 if args.baseline else 4,'real_wine_application':False,
+                    'window_theme_isolation':not args.baseline, 'late_class_and_reconfigure':not args.baseline},indent=2)+'\n')
             finally:
                 if server.poll() is None:
                     os.killpg(server.pid, signal.SIGTERM)

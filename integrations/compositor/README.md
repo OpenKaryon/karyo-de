@@ -319,3 +319,57 @@ This supplies the renderer/input mechanism for subsequent rounded Windows frames
 The current compositor recipes do not yet apply these masks to application
 frames. Theme resources, frame metrics/icons, floating/maximized rules and real
 pointer transport on rounded parent/owned windows remain the next integration.
+
+
+## Per-view Windows theme foundation
+
+The native labwc recipes now add win32-window-theme.patch: Debian +karyo8 and
+Ubuntu +karyo6. XWayland views whose actual class ends in .exe (case insensitive)
+select an independent built-in Karyo-Windows frame. Other XWayland and Wayland
+clients keep the configured Linux theme. A late class change rebuilds an existing
+SSD, and reconfiguration recreates both themes before native view reload.
+
+This foundation carries a 23-logical-pixel light caption, compact font and
+separate button hitboxes. Ubuntu uses its native gradient/pattern API and split
+SSD-button module; it does not receive Debian source or a downgraded library.
+Windows hover generation avoids native callbacks tied to the global Linux theme.
+Existing Linux callbacks and decoration behavior remain native.
+
+Run tests/owned-windows.py in the same isolated native runtime described above.
+Before its ten grouping cases, it renders native and .EXE clients simultaneously
+against custom Linux colors/button sizes. It measures actual caption pixel rows,
+checks active/inactive colors, changes an already mapped class to Wine and back,
+and reloads both themes while clients stay mapped. The old packages fail the
+new Wine-color requirement. This is an X11 model test, separately accompanied by
+real PE32/PE64 Wine palette regressions in Builder acceptance.
+
+This is an intentionally separate prerequisite, not the completed Windows theme.
+Caption assets/widths are covered below; application icon matching, lower/client
+rounding, input corners and real third-party applications remain separate gates. Wine-internal child/MDI
+shaping and scene-mask API acceptance remain independently documented.
+
+
+## Windows caption assets and hitboxes
+
+Debian +karyo9 and Ubuntu +karyo7 add win32-caption-buttons.patch. Caption controls
+use 46 logical pixels, while the app-icon button uses 24. Visible-button fitting,
+initial layout, resized layout, title offsets, icon size and actual hitboxes all
+use the same per-button width. Narrow windows keep native hide-priority behavior
+without treating the icon as a full-width control. Native Linux widths stay
+configurable and unchanged.
+
+The optional karyo-win32 runtime component installs five original GPL-3 SVGs in
+share/themes/Karyo-Windows/labwc: close, close_hover, iconify, max and max_toggled.
+They provide thin Windows-style glyphs and a filled red close-hover background
+with a white cross. Asset lookup uses this independent theme instead of the
+current Linux icon resources. No third-party application or per-program rule
+is involved. Without that optional component native bitmap fallbacks remain.
+
+The isolated caption-buttons.py producer uses a private virtual pointer and an
+actual X11 client. It checks red/white hover pixels at the new left hitbox edge,
+clicks maximize/restore/minimize and normal WM_DELETE_WINDOW close, then checks
+narrow widths. --baseline separately observes the previous missing buttons;
+it does not satisfy positive acceptance. SVG thin-stroke antialiasing and the
+software cursor are accounted for without accepting the light title background
+as white glyph ink. Lower/client corner clipping and registered app icons are
+still subsequent steps.
