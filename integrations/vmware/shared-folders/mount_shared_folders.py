@@ -45,14 +45,54 @@ def mount_record(text, target):
     return result[0] if result else None
 
 
+def kernel_mount_ids(run=subprocess.run):
+    # Explicit numeric columns avoid filesystem probes and changing table defaults.
+    # listmount/statmount provide non-recycled IDs even when mountinfo IDs and
+    # anonymous FUSE device numbers have already been reused.
+    command = ['/usr/bin/findmnt', '--kernel=listmount', '--list', '--all',
+               '--nocanonicalize', '--json', '--output', 'ID,UNIQ-ID']
+    result = run(command, check=True, capture_output=True, text=True, timeout=5,
+                 env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C', 'LANG': 'C'})
+    if len(result.stdout) > 4 * 1024 * 1024:
+        raise ValueError('Kernel mount identity table is too large')
+    record = json.loads(result.stdout)
+    if not isinstance(record, dict) or set(record) != {'filesystems'} or not isinstance(record['filesystems'], list):
+        raise ValueError('Unexpected kernel mount identity table')
+    identities, unique = {}, set()
+    def number(value):
+        if isinstance(value, str) and re.fullmatch(r'[0-9]{1,20}', value):
+            value = int(value)
+        if type(value) is not int or not 0 < value < 2**64:
+            raise ValueError('Invalid kernel mount identifier')
+        return value
+    for row in record['filesystems']:
+        if not isinstance(row, dict) or set(row) != {'id', 'uniq-id'}:
+            raise ValueError('Incomplete kernel mount identity')
+        old_id, unique_id = number(row['id']), number(row['uniq-id'])
+        if old_id in identities or unique_id in unique:
+            raise ValueError('Ambiguous kernel mount identity')
+        identities[old_id] = unique_id
+        unique.add(unique_id)
+    if not identities:
+        raise ValueError('Kernel does not provide unique mount identities')
+    return identities
+
+
 class SharedFolders:
-    def __init__(self, target=MOUNTPOINT, runtime=RUNTIME, owner=0, run=subprocess.run, mounts=None):
+    def __init__(self, target=MOUNTPOINT, runtime=RUNTIME, owner=0, run=subprocess.run, mounts=None, identifiers=None):
         self.target, self.runtime, self.owner, self.run = target, runtime, owner, run
         self.state = runtime / 'ownership.json'
         self.mounts = mounts or (lambda: Path('/proc/self/mountinfo').read_text())
+        self.identifiers = identifiers or kernel_mount_ids
 
     def current(self):
-        return mount_record(self.mounts(), self.target)
+        record = mount_record(self.mounts(), self.target)
+        if record is None:
+            return None
+        unique_id = self.identifiers().get(record['mount_id'])
+        if unique_id is None or mount_record(self.mounts(), self.target) != record:
+            raise ValueError('Mount identity changed during observation')
+        return dict(record, unique_id=unique_id)
 
     def load(self):
         try:
@@ -66,8 +106,9 @@ class SharedFolders:
                 raise ValueError('Unsafe HGFS ownership metadata')
             data = stream.read(4097)
         state = json.loads(data)
-        if (not isinstance(state, dict) or set(state) != {'mount_id', 'device', 'target', 'fstype', 'source'}
+        if (not isinstance(state, dict) or set(state) != {'mount_id', 'device', 'target', 'fstype', 'source', 'unique_id'}
                 or type(state['mount_id']) is not int or state['mount_id'] < 1
+                or type(state['unique_id']) is not int or not 0 < state['unique_id'] < 2**64
                 or not isinstance(state['device'], str) or not re.fullmatch(r'[0-9]+:[0-9]+', state['device'])
                 or state['target'] != str(self.target) or state['fstype'] != 'fuse.vmhgfs-fuse'
                 or state['source'] != 'vmhgfs-fuse'):
@@ -89,6 +130,7 @@ class SharedFolders:
             if actual != previous:
                 print('HGFS target already mounted; existing mount left unchanged')
             return
+        self.identifiers()  # Refuse unsupported kernels/tools before mounting.
         directory(self.target, self.owner)
         if previous:
             self.state.unlink()

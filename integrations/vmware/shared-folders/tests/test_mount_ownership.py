@@ -2,6 +2,7 @@
 """Exercise mount identity, foreign ownership and filesystem metadata boundaries."""
 import importlib.util
 import json
+from types import SimpleNamespace
 import os
 from pathlib import Path
 import stat
@@ -24,7 +25,9 @@ class MountOwnership(unittest.TestCase):
         self.runtime = root / 'runtime'
         self.runtime.mkdir(mode=0o700)
         self.text, self.commands = '', []
-        self.manager = module.SharedFolders(self.target, self.runtime, os.getuid(), self.native_command, lambda: self.text)
+        self.unique_id = 2147485000
+        self.manager = module.SharedFolders(self.target, self.runtime, os.getuid(), self.native_command, lambda: self.text,
+            lambda: {int(line.split()[0]): self.unique_id for line in self.text.splitlines()})
 
     def mount(self, identity=42, device='0:71', fstype='fuse.vmhgfs-fuse', source='vmhgfs-fuse'):
         return f'{identity} 1 {device} / {self.target} rw,nosuid,nodev - {fstype} {source} rw,user_id=0\n'
@@ -32,6 +35,7 @@ class MountOwnership(unittest.TestCase):
     def native_command(self, argv, **kwargs):
         self.commands.append(argv)
         if argv[0].endswith('/vmhgfs-fuse'):
+            self.unique_id += 1
             self.text = self.mount()
         elif argv[0].endswith('/umount'):
             self.text = ''
@@ -85,6 +89,41 @@ class MountOwnership(unittest.TestCase):
             self.assertEqual(self.commands, [])
             self.assertEqual(self.text, replacement)
             self.assertFalse(self.manager.state.exists())
+
+    def test_reused_old_id_and_device_do_not_own_a_replacement_fuse(self):
+        self.manager.start();self.commands.clear()
+        original = self.manager.load()
+        self.unique_id += 1  # New mount, same old ID/device/type/source.
+        self.assertNotEqual(original, self.manager.current())
+        self.manager.stop()
+        self.assertEqual(self.commands, [])
+        self.assertTrue(self.text)
+        self.assertFalse(self.manager.state.exists())
+
+    def test_missing_kernel_identity_fails_before_creating_a_mount(self):
+        def unsupported():raise OSError(38, 'listmount unavailable')
+        self.manager.identifiers = unsupported
+        with self.assertRaises(OSError):self.manager.start()
+        self.assertEqual(self.commands, [])
+        self.assertFalse(self.target.exists())
+
+    def test_kernel_identity_protocol_is_explicit_numeric_and_unambiguous(self):
+        def reader(record):
+            def command(argv, **kwargs):
+                self.assertIn('--kernel=listmount', argv)
+                self.assertEqual(argv[-1], 'ID,UNIQ-ID')
+                self.assertNotIn('--target', argv)
+                return SimpleNamespace(stdout=json.dumps(record))
+            return command
+        value={'filesystems':[{'id':42,'uniq-id':2147485000},{'id':'43','uniq-id':'2147485001'}]}
+        self.assertEqual(module.kernel_mount_ids(reader(value)), {42:2147485000,43:2147485001})
+        for bad in ({}, {'filesystems':[]}, {'filesystems':[{'id':42}]},
+                    {'filesystems':[{'id':True,'uniq-id':2147485000}]},
+                    {'filesystems':[{'id':42,'uniq-id':0}]},
+                    {'filesystems':[{'id':42,'uniq-id':2147485000}]*2},
+                    {'filesystems':[{'id':42,'uniq-id':2147485000},{'id':43,'uniq-id':2147485000}]}):
+            with self.subTest(record=bad), self.assertRaises(ValueError):
+                module.kernel_mount_ids(reader(bad))
 
     def test_stale_valid_metadata_allows_a_new_owned_mount(self):
         self.manager.start()
