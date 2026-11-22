@@ -214,3 +214,27 @@ registry metadata, discovers Ubuntu's private server through native package
 contents and runs without a host display, credentials or personal prefix.
 This does not establish pure win32-prefix compatibility on Ubuntu, prefix
 import/conversion, a new Wine engine or a complete joined current-HEAD desktop.
+
+
+### Optional native caption engine
+
+The reviewed LGPL Wine patch now fills enabled default child, tool and owned
+close buttons with a red square and white cross. It saves/restores the whole
+GDI DC state and leaves the native disabled-button path in place. Applications
+which paint custom captions and compositor-provided main frames are separate.
+No program-name rule, imported prefix or per-application registry option is used.
+
+All three native Wine source recipes now build karyo2, retaining matching Debian
+amd64/i386 source and epoch. Their coinstallation still proves all 88 shared
+libwine files identical. Debian13 and Ubuntu26.04 each pass eight runtime/menu
+stages, four real hidden-owner palette runs and PE32/PE64 caption pixel checks.
+The same frozen source/actor before/after verifies solid fill rather than only
+a red outline; default disabled and ordinary unowned buttons remain unchanged.
+The own QA fixtures are not installed in runtime packages. Native packaging
+retains Wine's LGPL notices and existing upstream test configuration.
+
+The pixel gate covers unpressed default buttons at the captured native metrics,
+not arbitrary themes, DPI, custom captions or physical GPUs. Rounding, caption
+metrics/icons, legacy import, real applications and complete installed-user
+upgrade remain separate. The runtime/menu launcher snapshot remains e782fb0;
+this engine acceptance is not a joined current-HEAD desktop installation.

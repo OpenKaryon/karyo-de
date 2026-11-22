@@ -22,13 +22,17 @@
     {
       "path": "../wine-patches/x11-popup-menu-type.patch",
       "sha256": "54207a770bba208440a00ac434a12e7a57db78643f4c24094cc16dfe250e1be6"
+    },
+    {
+      "path": "../wine-patches/owned-close-button.patch",
+      "sha256": "863af83b9d0ffa5488ea328b70e0af673d0ef684fc668ef9bed7492956b303e0"
     }
   ],
   "build": {
-    "revision": "karyo1",
+    "revision": "karyo2",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Identify generic standard Win32 menus as nonactivating X11 popup menus.",
+    "message": "Preserve popup menu semantics and draw solid close buttons for default owned captions.",
     "binaries": [
       "libwine",
       "wine",

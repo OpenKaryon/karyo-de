@@ -1,0 +1,56 @@
+Description: Draw a solid red close button for default child and owned captions
+Origin: vendor, reviewed adaptation of the Karyo prototype at 26bad17cef413d26c36c117f2f1123dca4edded7
+Forwarded: not-needed
+License: LGPL-2.1-or-later, like Wine dlls/win32u/defwnd.c
+
+--- a/dlls/win32u/defwnd.c
++++ b/dlls/win32u/defwnd.c
+@@ -1449,6 +1449,38 @@
+     return retval;
+ }
+ 
++/* Karyo: the default child/owned caption uses a solid close button. */
++static BOOL draw_owned_close_button( HDC hdc, const RECT *rect, BOOL down )
++{
++    int side = min( rect->right - rect->left, rect->bottom - rect->top );
++    int inset = max( 2, side / 4 );
++    int saved;
++    RECT square;
++    HBRUSH brush;
++
++    if (side < 6 || !(saved = NtGdiSaveDC( hdc ))) return FALSE;
++    if (!(brush = NtGdiCreateSolidBrush( down ? RGB( 164, 38, 25 ) : RGB( 196, 43, 28 ), NULL )))
++    {
++        NtGdiRestoreDC( hdc, saved );
++        return FALSE;
++    }
++    square.left = rect->left + (rect->right - rect->left - side) / 2;
++    square.top = rect->top + (rect->bottom - rect->top - side) / 2;
++    square.right = square.left + side;
++    square.bottom = square.top + side;
++    fill_rect( hdc, &square, brush );
++    NtGdiDeleteObjectApp( brush );
++
++    NtGdiSelectPen( hdc, GetStockObject( WHITE_PEN ));
++    NtGdiGetAndSetDCDword( hdc, NtGdiSetROP2, R2_COPYPEN, NULL );
++    NtGdiMoveTo( hdc, square.left + inset, square.top + inset, NULL );
++    NtGdiLineTo( hdc, square.right - inset, square.bottom - inset );
++    NtGdiMoveTo( hdc, square.right - inset - 1, square.top + inset, NULL );
++    NtGdiLineTo( hdc, square.left + inset - 1, square.bottom - inset );
++    NtGdiRestoreDC( hdc, saved );
++    return TRUE;
++}
++
+ static void draw_close_button( HWND hwnd, HDC hdc, BOOL down, BOOL grayed )
+ {
+     RECT rect;
+@@ -1480,6 +1512,9 @@
+         rect.right -= 2;
+     }
+ 
++    if (!grayed && ((style & WS_CHILD) || (ex_style & WS_EX_TOOLWINDOW) ||
++                    get_window_relative( hwnd, GW_OWNER )) &&
++        draw_owned_close_button( hdc, &rect, down )) return;
+     if (down) flags |= DFCS_PUSHED;
+     if (grayed) flags |= DFCS_INACTIVE;
+     draw_frame_caption( hdc, &rect, flags );

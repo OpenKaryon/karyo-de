@@ -548,8 +548,8 @@ is e3c20df0962946899b8ead8147a734342dd701fc001ddabc090255bc665bbe3a;
 its body was rechecked against that exact Git object. Changes to Wine-derived
 source retain LGPL-2.1-or-later, not this repository's own GPL-3.0-or-later default.
 Native Debian/Ubuntu source and binary packages retain their copyright files.
-The recipes preserve native control dependencies and packaging; only reviewed
-menu behavior is added. Generator data from a signed Ubuntu snapshot is confined
+The initial menu recipes preserve native control dependencies and packaging.
+The later reviewed caption addition is documented separately below. Generator data from a signed Ubuntu snapshot is confined
 to source/QA preparation and is not a foreign native-library runtime transplant.
 
 
@@ -589,3 +589,13 @@ is extended. Explicit owner classes remain authoritative; only verified missing
 classes may use labwc's same-PID visible-sibling fallback. Native packaging
 requires the matching karyo2 library; original packaging notices remain intact.
 The independent real-X11/Wine acceptance code stays GPL-3.0-or-later.
+
+
+The default owned/child caption close-button patch reviews the prototype's
+child-close-button.patch at donor26bad17cef413d26c36c117f2f1123dca4edded7,
+original SHA256 bf5a30f00d307ece05052f64e1037b9e7b59d157a66d9448fc982d0fd6dec586.
+The adaptation saves/restores the whole GDI DC state, forces copy-pen drawing
+and preserves the native disabled-button path. It retains LGPL-2.1-or-later
+like Wine's defwnd.c; native package copyright remains authoritative. New C
+caption pixel probes and Python actors are own GPL-3.0-or-later QA, not runtime
+payloads or third-party application resources.
