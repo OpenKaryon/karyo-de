@@ -1,0 +1,2735 @@
+diff --git a/src/external/cocotron/CoreText/CMakeLists.txt b/src/external/cocotron/CoreText/CMakeLists.txt
+--- a/src/external/cocotron/CoreText/CMakeLists.txt
++++ b/src/external/cocotron/CoreText/CMakeLists.txt
+@@ -58,4 +58,5 @@
+ 		Onyx2D
+ 		# native
+ 		FreeType
++		fontconfig
+ )
+diff --git a/src/external/cocotron/CoreText/CTFont.m b/src/external/cocotron/CoreText/CTFont.m
+--- a/src/external/cocotron/CoreText/CTFont.m
++++ b/src/external/cocotron/CoreText/CTFont.m
+@@ -20,6 +20,21 @@
+ #import <CoreText/CTFont.h>
+ #import <CoreText/CoreText.h>
+ #import <CoreText/KTFont.h>
++#import <Foundation/Foundation.h>
++#import <CoreFoundation/CFRuntime.h>
++#import <Onyx2D/O2Font_freetype.h>
++#import "CTFontDescriptorInternal.h"
++#include FT_SFNT_NAMES_H
++#include FT_TRUETYPE_IDS_H
++#include FT_TRUETYPE_TABLES_H
++#include <fontconfig/fcfreetype.h>
++#include <pthread.h>
++#include <stdint.h>
++#include <limits.h>
++#include <stdlib.h>
++#include <string.h>
++#include <math.h>
++
+ 
+ const CFStringRef kCTFontCopyrightNameKey = CFSTR("CTFontCopyrightName");
+ const CFStringRef kCTFontFamilyNameKey = CFSTR("CTFontFamilyName");
+@@ -58,362 +73,671 @@
+ const CFStringRef kCTFontFeatureSampleTextKey = CFSTR("CTFeatureSampleText");
+ const CFStringRef kCTFontFeatureTooltipTextKey = CFSTR("CTFeatureTooltipText");
+ 
+-CTFontRef CTFontCreateWithName(CFStringRef name, CGFloat size, const CGAffineTransform *matrix)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CTFontRef CTFontCreateWithNameAndOptions(CFStringRef name, CGFloat size,
+-                                         const CGAffineTransform *matrix,
+-                                         CTFontOptions options)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CTFontRef CTFontCreateWithFontDescriptor(CTFontDescriptorRef descriptor, CGFloat size,
+-                                         const CGAffineTransform *matrix)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
++/* The font storage is an Objective-C KTFont; its _cfTypeID method uses this
++ * registered CF type. Ordinary object retain/release remains the owning path. */
++static CFTypeID fontType;
++static pthread_once_t fontOnce = PTHREAD_ONCE_INIT;
++static void registerFontType(void) {
++    static const CFRuntimeClass fontClass = { .version = 0, .className = "CTFont" };
++    fontType = _CFRuntimeRegisterClass(&fontClass);
++}
++CFTypeID CTFontGetTypeID(void) { pthread_once(&fontOnce, registerFontType); return fontType; }
++
++static O2Font_freetype *graphicsFont(CTFontRef font) {
++    return font ? (O2Font_freetype *)[(KTFont *)font graphicsFont] : nil;
++}
++static const CFStringRef graphicsFontAttribute = CFSTR("OpenKaryonGraphicsFont");
++
++static double numericValue(CFTypeRef value, double fallback) {
++    double result;
++    return value && CFGetTypeID(value) == CFNumberGetTypeID() &&
++        CFNumberGetValue(value, kCFNumberDoubleType, &result) && isfinite(result) ? result : fallback;
++}
++static void putNumber(CFMutableDictionaryRef attrs, CFStringRef key, double value) {
++    CFNumberRef number = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &value);
++    if (number) { CFDictionarySetValue(attrs, key, number); CFRelease(number); }
++}
++static void putUTF8(CFMutableDictionaryRef attrs, CFStringRef key, const char *value) {
++    CFStringRef string = value ? CFStringCreateWithCString(kCFAllocatorDefault, value, kCFStringEncodingUTF8) : NULL;
++    if (string) { CFDictionarySetValue(attrs, key, string); CFRelease(string); }
++}
++static CGAffineTransform descriptorMatrix(CFDictionaryRef attrs, const CGAffineTransform *override) {
++    CGAffineTransform matrix = CGAffineTransformIdentity;
++    if (override) matrix = *override;
++    else if (attrs) {
++        CFTypeRef value = CFDictionaryGetValue(attrs, kCTFontMatrixAttribute);
++        if (value && CFGetTypeID(value) == CFDataGetTypeID() && CFDataGetLength(value) == sizeof(matrix))
++            memcpy(&matrix, CFDataGetBytePtr(value), sizeof(matrix));
++    }
++    if (!isfinite(matrix.a) || !isfinite(matrix.b) || !isfinite(matrix.c) || !isfinite(matrix.d))
++        matrix = CGAffineTransformIdentity;
++    /* kCTFontMatrixAttribute only uses the four linear fields (Apple SDK 11.3). */
++    if (!override) matrix.tx = matrix.ty = 0;
++    return matrix;
++}
++static CGFloat descriptorSize(CFDictionaryRef attrs, CGFloat override) {
++    double size = override != 0 ? override : attrs ?
++        numericValue(CFDictionaryGetValue(attrs, kCTFontSizeAttribute), 12) : 12;
++    return isfinite(size) && size > 0 ? size : 12;
++}
++
++static CFStringRef copySFNTName(FT_Face face, FT_UShort nameID) {
++    CFStringRef first = NULL;
++    for (FT_UInt i = 0, count = FT_Get_Sfnt_Name_Count(face); i < count; i++) {
++        FT_SfntName entry;
++        if (FT_Get_Sfnt_Name(face, i, &entry) || entry.name_id != nameID || !entry.string_len) continue;
++        CFStringEncoding encoding;
++        if (entry.platform_id == TT_PLATFORM_APPLE_UNICODE || entry.platform_id == TT_PLATFORM_MICROSOFT)
++            encoding = kCFStringEncodingUTF16BE;
++        else if (entry.platform_id == TT_PLATFORM_MACINTOSH && entry.encoding_id == TT_MAC_ID_ROMAN)
++            encoding = kCFStringEncodingMacRoman;
++        else continue;
++        CFStringRef value = CFStringCreateWithBytes(kCFAllocatorDefault, entry.string,
++            entry.string_len, encoding, false);
++        if (!value) continue;
++        Boolean english = (entry.platform_id == TT_PLATFORM_MICROSOFT && entry.language_id == 0x409) ||
++            (entry.platform_id == TT_PLATFORM_MACINTOSH && entry.language_id == 0);
++        if (english) { if (first) CFRelease(first); return value; }
++        if (!first) first = value; else CFRelease(value);
++    }
++    return first;
++}
++static CFCharacterSetRef copyFaceCharacterSet(FT_Face face) {
++    CFMutableCharacterSetRef characters = CFCharacterSetCreateMutable(kCFAllocatorDefault);
++    if (!characters) return NULL;
++    FT_UInt glyph;
++    for (FT_ULong character = FT_Get_First_Char(face, &glyph); glyph;
++         character = FT_Get_Next_Char(face, character, &glyph))
++        if (character <= 0x10ffff) CFCharacterSetAddCharactersInRange(characters, CFRangeMake(character, 1));
++    CFCharacterSetRef result = CFCharacterSetCreateCopy(kCFAllocatorDefault, characters);
++    CFRelease(characters);
++    return result;
++}
++static void copyActualAttribute(const void *key, const void *value, void *context) {
++    CFDictionarySetValue(context, key, value);
++}
++static void removeFaceIdentity(CFMutableDictionaryRef attrs, Boolean removeFamily) {
++    const CFStringRef keys[] = { kCTFontNameAttribute, kCTFontDisplayNameAttribute, kCTFontStyleNameAttribute,
++        kCTFontURLAttribute, _KTFontFaceIndexAttribute, kCTFontCharacterSetAttribute, kCTFontLanguagesAttribute,
++        kCTFontFormatAttribute, kCTFontEnabledAttribute };
++    for (unsigned i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) CFDictionaryRemoveValue(attrs, keys[i]);
++    CFDictionaryRemoveValue(attrs, graphicsFontAttribute);
++    if (removeFamily) CFDictionaryRemoveValue(attrs, kCTFontFamilyNameAttribute);
++}
++
++static CTFontDescriptorRef descriptorForGraphicsFont(O2Font_freetype *graphics, CGFloat size,
++                                                    CGAffineTransform matrix,
++                                                    CTFontDescriptorRef requested) {
++    CFDictionaryRef requestedAttrs = requested ? CTFontDescriptorCopyAttributes(requested) : NULL;
++    CFMutableDictionaryRef attrs = requestedAttrs ? CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, requestedAttrs) :
++        CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++    if (requestedAttrs) CFRelease(requestedAttrs);
++    if (!attrs) return NULL;
++    removeFaceIdentity(attrs, true);
++    CFDictionaryRemoveValue(attrs, kCTFontTraitsAttribute);
++    @synchronized(graphics) {
++        FT_Face face = [graphics face];
++        if (!face) { CFRelease(attrs); return NULL; }
++        NSString *filename = [graphics fontFilename];
++        if (filename) {
++            int count = 0;
++            FcPattern *pattern = FcFreeTypeQuery((const FcChar8 *)[filename UTF8String],
++                (unsigned int)[graphics fontFaceIndex], NULL, &count);
++            CTFontDescriptorRef actual = pattern ? _KTFontDescriptorCreateFromFontConfigPattern(pattern) : NULL;
++            CFDictionaryRef actualAttrs = actual ? CTFontDescriptorCopyAttributes(actual) : NULL;
++            if (actualAttrs) {
++                CFDictionaryApplyFunction(actualAttrs, copyActualAttribute, attrs);
++                CFRelease(actualAttrs);
++            }
++            if (actual) CFRelease(actual);
++            if (pattern) FcPatternDestroy(pattern);
++            if (!CFDictionaryContainsKey(attrs, kCTFontURLAttribute)) {
++                CFStringRef path = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
++                    CFSTR("/Volumes/SystemRoot%@"), (CFStringRef)filename);
++                CFURLRef url = path ? CFURLCreateWithFileSystemPath(kCFAllocatorDefault, path, kCFURLPOSIXPathStyle, false) : NULL;
++                if (url) { CFDictionarySetValue(attrs, kCTFontURLAttribute, url); CFRelease(url); }
++                if (path) CFRelease(path);
++                NSInteger index = [graphics fontFaceIndex];
++                CFNumberRef n = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &index);
++                if (n) { CFDictionarySetValue(attrs, _KTFontFaceIndexAttribute, n); CFRelease(n); }
++            }
++        }
++        /* These fields come from the face actually opened, not the requested alias. */
++        putUTF8(attrs, kCTFontNameAttribute, FT_Get_Postscript_Name(face));
++        if (!CFDictionaryContainsKey(attrs, kCTFontFamilyNameAttribute)) putUTF8(attrs, kCTFontFamilyNameAttribute, face->family_name);
++        if (!CFDictionaryContainsKey(attrs, kCTFontStyleNameAttribute)) putUTF8(attrs, kCTFontStyleNameAttribute, face->style_name);
++        CFStringRef fullName = copySFNTName(face, 4);
++        if (fullName) { CFDictionarySetValue(attrs, kCTFontDisplayNameAttribute, fullName); CFRelease(fullName); }
++        if (!CFDictionaryContainsKey(attrs, kCTFontTraitsAttribute)) {
++            CFMutableDictionaryRef traits = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
++                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++            if (traits) {
++                uint32_t bits = 0;
++                if (face->style_flags & FT_STYLE_FLAG_BOLD) bits |= kCTFontTraitBold;
++                if (face->style_flags & FT_STYLE_FLAG_ITALIC) bits |= kCTFontTraitItalic;
++                if (FT_IS_FIXED_WIDTH(face)) bits |= kCTFontTraitMonoSpace;
++                TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
++                double width = os2 && os2->usWidthClass ? ((int)os2->usWidthClass - 5) / 4.0 : 0;
++                if (width > 0) bits |= kCTFontTraitExpanded;
++                if (width < 0) bits |= kCTFontTraitCondensed;
++                double weight = face->style_flags & FT_STYLE_FLAG_BOLD ? .4 : 0;
++                if (os2 && os2->usWeightClass) {
++                    unsigned w = os2->usWeightClass;
++                    weight = w <= 100 ? -.8 : w <= 200 ? -.6 : w <= 300 ? -.4 : w <= 400 ? 0 :
++                        w <= 500 ? .23 : w <= 600 ? .3 : w <= 700 ? .4 : w <= 800 ? .56 : .62;
++                }
++                CFNumberRef symbolic = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &bits);
++                if (symbolic) { CFDictionarySetValue(traits, kCTFontSymbolicTrait, symbolic); CFRelease(symbolic); }
++                putNumber(traits, kCTFontWeightTrait, weight); putNumber(traits, kCTFontWidthTrait, width);
++                putNumber(traits, kCTFontSlantTrait, face->style_flags & FT_STYLE_FLAG_ITALIC ? .2 : 0);
++                CFDictionaryRef immutable = CFDictionaryCreateCopy(kCFAllocatorDefault, traits);
++                if (immutable) { CFDictionarySetValue(attrs, kCTFontTraitsAttribute, immutable); CFRelease(immutable); }
++                CFRelease(traits);
++            }
++        }
++        if (!CFDictionaryContainsKey(attrs, kCTFontCharacterSetAttribute)) {
++            CFCharacterSetRef charset = copyFaceCharacterSet(face);
++            if (charset) { CFDictionarySetValue(attrs, kCTFontCharacterSetAttribute, charset); CFRelease(charset); }
++        }
++        /* A memory-provider face has no fictitious filename or registration claim.
++         * Retain the actual graphics object to support normalized in-process round trips. */
++        if (!filename) CFDictionarySetValue(attrs, graphicsFontAttribute, graphics);
++    }
++    putNumber(attrs, kCTFontSizeAttribute, size);
++    CFDataRef matrixData = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)&matrix, sizeof(matrix));
++    if (matrixData) { CFDictionarySetValue(attrs, kCTFontMatrixAttribute, matrixData); CFRelease(matrixData); }
++    CTFontDescriptorRef result = _KTFontDescriptorCreateWithAttributes(attrs, true);
++    CFRelease(attrs);
++    return result;
++}
++static Boolean installDescriptor(CTFontRef font, CTFontDescriptorRef requested) {
++    if (!font) return false;
++    CTFontDescriptorRef descriptor = descriptorForGraphicsFont(graphicsFont(font), [(KTFont *)font pointSize],
++        [(KTFont *)font fontMatrix], requested);
++    if (!descriptor) return false;
++    [(KTFont *)font setFontDescriptor:descriptor]; CFRelease(descriptor);
++    return true;
++}
++static CTFontRef createWithGraphics(CGFontRef graphics, CGFloat size, const CGAffineTransform *matrix,
++                                    CTFontDescriptorRef requested) {
++    CTFontRef font = (CTFontRef)[[KTFont alloc] initWithFont:graphics size:size matrix:matrix descriptor:NULL];
++    if (font && !installDescriptor(font, requested)) { [(KTFont *)font release]; return NULL; }
++    return font;
++}
++static O2Font_freetype *openDescriptorFile(CFDictionaryRef attrs) {
++    CFTypeRef url = attrs ? CFDictionaryGetValue(attrs, kCTFontURLAttribute) : NULL;
++    if (!url || CFGetTypeID(url) != CFURLGetTypeID()) return nil;
++    CFStringRef scheme = CFURLCopyScheme(url);
++    Boolean file = scheme && CFEqual(scheme, CFSTR("file"));
++    if (scheme) CFRelease(scheme);
++    if (!file) return nil;
++    CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
++    NSString *filename = (NSString *)path;
++    NSString *prefix = @"/Volumes/SystemRoot";
++    if ([filename hasPrefix:@"/Volumes/SystemRoot/"]) filename = [filename substringFromIndex:[prefix length]];
++    NSInteger index = (NSInteger)numericValue(CFDictionaryGetValue(attrs, _KTFontFaceIndexAttribute), 0);
++    O2Font_freetype *graphics = path ? [[O2Font_freetype alloc] initWithFontFilename:filename faceIndex:index] : nil;
++    if (path) CFRelease(path);
++    return graphics;
++}
++
++CTFontRef CTFontCreateWithName(CFStringRef name, CGFloat size, const CGAffineTransform *matrix) {
++    CTFontDescriptorRef descriptor = CTFontDescriptorCreateWithNameAndSize(name, size);
++    CTFontRef font = descriptor ? CTFontCreateWithFontDescriptor(descriptor, size, matrix) : NULL;
++    if (descriptor) CFRelease(descriptor);
++    return font;
++}
++CTFontRef CTFontCreateWithNameAndOptions(CFStringRef name, CGFloat size, const CGAffineTransform *matrix, CTFontOptions options) {
++    /* This backend only uses installed/local fonts; it has no activation or download side effects. */
++    (void)options; return CTFontCreateWithName(name, size, matrix);
++}
++CTFontRef CTFontCreateWithFontDescriptor(CTFontDescriptorRef descriptor, CGFloat size, const CGAffineTransform *matrix) {
++    CFDictionaryRef attrs = descriptor ? CTFontDescriptorCopyAttributes(descriptor) : NULL;
++    if (!attrs) return NULL;
++    CGFloat pointSize = descriptorSize(attrs, size);
++    CGAffineTransform transform = descriptorMatrix(attrs, matrix);
++    CFTypeRef embedded = CFDictionaryGetValue(attrs, graphicsFontAttribute);
++    O2Font_freetype *graphics = embedded && [(id)embedded isKindOfClass:[O2Font_freetype class]] ?
++        [(O2Font_freetype *)embedded retain] : openDescriptorFile(attrs);
++    CTFontDescriptorRef matched = NULL;
++    if (!graphics) {
++        matched = CTFontDescriptorCreateMatchingFontDescriptor(descriptor, NULL);
++        CFDictionaryRef matchAttrs = matched ? CTFontDescriptorCopyAttributes(matched) : NULL;
++        if (matchAttrs) { graphics = openDescriptorFile(matchAttrs); CFRelease(matchAttrs); }
++    }
++    CTFontRef font = graphics ? createWithGraphics((CGFontRef)graphics, pointSize, &transform, descriptor) : NULL;
++    [graphics release];
++    if (matched) CFRelease(matched);
++    CFRelease(attrs);
++    return font;
++}
+ CTFontRef CTFontCreateWithFontDescriptorAndOptions(CTFontDescriptorRef descriptor, CGFloat size,
+-                                                   const CGAffineTransform *matrix,
+-                                                   CTFontOptions options)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CTFontRef CTFontCreateUIFontForLanguage(CTFontUIFontType uiFontType,
+-                                        CGFloat size, CFStringRef language)
+-{
+-    return (CTFontRef)[[KTFont alloc] initWithUIFontType: uiFontType
+-                                         size: size
+-                                     language: (NSString*)language];
+-}
+-
+-CTFontRef CTFontCreateCopyWithAttributes(CTFontRef font, CGFloat size,
+-                                         const CGAffineTransform *matrix,
+-                                         CTFontDescriptorRef attributes)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CTFontRef CTFontCreateCopyWithSymbolicTraits(CTFontRef font, CGFloat size,
+-                                             const CGAffineTransform *matrix,
+-                                             CTFontSymbolicTraits symTraitValue, 
+-                                             CTFontSymbolicTraits symTraitMask)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CTFontRef CTFontCreateCopyWithFamily(CTFontRef font, CGFloat size,
+-                                     const CGAffineTransform *matrix, CFStringRef family)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CTFontRef CTFontCreateForString(CTFontRef currentFont, CFStringRef string, CFRange range)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CTFontRef CTFontCreateForStringWithLanguage(CTFontRef currentFont, CFStringRef string,
+-                                            CFRange range, CFStringRef language)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CTFontDescriptorRef CTFontCopyFontDescriptor(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFTypeRef CTFontCopyAttribute(CTFontRef font, CFStringRef attribute)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CGFloat CTFontGetSize(CTFontRef self) {
+-    return [self pointSize];
+-}
+-
+-CGAffineTransform CTFontGetMatrix(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return CGAffineTransformIdentity;
+-}
+-
+-CTFontSymbolicTraits CTFontGetSymbolicTraits(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return kCTFontTraitItalic;
+-}
+-
+-CFDictionaryRef CTFontCopyTraits(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFArrayRef CTFontCopyDefaultCascadeListForLanguages(CTFontRef font, CFArrayRef languagePrefList)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFStringRef CTFontCopyPostScriptName(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFStringRef CTFontCopyFamilyName(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFStringRef CTFontCopyFullName(CTFontRef self) {
+-    return [self copyName];
+-}
+-
+-CFStringRef CTFontCopyDisplayName(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFStringRef _Nullable CTFontCopyName(CTFontRef font, CFStringRef nameKey)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFStringRef CTFontCopyLocalizedName(CTFontRef font, CFStringRef nameKey,
+-                                    CFStringRef  _Nullable *actualLanguage)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFCharacterSetRef CTFontCopyCharacterSet(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFStringEncoding CTFontGetStringEncoding(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return CFStringGetSystemEncoding();
+-}
+-
+-CFArrayRef CTFontCopySupportedLanguages(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CGFloat CTFontGetAscent(CTFontRef self) {
+-    return [self ascender];
+-}
+-
+-CGFloat CTFontGetDescent(CTFontRef self) {
+-    return [self descender];
+-}
+-
+-CGFloat CTFontGetLeading(CTFontRef self) {
+-    return [self leading];
+-}
+-
+-unsigned int CTFontGetUnitsPerEm(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return 0;
+-}
+-
+-CFIndex CTFontGetGlyphCount(CTFontRef font) {
+-    return [font numberOfGlyphs];
+-}
+-
+-CGRect CTFontGetBoundingBox(CTFontRef self) {
+-    return [self boundingRect];
+-}
+-
+-CGFloat CTFontGetUnderlinePosition(CTFontRef self) {
+-    return [self underlinePosition];
+-}
+-
+-CGFloat CTFontGetUnderlineThickness(CTFontRef self) {
+-    return [self underlineThickness];
+-}
+-
+-CGFloat CTFontGetSlantAngle(CTFontRef self) {
+-    return [self italicAngle];
+-}
+-
+-CGFloat CTFontGetCapHeight(CTFontRef self) {
+-    return [self capHeight];
+-}
+-
+-CGFloat CTFontGetXHeight(CTFontRef self) {
+-    return [self xHeight];
+-}
+-
+-CGPathRef CTFontCreatePathForGlyph(CTFontRef self, CGGlyph glyph,
+-                                   CGAffineTransform *xform)
+-{
+-    return (CGPathRef) [self createPathForGlyph: glyph transform: xform];
+-}
+-
+-CGGlyph CTFontGetGlyphWithName(CTFontRef font, CFStringRef glyphName)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return CGNullGlyph;
+-}
+-
++                                                const CGAffineTransform *matrix, CTFontOptions options) {
++    (void)options; return CTFontCreateWithFontDescriptor(descriptor, size, matrix);
++}
++CTFontRef CTFontCreateUIFontForLanguage(CTFontUIFontType uiFontType, CGFloat size, CFStringRef language) {
++    CTFontRef font = (CTFontRef)[[KTFont alloc] initWithUIFontType:uiFontType size:size language:(NSString *)language];
++    if (font && !installDescriptor(font, NULL)) { [(KTFont *)font release]; return NULL; }
++    return font;
++}
++
++CTFontDescriptorRef CTFontCopyFontDescriptor(CTFontRef font) {
++    if (!font) return NULL;
++    @synchronized((id)font) {
++        CTFontDescriptorRef descriptor = [(KTFont *)font fontDescriptor];
++        if (!descriptor && installDescriptor(font, NULL)) descriptor = [(KTFont *)font fontDescriptor];
++        return descriptor ? (CTFontDescriptorRef)CFRetain(descriptor) : NULL;
++    }
++}
++CFTypeRef CTFontCopyAttribute(CTFontRef font, CFStringRef attribute) {
++    CTFontDescriptorRef descriptor = CTFontCopyFontDescriptor(font);
++    CFTypeRef result = descriptor ? CTFontDescriptorCopyAttribute(descriptor, attribute) : NULL;
++    if (descriptor) CFRelease(descriptor);
++    return result;
++}
++CGFloat CTFontGetSize(CTFontRef font) { return font ? [(KTFont *)font pointSize] : 0; }
++CGAffineTransform CTFontGetMatrix(CTFontRef font) { return font ? [(KTFont *)font fontMatrix] : CGAffineTransformIdentity; }
++CTFontSymbolicTraits CTFontGetSymbolicTraits(CTFontRef font) {
++    CFDictionaryRef traits = CTFontCopyTraits(font);
++    uint32_t symbolic = traits ? (uint32_t)numericValue(CFDictionaryGetValue(traits, kCTFontSymbolicTrait), 0) : 0;
++    if (traits) CFRelease(traits);
++    return symbolic;
++}
++CFDictionaryRef CTFontCopyTraits(CTFontRef font) { return (CFDictionaryRef)CTFontCopyAttribute(font, kCTFontTraitsAttribute); }
++CFStringRef CTFontCopyPostScriptName(CTFontRef font) { return (CFStringRef)CTFontCopyAttribute(font, kCTFontNameAttribute); }
++CFStringRef CTFontCopyFamilyName(CTFontRef font) { return (CFStringRef)CTFontCopyAttribute(font, kCTFontFamilyNameAttribute); }
++CFStringRef CTFontCopyFullName(CTFontRef font) { return (CFStringRef)CTFontCopyAttribute(font, kCTFontDisplayNameAttribute); }
++CFStringRef CTFontCopyDisplayName(CTFontRef font) { return CTFontCopyFullName(font); }
++CFStringRef CTFontCopyName(CTFontRef font, CFStringRef key) {
++    if (!font || !key) return NULL;
++    if (CFEqual(key, kCTFontPostScriptNameKey)) return CTFontCopyPostScriptName(font);
++    if (CFEqual(key, kCTFontFamilyNameKey)) return CTFontCopyFamilyName(font);
++    if (CFEqual(key, kCTFontFullNameKey)) return CTFontCopyFullName(font);
++    const CFStringRef keys[] = { kCTFontCopyrightNameKey, kCTFontSubFamilyNameKey, kCTFontUniqueNameKey,
++        kCTFontVersionNameKey, kCTFontTrademarkNameKey, kCTFontManufacturerNameKey, kCTFontDesignerNameKey,
++        kCTFontDescriptionNameKey, kCTFontVendorURLNameKey, kCTFontDesignerURLNameKey, kCTFontLicenseNameKey,
++        kCTFontLicenseURLNameKey, kCTFontSampleTextNameKey, kCTFontPostScriptCIDNameKey };
++    const FT_UShort identifiers[] = {0,2,3,5,7,8,9,10,11,12,13,14,19,20};
++    O2Font_freetype *graphics = graphicsFont(font);
++    for (unsigned i = 0; i < sizeof(keys) / sizeof(keys[0]); i++) if (CFEqual(key, keys[i])) {
++        @synchronized(graphics) { return copySFNTName([graphics face], identifiers[i]); }
++    }
++    return NULL;
++}
++CFStringRef CTFontCopyLocalizedName(CTFontRef font, CFStringRef nameKey, CFStringRef *actualLanguage) {
++    /* Selected SFNT name is retained; no language is invented for a fallback name. */
++    if (actualLanguage) *actualLanguage = NULL;
++    return CTFontCopyName(font, nameKey);
++}
++CFCharacterSetRef CTFontCopyCharacterSet(CTFontRef font) { return (CFCharacterSetRef)CTFontCopyAttribute(font, kCTFontCharacterSetAttribute); }
++CFStringEncoding CTFontGetStringEncoding(CTFontRef font) { (void)font; return kCFStringEncodingUnicode; }
++CFArrayRef CTFontCopySupportedLanguages(CTFontRef font) {
++    return (CFArrayRef)CTFontCopyAttribute(font, kCTFontLanguagesAttribute);
++}
++CGFloat CTFontGetAscent(CTFontRef font) { return font ? [(KTFont *)font ascender] : 0; }
++CGFloat CTFontGetDescent(CTFontRef font) { return font ? [(KTFont *)font descender] : 0; }
++CGFloat CTFontGetLeading(CTFontRef font) { return font ? [(KTFont *)font leading] : 0; }
++unsigned int CTFontGetUnitsPerEm(CTFontRef font) { return font ? (unsigned int)[(KTFont *)font unitsPerEm] : 0; }
++CFIndex CTFontGetGlyphCount(CTFontRef font) { return font ? [(KTFont *)font numberOfGlyphs] : 0; }
++CGRect CTFontGetBoundingBox(CTFontRef font) { return font ? [(KTFont *)font boundingRect] : CGRectZero; }
++CGFloat CTFontGetUnderlinePosition(CTFontRef font) { return font ? [(KTFont *)font underlinePosition] : 0; }
++CGFloat CTFontGetUnderlineThickness(CTFontRef font) { return font ? [(KTFont *)font underlineThickness] : 0; }
++CGFloat CTFontGetSlantAngle(CTFontRef font) { return font ? [(KTFont *)font italicAngle] : 0; }
++CGFloat CTFontGetCapHeight(CTFontRef font) { return font ? [(KTFont *)font capHeight] : 0; }
++CGFloat CTFontGetXHeight(CTFontRef font) { return font ? [(KTFont *)font xHeight] : 0; }
++
++CGPathRef CTFontCreatePathForGlyph(CTFontRef font, CGGlyph glyph, CGAffineTransform *transform) {
++    return font ? [(KTFont *)font createPathForGlyph:glyph transform:transform] : NULL;
++}
++CGGlyph CTFontGetGlyphWithName(CTFontRef font, CFStringRef glyphName) {
++    if (!font || !glyphName || CFGetTypeID(glyphName) != CFStringGetTypeID()) return 0;
++    O2Font_freetype *graphics = graphicsFont(font);
++    @synchronized(graphics) { return [graphics glyphWithGlyphName:(NSString *)glyphName]; }
++}
+ CGRect CTFontGetBoundingRectsForGlyphs(CTFontRef font, CTFontOrientation orientation,
+-                                       const CGGlyph *glyphs, CGRect *boundingRects,
+-                                       CFIndex count)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return CGRectMake(0, 0, 0, 0);
+-}
+-
++                                     const CGGlyph *glyphs, CGRect *boundingRects, CFIndex count) {
++    (void)orientation;
++    if (!font || count <= 0 || !glyphs) return CGRectZero;
++    return [(KTFont *)font getBoundingRects:boundingRects forGlyphs:glyphs count:(NSUInteger)count];
++}
+ double CTFontGetAdvancesForGlyphs(CTFontRef font, CTFontOrientation orientation,
+-                                const CGGlyph *glyphs, CGSize *advances,
+-                                CFIndex count)
+-{
+-    [font getAdvancements: advances forGlyphs: glyphs count: count];
+-
+-    double sum;
+-
+-    for (int i = 0; i < count; i++) {
+-        sum += advances[i].width;
+-    }
+-
++                                 const CGGlyph *glyphs, CGSize *advances, CFIndex count) {
++    if (!font || count <= 0 || !glyphs || (uint64_t)count > SIZE_MAX / sizeof(CGSize)) return 0;
++    CGSize *buffer = advances ? advances : malloc(sizeof(CGSize) * (size_t)count);
++    if (!buffer) return 0;
++    double sum = 0;
++    if (orientation != kCTFontOrientationVertical) {
++        [(KTFont *)font getAdvancements:buffer forGlyphs:glyphs count:(NSUInteger)count];
++        for (CFIndex i = 0; i < count; i++) sum += buffer[i].width;
++    } else {
++        O2Font_freetype *graphics = graphicsFont(font);
++        @synchronized(graphics) {
++            FT_Face face = [graphics face];
++            double scale = [(KTFont *)font pointSize] / [(KTFont *)font unitsPerEm];
++            CGAffineTransform matrix = [(KTFont *)font fontMatrix];
++            for (CFIndex i = 0; i < count; i++) {
++                double advance = FT_Load_Glyph(face, glyphs[i], FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING |
++                    FT_LOAD_IGNORE_TRANSFORM | FT_LOAD_VERTICAL_LAYOUT) == 0 ? face->glyph->metrics.vertAdvance * scale : 0;
++                buffer[i] = CGSizeMake(advance * matrix.c, advance * matrix.d);
++                sum += buffer[i].height;
++            }
++        }
++    }
++    if (!advances) free(buffer);
+     return sum;
+ }
+-
+-CGRect CTFontGetOpticalBoundsForGlyphs(CTFontRef font, const CGGlyph *glyphs,
+-                                       CGRect *boundingRects, CFIndex count,
+-                                       CFOptionFlags options)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return CGRectMake(0, 0, 0, 0);
+-}
+-
+-void CTFontGetVerticalTranslationsForGlyphs(CTFontRef font, const CGGlyph *glyphs,
+-                                            CGSize *translations, CFIndex count)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-}
+-
+-CFArrayRef CTFontCopyVariationAxes(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFDictionaryRef CTFontCopyVariation(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFArrayRef CTFontCopyFeatures(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFArrayRef CTFontCopyFeatureSettings(CTFontRef font)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-bool CTFontGetGlyphsForCharacters(CTFontRef font, const UniChar *characters,
+-                                  CGGlyph *glyphs, CFIndex count)
+-{
+-    [font getGlyphs: glyphs forCharacters: characters length: count];
+-    // FIXME: change getGlyphs: to return a BOOL
+-    return YES;
+-}
+-
+-void CTFontDrawGlyphs(CTFontRef font, const CGGlyph *glyphs, const CGPoint *positions,
+-                      size_t count, CGContextRef context)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-}
+-
+-CFIndex CTFontGetLigatureCaretPositions(CTFontRef font, CGGlyph glyph, CGFloat *positions,
+-                                        CFIndex maxPositions)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return -1;
+-}
+-
+-CGFontRef CTFontCopyGraphicsFont(CTFontRef font, CTFontDescriptorRef _Nullable *attributes)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CTFontRef
+-CTFontCreateWithGraphicsFont(CGFontRef cgFont, CGFloat size,
+-                             CGAffineTransform *xform,
+-                             CTFontDescriptorRef attributes)
+-{
+-    return (CTFontRef)[[KTFont alloc] initWithFont: cgFont size: size];
+-}
+-
+-ATSFontRef CTFontGetPlatformFont(CTFontRef font, CTFontDescriptorRef  _Nullable *attributes)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return 0;
+-}
+-
++CGRect CTFontGetOpticalBoundsForGlyphs(CTFontRef font, const CGGlyph *glyphs, CGRect *boundingRects,
++                                     CFIndex count, CFOptionFlags options) {
++    (void)options;
++    if (!font || !glyphs || count <= 0) return CGRectZero;
++    /* No optical-bound table backend yet: use the documented typographic fallback. */
++    CGRect total = CGRectNull;
++    double ascent = CTFontGetAscent(font), descent = CTFontGetDescent(font);
++    for (CFIndex i = 0; i < count; i++) {
++        CGSize advance;
++        CTFontGetAdvancesForGlyphs(font, kCTFontOrientationHorizontal, &glyphs[i], &advance, 1);
++        CGRect rect = CGRectMake(0, -descent, advance.width, ascent + descent);
++        if (boundingRects) boundingRects[i] = rect;
++        total = CGRectUnion(total, rect);
++    }
++    return total;
++}
++void CTFontGetVerticalTranslationsForGlyphs(CTFontRef font, const CGGlyph *glyphs, CGSize *translations, CFIndex count) {
++    if (!font || !glyphs || !translations || count <= 0) return;
++    O2Font_freetype *graphics = graphicsFont(font);
++    @synchronized(graphics) {
++        FT_Face face = [graphics face];
++        double scale = [(KTFont *)font pointSize] / [(KTFont *)font unitsPerEm];
++        CGAffineTransform matrix = [(KTFont *)font fontMatrix];
++        for (CFIndex i = 0; i < count; i++) {
++            double x = 0, y = 0;
++            if (FT_Load_Glyph(face, glyphs[i], FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING | FT_LOAD_IGNORE_TRANSFORM) == 0) {
++                x = face->glyph->metrics.horiBearingX - face->glyph->metrics.vertBearingX;
++                y = face->glyph->metrics.horiBearingY + face->glyph->metrics.vertBearingY;
++            }
++            translations[i] = CGSizeMake(scale * (x * matrix.a + y * matrix.c),
++                scale * (x * matrix.b + y * matrix.d));
++        }
++    }
++}
++bool CTFontGetGlyphsForCharacters(CTFontRef font, const UniChar *characters, CGGlyph *glyphs, CFIndex count) {
++    if (!font || count < 0 || (count && (!characters || !glyphs))) return false;
++    [(KTFont *)font getGlyphs:glyphs forCharacters:characters length:(NSUInteger)count];
++    for (CFIndex i = 0; i < count; i++) {
++        if (characters[i] >= 0xd800 && characters[i] <= 0xdbff && i + 1 < count &&
++            characters[i + 1] >= 0xdc00 && characters[i + 1] <= 0xdfff) {
++            if (!glyphs[i]) return false;
++            ++i;
++        } else if (!glyphs[i]) return false;
++    }
++    return true;
++}
++void CTFontDrawGlyphs(CTFontRef font, const CGGlyph *glyphs, const CGPoint *positions, size_t count, CGContextRef context) {
++    if (!font || !context || !glyphs || !positions || !count) return;
++    /* The API intentionally leaves these CGContext font/text attributes set. */
++    CGContextSetFont(context, [(KTFont *)font graphicsFont]);
++    CGContextSetFontSize(context, [(KTFont *)font pointSize]);
++    CGContextSetTextMatrix(context, [(KTFont *)font fontMatrix]);
++    CGContextShowGlyphsAtPositions(context, glyphs, positions, count);
++}
++CFIndex CTFontGetLigatureCaretPositions(CTFontRef font, CGGlyph glyph, CGFloat *positions, CFIndex maxPositions) {
++    /* No caret-table backend: 0 is the specified unavailable-data result. */
++    (void)font; (void)glyph; (void)positions; (void)maxPositions; return 0;
++}
++CGFontRef CTFontCopyGraphicsFont(CTFontRef font, CTFontDescriptorRef *attributes) {
++    if (attributes) *attributes = font ? CTFontCopyFontDescriptor(font) : NULL;
++    return font ? CGFontRetain([(KTFont *)font graphicsFont]) : NULL;
++}
++CTFontRef CTFontCreateWithGraphicsFont(CGFontRef graphics, CGFloat size, CGAffineTransform *matrix,
++                                     CTFontDescriptorRef attributes) {
++    if (!graphics) return NULL;
++    CGAffineTransform transform = descriptorMatrix(NULL, matrix);
++    return createWithGraphics(graphics, descriptorSize(NULL, size), &transform, attributes);
++}
++CFArrayRef CTFontCopyAvailableTables(CTFontRef font, CTFontTableOptions options) {
++    (void)options;
++    if (!font) return NULL;
++    O2Font_freetype *graphics = graphicsFont(font);
++    CFMutableArrayRef result = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
++    if (!result) return NULL;
++    @synchronized(graphics) {
++        FT_Face face = [graphics face]; FT_ULong count = 0;
++        if (FT_Sfnt_Table_Info(face, 0, NULL, &count) == 0) for (FT_UInt i = 0; i < count; i++) {
++            FT_ULong tag = 0, length = 0;
++            if (FT_Sfnt_Table_Info(face, i, &tag, &length) == 0)
++                CFArrayAppendValue(result, (const void *)(uintptr_t)tag);
++        }
++    }
++    CFArrayRef immutable = CFArrayCreateCopy(kCFAllocatorDefault, result);
++    CFRelease(result); return immutable;
++}
++CFDataRef CTFontCopyTable(CTFontRef font, CTFontTableTag table, CTFontTableOptions options) {
++    (void)options;
++    if (!font || !table) return NULL;
++    O2Font_freetype *graphics = graphicsFont(font);
++    @synchronized(graphics) {
++        FT_Face face = [graphics face]; FT_ULong length = 0;
++        if (FT_Load_Sfnt_Table(face, table, 0, NULL, &length) != 0 || length > LONG_MAX) return NULL;
++        UInt8 *bytes = length ? malloc(length) : NULL;
++        if (length && !bytes) return NULL;
++        if (length && FT_Load_Sfnt_Table(face, table, 0, bytes, &length) != 0) { free(bytes); return NULL; }
++        CFDataRef result = CFDataCreate(kCFAllocatorDefault, bytes, length);
++        free(bytes); return result;
++    }
++}
++
++CFArrayRef CTFontCopyVariationAxes(CTFontRef font) { (void)font; return NULL; }
++CFDictionaryRef CTFontCopyVariation(CTFontRef font) { (void)font; return NULL; }
++CFArrayRef CTFontCopyFeatures(CTFontRef font) { (void)font; return NULL; }
++CFArrayRef CTFontCopyFeatureSettings(CTFontRef font) { return (CFArrayRef)CTFontCopyAttribute(font, kCTFontFeatureSettingsAttribute); }
++
++CTFontRef CTFontCreateCopyWithAttributes(CTFontRef font, CGFloat size, const CGAffineTransform *matrix,
++                                       CTFontDescriptorRef attributes) {
++    if (!font) return NULL;
++    CTFontDescriptorRef original = CTFontCopyFontDescriptor(font);
++    CFDictionaryRef incoming = attributes ? CTFontDescriptorCopyAttributes(attributes) : NULL;
++    if (!original || (attributes && !incoming)) { if (original) CFRelease(original); return NULL; }
++    CTFontDescriptorRef merged = incoming ? CTFontDescriptorCreateCopyWithAttributes(original, incoming) :
++        (CTFontDescriptorRef)CFRetain(original);
++    CFDictionaryRef oldAttrs = CTFontDescriptorCopyAttributes(original);
++    Boolean reselect = false;
++    const CFStringRef selection[] = { kCTFontNameAttribute, kCTFontFamilyNameAttribute, kCTFontStyleNameAttribute,
++        kCTFontURLAttribute, kCTFontTraitsAttribute, _KTFontFaceIndexAttribute };
++    if (incoming) for (unsigned i = 0; i < sizeof(selection) / sizeof(selection[0]); i++) {
++        CFTypeRef requested = CFDictionaryGetValue(incoming, selection[i]);
++        CFTypeRef old = oldAttrs ? CFDictionaryGetValue(oldAttrs, selection[i]) : NULL;
++        if (requested && (!old || !CFEqual(requested, old))) reselect = true;
++    }
++    CGFloat pointSize = size == 0 ? [(KTFont *)font pointSize] : size;
++    CGAffineTransform transform = matrix ? *matrix : [(KTFont *)font fontMatrix];
++    CTFontRef result = NULL;
++    if (merged && !reselect) result = createWithGraphics([(KTFont *)font graphicsFont], pointSize, &transform, merged);
++    else if (merged) {
++        CFDictionaryRef mergedAttrs = CTFontDescriptorCopyAttributes(merged);
++        CFMutableDictionaryRef queryAttrs = mergedAttrs ? CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, mergedAttrs) : NULL;
++        if (mergedAttrs) CFRelease(mergedAttrs);
++        if (queryAttrs) {
++            /* Resolved location must not anchor a request for a new face/family/style. */
++            removeFaceIdentity(queryAttrs, true);
++            if (oldAttrs && !CFDictionaryContainsKey(incoming, kCTFontNameAttribute) &&
++                !CFDictionaryContainsKey(incoming, kCTFontFamilyNameAttribute)) {
++                CFTypeRef family = CFDictionaryGetValue(oldAttrs, kCTFontFamilyNameAttribute);
++                if (family) CFDictionarySetValue(queryAttrs, kCTFontFamilyNameAttribute, family);
++            }
++            CFDictionaryApplyFunction(incoming, copyActualAttribute, queryAttrs);
++            CTFontDescriptorRef query = CTFontDescriptorCreateWithAttributes(queryAttrs);
++            if (query) { result = CTFontCreateWithFontDescriptor(query, pointSize, &transform); CFRelease(query); }
++            CFRelease(queryAttrs);
++        }
++    }
++    if (oldAttrs) CFRelease(oldAttrs);
++    if (incoming) CFRelease(incoming);
++    if (merged) CFRelease(merged);
++    CFRelease(original);
++    return result;
++}
++CTFontRef CTFontCreateCopyWithFamily(CTFontRef font, CGFloat size, const CGAffineTransform *matrix, CFStringRef family) {
++    if (!font || !family || CFGetTypeID(family) != CFStringGetTypeID()) return NULL;
++    CTFontDescriptorRef original = CTFontCopyFontDescriptor(font);
++    CFDictionaryRef attrs = original ? CTFontDescriptorCopyAttributes(original) : NULL;
++    CFMutableDictionaryRef queryAttrs = attrs ? CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, attrs) : NULL;
++    if (attrs) CFRelease(attrs);
++    if (original) CFRelease(original);
++    if (!queryAttrs) return NULL;
++    removeFaceIdentity(queryAttrs, true);
++    CFDictionarySetValue(queryAttrs, kCTFontFamilyNameAttribute, family);
++    CTFontDescriptorRef query = CTFontDescriptorCreateWithAttributes(queryAttrs);
++    CFRelease(queryAttrs);
++    const void *key = kCTFontFamilyNameAttribute;
++    CFSetRef mandatory = CFSetCreate(kCFAllocatorDefault, &key, 1, &kCFTypeSetCallBacks);
++    CTFontDescriptorRef matched = query && mandatory ? CTFontDescriptorCreateMatchingFontDescriptor(query, mandatory) : NULL;
++    CGAffineTransform transform = matrix ? *matrix : [(KTFont *)font fontMatrix];
++    CTFontRef result = matched ? CTFontCreateWithFontDescriptor(matched, size == 0 ? [(KTFont *)font pointSize] : size, &transform) : NULL;
++    if (matched) CFRelease(matched);
++    if (mandatory) CFRelease(mandatory);
++    if (query) CFRelease(query);
++    return result;
++}
++CTFontRef CTFontCreateCopyWithSymbolicTraits(CTFontRef font, CGFloat size, const CGAffineTransform *matrix,
++                                          CTFontSymbolicTraits value, CTFontSymbolicTraits mask) {
++    if (!font) return NULL;
++    CTFontDescriptorRef original = CTFontCopyFontDescriptor(font);
++    CFDictionaryRef attrs = original ? CTFontDescriptorCopyAttributes(original) : NULL;
++    CFMutableDictionaryRef queryAttrs = attrs ? CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, attrs) : NULL;
++    if (attrs) CFRelease(attrs);
++    if (original) CFRelease(original);
++    if (!queryAttrs) return NULL;
++    removeFaceIdentity(queryAttrs, false);
++    CFTypeRef originalTraits = CFDictionaryGetValue(queryAttrs, kCTFontTraitsAttribute);
++    CFMutableDictionaryRef traits = originalTraits && CFGetTypeID(originalTraits) == CFDictionaryGetTypeID() ?
++        CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, originalTraits) :
++        CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++    if (!traits) { CFRelease(queryAttrs); return NULL; }
++    uint32_t requested = (CTFontGetSymbolicTraits(font) & ~mask) | (value & mask);
++    CFNumberRef symbolic = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &requested);
++    if (symbolic) { CFDictionarySetValue(traits, kCTFontSymbolicTrait, symbolic); CFRelease(symbolic); }
++    if (mask & kCTFontTraitBold) putNumber(traits, kCTFontWeightTrait, requested & kCTFontTraitBold ? .4 : 0);
++    if (mask & kCTFontTraitItalic) putNumber(traits, kCTFontSlantTrait, requested & kCTFontTraitItalic ? .2 : 0);
++    if (mask & (kCTFontTraitExpanded | kCTFontTraitCondensed))
++        putNumber(traits, kCTFontWidthTrait, requested & kCTFontTraitExpanded ? .25 : requested & kCTFontTraitCondensed ? -.25 : 0);
++    CFDictionarySetValue(queryAttrs, kCTFontTraitsAttribute, traits);
++    CFRelease(traits);
++    CTFontDescriptorRef query = CTFontDescriptorCreateWithAttributes(queryAttrs);
++    CFRelease(queryAttrs);
++    CGAffineTransform transform = matrix ? *matrix : [(KTFont *)font fontMatrix];
++    CTFontRef result = query ? CTFontCreateWithFontDescriptor(query, size == 0 ? [(KTFont *)font pointSize] : size, &transform) : NULL;
++    if (query) CFRelease(query);
++    if (result && (CTFontGetSymbolicTraits(result) & mask) != (requested & mask)) { CFRelease(result); result = NULL; }
++    return result;
++}
++
++static void removePatternIdentity(FcPattern *pattern) {
++    FcPatternDel(pattern, FC_POSTSCRIPT_NAME); FcPatternDel(pattern, FC_FILE);
++    FcPatternDel(pattern, FC_INDEX); FcPatternDel(pattern, FC_STYLE);
++}
++static void addPatternLanguages(FcPattern *pattern, CFArrayRef languages) {
++    if (!languages || CFGetTypeID(languages) != CFArrayGetTypeID()) return;
++    for (CFIndex i = 0; i < CFArrayGetCount(languages); i++) {
++        CFTypeRef language = CFArrayGetValueAtIndex(languages, i);
++        if (language && CFGetTypeID(language) == CFStringGetTypeID()) {
++            CFIndex capacity = CFStringGetMaximumSizeForEncoding(CFStringGetLength(language), kCFStringEncodingUTF8) + 1;
++            char *buffer = malloc(capacity);
++            if (buffer && CFStringGetCString(language, buffer, capacity, kCFStringEncodingUTF8))
++                FcPatternAddString(pattern, FC_LANG, (const FcChar8 *)buffer);
++            free(buffer);
++        }
++    }
++}
++CFArrayRef CTFontCopyDefaultCascadeListForLanguages(CTFontRef font, CFArrayRef languagePrefList) {
++    if (!font) return NULL;
++    CTFontDescriptorRef descriptor = CTFontCopyFontDescriptor(font);
++    FcPattern *query = descriptor ? _KTFontDescriptorCreateFontConfigPattern(descriptor) : NULL;
++    if (descriptor) CFRelease(descriptor);
++    if (!query) return NULL;
++    removePatternIdentity(query); addPatternLanguages(query, languagePrefList);
++    FcConfig *config = O2FontSharedFontConfig();
++    if (!config) { FcPatternDestroy(query); return NULL; }
++    FcConfigSubstitute(config, query, FcMatchPattern); FcDefaultSubstitute(query);
++    FcResult status;
++    FcFontSet *fonts = FcFontSort(config, query, FcTrue, NULL, &status);
++    CFMutableArrayRef result = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
++    CFStringRef current = CTFontCopyPostScriptName(font);
++    if (result && fonts) for (int i = 0; i < fonts->nfont; i++) {
++        CTFontDescriptorRef candidate = _KTFontDescriptorCreateFromFontConfigPattern(fonts->fonts[i]);
++        CFTypeRef name = candidate ? CTFontDescriptorCopyAttribute(candidate, kCTFontNameAttribute) : NULL;
++        if (candidate && (!current || !name || !CFEqual(current, name))) CFArrayAppendValue(result, candidate);
++        if (name) CFRelease(name);
++        if (candidate) CFRelease(candidate);
++    }
++    if (current) CFRelease(current);
++    if (fonts) FcFontSetDestroy(fonts);
++    FcPatternDestroy(query);
++    CFArrayRef immutable = result ? CFArrayCreateCopy(kCFAllocatorDefault, result) : NULL;
++    if (result) CFRelease(result);
++    return immutable;
++}
++CTFontRef CTFontCreateForStringWithLanguage(CTFontRef font, CFStringRef string, CFRange range, CFStringRef language) {
++    if (!font || !string || CFGetTypeID(string) != CFStringGetTypeID() || range.location < 0 || range.length < 0 ||
++        range.location > CFStringGetLength(string) || range.length > CFStringGetLength(string) - range.location ||
++        (uint64_t)range.length > SIZE_MAX / sizeof(UniChar)) return NULL;
++    UniChar *characters = range.length ? malloc(range.length * sizeof(UniChar)) : NULL;
++    CGGlyph *glyphs = range.length ? malloc(range.length * sizeof(CGGlyph)) : NULL;
++    if (range.length && (!characters || !glyphs)) { free(characters); free(glyphs); return NULL; }
++    if (range.length) CFStringGetCharacters(string, range, characters);
++    if (CTFontGetGlyphsForCharacters(font, characters, glyphs, range.length)) {
++        free(characters); free(glyphs); return (CTFontRef)CFRetain(font);
++    }
++    free(glyphs);
++    FcCharSet *wanted = FcCharSetCreate();
++    if (!wanted) { free(characters); return NULL; }
++    for (CFIndex i = 0; i < range.length; i++) {
++        FcChar32 character = characters[i];
++        if (character >= 0xd800 && character <= 0xdbff && i + 1 < range.length &&
++            characters[i + 1] >= 0xdc00 && characters[i + 1] <= 0xdfff)
++            character = 0x10000 + ((character - 0xd800) << 10) + (characters[++i] - 0xdc00);
++        FcCharSetAddChar(wanted, character);
++    }
++    free(characters);
++    CTFontDescriptorRef descriptor = CTFontCopyFontDescriptor(font);
++    FcPattern *query = descriptor ? _KTFontDescriptorCreateFontConfigPattern(descriptor) : NULL;
++    if (descriptor) CFRelease(descriptor);
++    FcConfig *config = O2FontSharedFontConfig();
++    CTFontRef result = NULL;
++    if (query && config) {
++        removePatternIdentity(query); FcPatternDel(query, FC_CHARSET); FcPatternAddCharSet(query, FC_CHARSET, wanted);
++        if (language) {
++            const void *item = language;
++            CFArrayRef languages = CFArrayCreate(kCFAllocatorDefault, &item, 1, &kCFTypeArrayCallBacks);
++            if (languages) { addPatternLanguages(query, languages); CFRelease(languages); }
++        }
++        FcConfigSubstitute(config, query, FcMatchPattern); FcDefaultSubstitute(query);
++        FcResult status;
++        FcFontSet *fonts = FcFontSort(config, query, FcFalse, NULL, &status);
++        if (fonts) for (int i = 0; i < fonts->nfont && !result; i++) {
++            FcCharSet *coverage = NULL;
++            if (FcPatternGetCharSet(fonts->fonts[i], FC_CHARSET, 0, &coverage) != FcResultMatch || !coverage ||
++                !FcCharSetIsSubset(wanted, coverage)) continue;
++            CTFontDescriptorRef candidate = _KTFontDescriptorCreateFromFontConfigPattern(fonts->fonts[i]);
++            CGAffineTransform matrix = [(KTFont *)font fontMatrix];
++            if (candidate) { result = CTFontCreateWithFontDescriptor(candidate, [(KTFont *)font pointSize], &matrix); CFRelease(candidate); }
++        }
++        if (fonts) FcFontSetDestroy(fonts);
++    }
++    if (query) FcPatternDestroy(query);
++    FcCharSetDestroy(wanted);
++    return result;
++}
++CTFontRef CTFontCreateForString(CTFontRef font, CFStringRef string, CFRange range) {
++    return CTFontCreateForStringWithLanguage(font, string, range, NULL);
++}
++
++ATSFontRef CTFontGetPlatformFont(CTFontRef font, CTFontDescriptorRef *attributes) {
++    printf("STUB %s\n", __PRETTY_FUNCTION__); return 0;
++}
+ CTFontRef CTFontCreateWithPlatformFont(ATSFontRef platformFont, CGFloat size,
+-                                       const CGAffineTransform *matrix,
+-                                       CTFontDescriptorRef attributes)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CTFontRef CTFontCreateWithQuickdrawInstance(ConstStr255Param name, int16_t identifier,
+-                                            uint8_t style, CGFloat size)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFArrayRef CTFontCopyAvailableTables(CTFontRef font, CTFontTableOptions options)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFDataRef CTFontCopyTable(CTFontRef font, CTFontTableTag table, CTFontTableOptions options)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
+-
+-CFTypeID CTFontGetTypeID(void)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return 0;
+-}
++                                     const CGAffineTransform *matrix, CTFontDescriptorRef attributes) {
++    printf("STUB %s\n", __PRETTY_FUNCTION__); return NULL;
++}
++CTFontRef CTFontCreateWithQuickdrawInstance(ConstStr255Param name, int16_t identifier, uint8_t style, CGFloat size) {
++    printf("STUB %s\n", __PRETTY_FUNCTION__); return NULL;
++}
+diff --git a/src/external/cocotron/CoreText/CTFontCollection.m b/src/external/cocotron/CoreText/CTFontCollection.m
+--- a/src/external/cocotron/CoreText/CTFontCollection.m
++++ b/src/external/cocotron/CoreText/CTFontCollection.m
+@@ -1,20 +1,173 @@
+ #import <CoreText/CTFontCollection.h>
++#import <CoreFoundation/CFRuntime.h>
++#import "CTFontDescriptorInternal.h"
+ 
+-CTFontCollectionRef CTFontCollectionCreateFromAvailableFonts(CFDictionaryRef options)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
++#include <pthread.h>
++#include <stdlib.h>
++
++const CFStringRef kCTFontCollectionRemoveDuplicatesOption = CFSTR("CTFontCollectionRemoveDuplicates");
++
++struct __CTFontCollection {
++    CFRuntimeBase base;
++    CFArrayRef queries;
++    CFDictionaryRef options;
++    Boolean available;
++};
++
++static CFTypeID collectionType;
++static pthread_once_t collectionOnce = PTHREAD_ONCE_INIT;
++
++static void collectionFinalize(CFTypeRef object) {
++    struct __CTFontCollection *collection = (struct __CTFontCollection *)object;
++    if (collection->queries) CFRelease(collection->queries);
++    if (collection->options) CFRelease(collection->options);
+ }
+ 
+-CFArrayRef _Nullable CTFontCollectionCreateMatchingFontDescriptors(CTFontCollectionRef collection)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
++static Boolean collectionEqual(CFTypeRef left, CFTypeRef right) {
++    CTFontCollectionRef a = (CTFontCollectionRef)left, b = (CTFontCollectionRef)right;
++    return a->available == b->available &&
++        (a->queries == b->queries || (a->queries && b->queries && CFEqual(a->queries, b->queries))) &&
++        (a->options == b->options || (a->options && b->options && CFEqual(a->options, b->options)));
+ }
+ 
+-CTFontCollectionRef CTFontCollectionCreateWithFontDescriptors(CFArrayRef _Nullable queryDescriptors,
+-                                                              CFDictionaryRef _Nullable options)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
++static CFHashCode collectionHash(CFTypeRef object) {
++    CTFontCollectionRef collection = (CTFontCollectionRef)object;
++    return (collection->queries ? CFHash(collection->queries) : 0) ^
++        (collection->options ? CFHash(collection->options) : 0) ^ collection->available;
+ }
++
++static CFStringRef collectionDescription(CFTypeRef object) {
++    CTFontCollectionRef collection = (CTFontCollectionRef)object;
++    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<CTFontCollection available=%d queries=%@>"),
++        collection->available, collection->queries);
++}
++
++static void registerCollection(void) {
++    static const CFRuntimeClass collectionClass = {
++        .version = 0, .className = "CTFontCollection",
++        .finalize = collectionFinalize, .equal = collectionEqual,
++        .hash = collectionHash, .copyDebugDesc = collectionDescription
++    };
++    collectionType = _CFRuntimeRegisterClass(&collectionClass);
++}
++
++CFTypeID CTFontCollectionGetTypeID(void) {
++    pthread_once(&collectionOnce, registerCollection);
++    return collectionType;
++}
++
++static Boolean isCollection(CTFontCollectionRef collection) {
++    return collection && CFGetTypeID(collection) == CTFontCollectionGetTypeID();
++}
++
++static CTFontCollectionRef createCollection(CFArrayRef queries, CFDictionaryRef options, Boolean available) {
++    if (queries && CFGetTypeID(queries) != CFArrayGetTypeID()) return NULL;
++    if (options && CFGetTypeID(options) != CFDictionaryGetTypeID()) return NULL;
++    if (queries) for (CFIndex i = 0; i < CFArrayGetCount(queries); i++) {
++        CFTypeRef descriptor = CFArrayGetValueAtIndex(queries, i);
++        if (!descriptor || CFGetTypeID(descriptor) != CTFontDescriptorGetTypeID()) return NULL;
++    }
++    struct __CTFontCollection *collection = (struct __CTFontCollection *)_CFRuntimeCreateInstance(
++        kCFAllocatorDefault, CTFontCollectionGetTypeID(),
++        sizeof(struct __CTFontCollection) - sizeof(CFRuntimeBase), NULL);
++    if (!collection) return NULL;
++    collection->available = available;
++    collection->queries = queries ? CFArrayCreateCopy(kCFAllocatorDefault, queries) : NULL;
++    collection->options = options ? CFDictionaryCreateCopy(kCFAllocatorDefault, options) : NULL;
++    if ((queries && !collection->queries) || (options && !collection->options)) {
++        CFRelease(collection); return NULL;
++    }
++    return collection;
++}
++
++CTFontCollectionRef CTFontCollectionCreateFromAvailableFonts(CFDictionaryRef options) {
++    return createCollection(NULL, options, true);
++}
++
++CTFontCollectionRef CTFontCollectionCreateWithFontDescriptors(CFArrayRef queryDescriptors, CFDictionaryRef options) {
++    /* NULL queries are deliberately distinct from the available-font collection. */
++    return createCollection(queryDescriptors, options, false);
++}
++
++CTFontCollectionRef CTFontCollectionCreateCopyWithFontDescriptors(CTFontCollectionRef original,
++                                                                CFArrayRef queryDescriptors,
++                                                                CFDictionaryRef options) {
++    if (!isCollection(original) || (queryDescriptors && CFGetTypeID(queryDescriptors) != CFArrayGetTypeID())) return NULL;
++    CFMutableArrayRef combined = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
++    if (!combined) return NULL;
++    if (original->queries) CFArrayAppendArray(combined, original->queries,
++        CFRangeMake(0, CFArrayGetCount(original->queries)));
++    if (queryDescriptors) for (CFIndex i = 0; i < CFArrayGetCount(queryDescriptors); i++) {
++        CFTypeRef query = CFArrayGetValueAtIndex(queryDescriptors, i);
++        if (!CFArrayContainsValue(combined, CFRangeMake(0, CFArrayGetCount(combined)), query))
++            CFArrayAppendValue(combined, query);
++    }
++    CFMutableDictionaryRef mergedOptions = original->options ?
++        CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, original->options) :
++        CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
++            &kCFTypeDictionaryValueCallBacks);
++    if (!mergedOptions || (options && CFGetTypeID(options) != CFDictionaryGetTypeID())) {
++        if (mergedOptions) CFRelease(mergedOptions);
++        CFRelease(combined); return NULL;
++    }
++    if (options) {
++        CFIndex count = CFDictionaryGetCount(options);
++        const void **keys = malloc(sizeof(void *) * count), **values = malloc(sizeof(void *) * count);
++        if (count && (!keys || !values)) {
++            free(keys); free(values); CFRelease(mergedOptions); CFRelease(combined); return NULL;
++        }
++        CFDictionaryGetKeysAndValues(options, keys, values);
++        for (CFIndex i = 0; i < count; i++) CFDictionarySetValue(mergedOptions, keys[i], values[i]);
++        free(keys); free(values);
++    }
++    CTFontCollectionRef result = createCollection(combined, mergedOptions, original->available);
++    CFRelease(mergedOptions);
++    CFRelease(combined);
++    return result;
++}
++
++static Boolean removeDuplicates(CTFontCollectionRef collection) {
++    CFTypeRef value = collection->options ? CFDictionaryGetValue(collection->options,
++        kCTFontCollectionRemoveDuplicatesOption) : NULL;
++    if (!value) return false;
++    if (CFGetTypeID(value) == CFBooleanGetTypeID()) return CFBooleanGetValue(value);
++    if (CFGetTypeID(value) == CFNumberGetTypeID()) {
++        int option = 0;
++        return CFNumberGetValue(value, kCFNumberIntType, &option) && option != 0;
++    }
++    return false;
++}
++
++static CFTypeRef duplicateKey(CTFontDescriptorRef descriptor) {
++    CFTypeRef name = CTFontDescriptorCopyAttribute(descriptor, kCTFontNameAttribute);
++    return name ? name : CFRetain(descriptor);
++}
++
++CFArrayRef CTFontCollectionCreateMatchingFontDescriptors(CTFontCollectionRef collection) {
++    if (!isCollection(collection)) return NULL;
++    if (!collection->available && (!collection->queries || CFArrayGetCount(collection->queries) == 0)) return NULL;
++    CFMutableArrayRef result = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
++    CFMutableSetRef seen = removeDuplicates(collection) ?
++        CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks) : NULL;
++    if (!result) { if (seen) CFRelease(seen); return NULL; }
++    CFIndex sources = collection->available ? 1 : CFArrayGetCount(collection->queries);
++    for (CFIndex i = 0; i < sources; i++) {
++        CFArrayRef matches = collection->available ? _KTFontDescriptorCreateAvailableFontDescriptors() :
++            CTFontDescriptorCreateMatchingFontDescriptors(CFArrayGetValueAtIndex(collection->queries, i), NULL);
++        if (!matches) continue;
++        for (CFIndex j = 0; j < CFArrayGetCount(matches); j++) {
++            CTFontDescriptorRef descriptor = (CTFontDescriptorRef)CFArrayGetValueAtIndex(matches, j);
++            CFTypeRef key = seen ? duplicateKey(descriptor) : NULL;
++            if (!seen || !CFSetContainsValue(seen, key)) {
++                CFArrayAppendValue(result, descriptor);
++                if (seen) CFSetAddValue(seen, key);
++            }
++            if (key) CFRelease(key);
++        }
++        CFRelease(matches);
++    }
++    CFArrayRef immutable = CFArrayGetCount(result) ? CFArrayCreateCopy(kCFAllocatorDefault, result) : NULL;
++    CFRelease(result);
++    if (seen) CFRelease(seen);
++    return immutable;
++}
+diff --git a/src/external/cocotron/CoreText/CTFontDescriptor.m b/src/external/cocotron/CoreText/CTFontDescriptor.m
+--- a/src/external/cocotron/CoreText/CTFontDescriptor.m
++++ b/src/external/cocotron/CoreText/CTFontDescriptor.m
+@@ -1,6 +1,12 @@
+ #import <CoreText/CTFontDescriptor.h>
+-
+-#include <stdio.h>
++#import <CoreText/CoreText.h>
++#import <CoreFoundation/CFRuntime.h>
++#import "CTFontDescriptorInternal.h"
++
++#include <pthread.h>
++#include <math.h>
++#include <stdlib.h>
++#include <string.h>
+ 
+ const CFStringRef kCTFontURLAttribute = CFSTR("NSCTFontFileURLAttribute");
+ const CFStringRef kCTFontNameAttribute = CFSTR("NSFontNameAttribute");
+@@ -25,8 +31,513 @@
+ const CFStringRef kCTFontRegistrationScopeAttribute = CFSTR("NSCTFontRegistrationScopeAttribute");
+ const CFStringRef kCTFontPriorityAttribute = CFSTR("NSCTFontPriorityAttribute");
+ 
+-CFTypeRef CTFontDescriptorCopyAttribute(CTFontDescriptorRef descriptor, CFStringRef attribute)
+-{
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
+-}
++const CFStringRef _KTFontFaceIndexAttribute = CFSTR("OpenKaryonFontFaceIndex");
++
++struct __CTFontDescriptor {
++    CFRuntimeBase base;
++    CFDictionaryRef attributes;
++    Boolean normalized;
++};
++
++static CFTypeID descriptorType;
++static pthread_once_t descriptorOnce = PTHREAD_ONCE_INIT;
++
++static void descriptorFinalize(CFTypeRef object) {
++    struct __CTFontDescriptor *descriptor = (struct __CTFontDescriptor *)object;
++    if (descriptor->attributes) CFRelease(descriptor->attributes);
++}
++
++static Boolean descriptorEqual(CFTypeRef left, CFTypeRef right) {
++    return CFEqual(((CTFontDescriptorRef)left)->attributes,
++                   ((CTFontDescriptorRef)right)->attributes);
++}
++
++static CFHashCode descriptorHash(CFTypeRef object) {
++    return CFHash(((CTFontDescriptorRef)object)->attributes);
++}
++
++static CFStringRef descriptorDescription(CFTypeRef object) {
++    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<CTFontDescriptor %@>"),
++                                    ((CTFontDescriptorRef)object)->attributes);
++}
++
++static void registerDescriptor(void) {
++    static const CFRuntimeClass descriptorClass = {
++        .version = 0, .className = "CTFontDescriptor",
++        .finalize = descriptorFinalize, .equal = descriptorEqual,
++        .hash = descriptorHash, .copyDebugDesc = descriptorDescription
++    };
++    descriptorType = _CFRuntimeRegisterClass(&descriptorClass);
++}
++
++CFTypeID CTFontDescriptorGetTypeID(void) {
++    pthread_once(&descriptorOnce, registerDescriptor);
++    return descriptorType;
++}
++
++static Boolean isDescriptor(CTFontDescriptorRef descriptor) {
++    return descriptor && CFGetTypeID(descriptor) == CTFontDescriptorGetTypeID();
++}
++
++CTFontDescriptorRef _KTFontDescriptorCreateWithAttributes(CFDictionaryRef attributes, Boolean normalized) {
++    if (!attributes || CFGetTypeID(attributes) != CFDictionaryGetTypeID()) return NULL;
++    CFDictionaryRef copy = CFDictionaryCreateCopy(kCFAllocatorDefault, attributes);
++    if (!copy) return NULL;
++    struct __CTFontDescriptor *descriptor = (struct __CTFontDescriptor *)_CFRuntimeCreateInstance(
++        kCFAllocatorDefault, CTFontDescriptorGetTypeID(),
++        sizeof(struct __CTFontDescriptor) - sizeof(CFRuntimeBase), NULL);
++    if (!descriptor) { CFRelease(copy); return NULL; }
++    descriptor->attributes = copy;
++    descriptor->normalized = normalized;
++    return descriptor;
++}
++
++CTFontDescriptorRef CTFontDescriptorCreateWithAttributes(CFDictionaryRef attributes) {
++    return _KTFontDescriptorCreateWithAttributes(attributes, false);
++}
++
++CTFontDescriptorRef CTFontDescriptorCreateWithNameAndSize(CFStringRef name, CGFloat size) {
++    if (!name || CFGetTypeID(name) != CFStringGetTypeID()) return NULL;
++    CFMutableDictionaryRef attributes = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
++        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++    if (!attributes) return NULL;
++    CFDictionarySetValue(attributes, kCTFontNameAttribute, name);
++    if (size != 0) {
++        CFNumberRef pointSize = CFNumberCreate(kCFAllocatorDefault, kCFNumberCGFloatType, &size);
++        if (pointSize) { CFDictionarySetValue(attributes, kCTFontSizeAttribute, pointSize); CFRelease(pointSize); }
++    }
++    CTFontDescriptorRef result = CTFontDescriptorCreateWithAttributes(attributes);
++    CFRelease(attributes);
++    return result;
++}
++
++CFDictionaryRef CTFontDescriptorCopyAttributes(CTFontDescriptorRef descriptor) {
++    if (!isDescriptor(descriptor)) return NULL;
++    return CFDictionaryCreateCopy(kCFAllocatorDefault, descriptor->attributes);
++}
++
++CFTypeRef CTFontDescriptorCopyAttribute(CTFontDescriptorRef descriptor, CFStringRef attribute) {
++    if (!isDescriptor(descriptor) || !attribute) return NULL;
++    CFTypeRef value = CFDictionaryGetValue(descriptor->attributes, attribute);
++    return value ? CFRetain(value) : NULL;
++}
++
++CFTypeRef CTFontDescriptorCopyLocalizedAttribute(CTFontDescriptorRef descriptor, CFStringRef attribute,
++                                               CFStringRef *language) {
++    CFTypeRef result = CTFontDescriptorCopyAttribute(descriptor, attribute);
++    /* FontConfig currently exposes the selected native name, not localized name pairs. */
++    if (language) *language = NULL;
++    return result;
++}
++
++static Boolean selectionAttribute(CFTypeRef key) {
++    return CFEqual(key, kCTFontNameAttribute) || CFEqual(key, kCTFontFamilyNameAttribute) ||
++           CFEqual(key, kCTFontStyleNameAttribute) || CFEqual(key, kCTFontURLAttribute) ||
++           CFEqual(key, kCTFontTraitsAttribute) || CFEqual(key, _KTFontFaceIndexAttribute);
++}
++
++struct MergeAttributes { CFMutableDictionaryRef result; Boolean normalized; };
++
++static void mergeAttribute(const void *key, const void *value, void *context) {
++    struct MergeAttributes *merge = context;
++    CFTypeRef old = CFDictionaryGetValue(merge->result, key);
++    if (selectionAttribute(key) && (!old || !CFEqual(old, value))) merge->normalized = false;
++    if (CFEqual(key, kCTFontVariationAttribute) && old &&
++        CFGetTypeID(old) == CFDictionaryGetTypeID() && CFGetTypeID(value) == CFDictionaryGetTypeID()) {
++        CFMutableDictionaryRef variations = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, old);
++        CFIndex count = CFDictionaryGetCount(value);
++        const void **keys = malloc(sizeof(void *) * count);
++        const void **values = malloc(sizeof(void *) * count);
++        if (count == 0 || (keys && values)) {
++            CFDictionaryGetKeysAndValues(value, keys, values);
++            for (CFIndex i = 0; i < count; i++) CFDictionarySetValue(variations, keys[i], values[i]);
++            CFDictionarySetValue(merge->result, key, variations);
++        }
++        free(keys); free(values); CFRelease(variations);
++    } else if (CFEqual(key, kCTFontFeatureSettingsAttribute) && old &&
++               CFGetTypeID(old) == CFArrayGetTypeID() && CFGetTypeID(value) == CFArrayGetTypeID()) {
++        /* The full feature merge is handled by feature identities, not by array concatenation. */
++        CFMutableArrayRef features = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, old);
++        for (CFIndex i = 0; i < CFArrayGetCount(value); i++) {
++            CFTypeRef incoming = CFArrayGetValueAtIndex(value, i);
++            CFTypeRef incomingType = NULL;
++            if (CFGetTypeID(incoming) == CFDictionaryGetTypeID())
++                incomingType = CFDictionaryGetValue(incoming, kCTFontFeatureTypeIdentifierKey);
++            else if (CFGetTypeID(incoming) == CFArrayGetTypeID() && CFArrayGetCount(incoming))
++                incomingType = CFArrayGetValueAtIndex(incoming, 0);
++            for (CFIndex j = CFArrayGetCount(features); j > 0; j--) {
++                CFTypeRef existing = CFArrayGetValueAtIndex(features, j - 1), existingType = NULL;
++                if (CFGetTypeID(existing) == CFDictionaryGetTypeID())
++                    existingType = CFDictionaryGetValue(existing, kCTFontFeatureTypeIdentifierKey);
++                else if (CFGetTypeID(existing) == CFArrayGetTypeID() && CFArrayGetCount(existing))
++                    existingType = CFArrayGetValueAtIndex(existing, 0);
++                if ((incomingType && existingType && CFEqual(incomingType, existingType)) ||
++                    CFEqual(incoming, existing)) CFArrayRemoveValueAtIndex(features, j - 1);
++            }
++            CFTypeRef incomingSetting = NULL;
++            if (CFGetTypeID(incoming) == CFDictionaryGetTypeID())
++                incomingSetting = CFDictionaryGetValue(incoming, kCTFontFeatureSelectorIdentifierKey);
++            else if (CFGetTypeID(incoming) == CFArrayGetTypeID() && CFArrayGetCount(incoming) > 1)
++                incomingSetting = CFArrayGetValueAtIndex(incoming, 1);
++            if (!incomingSetting || !CFEqual(incomingSetting, kCFNull)) CFArrayAppendValue(features, incoming);
++        }
++        CFDictionarySetValue(merge->result, key, features); CFRelease(features);
++    } else if (CFEqual(key, kCTFontFeatureSettingsAttribute) && CFEqual(value, kCFNull)) {
++        CFDictionaryRemoveValue(merge->result, key);
++    } else {
++        CFDictionarySetValue(merge->result, key, value);
++    }
++}
++
++CTFontDescriptorRef CTFontDescriptorCreateCopyWithAttributes(CTFontDescriptorRef original,
++                                                            CFDictionaryRef attributes) {
++    if (!isDescriptor(original) || !attributes || CFGetTypeID(attributes) != CFDictionaryGetTypeID()) return NULL;
++    struct MergeAttributes merge = {
++        CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, original->attributes), original->normalized
++    };
++    if (!merge.result) return NULL;
++    CFDictionaryApplyFunction(attributes, mergeAttribute, &merge);
++    CTFontDescriptorRef result = _KTFontDescriptorCreateWithAttributes(merge.result, merge.normalized);
++    CFRelease(merge.result);
++    return result;
++}
++
++static char *copyUTF8(CFStringRef string) {
++    if (!string || CFGetTypeID(string) != CFStringGetTypeID()) return NULL;
++    CFIndex capacity = CFStringGetMaximumSizeForEncoding(CFStringGetLength(string), kCFStringEncodingUTF8) + 1;
++    char *buffer = malloc(capacity);
++    if (!buffer) return NULL;
++    if (!CFStringGetCString(string, buffer, capacity, kCFStringEncodingUTF8)) { free(buffer); return NULL; }
++    return buffer;
++}
++
++static void addPatternString(FcPattern *pattern, const char *field, CFTypeRef value) {
++    char *utf8 = copyUTF8(value);
++    if (utf8) { FcPatternAddString(pattern, field, (const FcChar8 *)utf8); free(utf8); }
++}
++
++static double numberValue(CFTypeRef value, double fallback) {
++    double number;
++    return value && CFGetTypeID(value) == CFNumberGetTypeID() &&
++           CFNumberGetValue(value, kCFNumberDoubleType, &number) && isfinite(number) ? number : fallback;
++}
++
++static int fontConfigWeight(double weight) {
++    if (weight <= -0.7) return FC_WEIGHT_THIN;
++    if (weight <= -0.5) return FC_WEIGHT_EXTRALIGHT;
++    if (weight <= -0.2) return FC_WEIGHT_LIGHT;
++    if (weight < 0.115) return FC_WEIGHT_REGULAR;
++    if (weight < 0.265) return FC_WEIGHT_MEDIUM;
++    if (weight < 0.35) return FC_WEIGHT_DEMIBOLD;
++    if (weight < 0.48) return FC_WEIGHT_BOLD;
++    if (weight < 0.59) return FC_WEIGHT_EXTRABOLD;
++    return FC_WEIGHT_BLACK;
++}
++
++static double coreTextWeight(int weight) {
++    if (weight <= FC_WEIGHT_THIN) return -0.8;
++    if (weight <= FC_WEIGHT_EXTRALIGHT) return -0.6;
++    if (weight <= FC_WEIGHT_LIGHT) return -0.4;
++    if (weight <= FC_WEIGHT_REGULAR) return 0;
++    if (weight <= FC_WEIGHT_MEDIUM) return 0.23;
++    if (weight <= FC_WEIGHT_DEMIBOLD) return 0.3;
++    if (weight <= FC_WEIGHT_BOLD) return 0.4;
++    if (weight <= FC_WEIGHT_EXTRABOLD) return 0.56;
++    return 0.62;
++}
++
++FcPattern *_KTFontDescriptorCreateFontConfigPattern(CTFontDescriptorRef descriptor) {
++    if (!isDescriptor(descriptor)) return NULL;
++    FcPattern *pattern = FcPatternCreate();
++    if (!pattern) return NULL;
++    CFDictionaryRef attributes = descriptor->attributes;
++    addPatternString(pattern, FC_POSTSCRIPT_NAME, CFDictionaryGetValue(attributes, kCTFontNameAttribute));
++    addPatternString(pattern, FC_FAMILY, CFDictionaryGetValue(attributes, kCTFontFamilyNameAttribute));
++    addPatternString(pattern, FC_STYLE, CFDictionaryGetValue(attributes, kCTFontStyleNameAttribute));
++    CFTypeRef url = CFDictionaryGetValue(attributes, kCTFontURLAttribute);
++    if (url && CFGetTypeID(url) == CFURLGetTypeID()) {
++        CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
++        char *utf8 = copyUTF8(path);
++        if (utf8) {
++            const char *nativePath = utf8;
++            const char prefix[] = "/Volumes/SystemRoot";
++            if (strncmp(nativePath, prefix, sizeof(prefix) - 1) == 0 && nativePath[sizeof(prefix) - 1] == '/')
++                nativePath += sizeof(prefix) - 1;
++            FcPatternAddString(pattern, FC_FILE, (const FcChar8 *)nativePath);
++            free(utf8);
++        }
++        if (path) CFRelease(path);
++    }
++    CFTypeRef indexValue = CFDictionaryGetValue(attributes, _KTFontFaceIndexAttribute);
++    if (indexValue) FcPatternAddInteger(pattern, FC_INDEX, (int)numberValue(indexValue, 0));
++    double size = numberValue(CFDictionaryGetValue(attributes, kCTFontSizeAttribute), 0);
++    if (size > 0) FcPatternAddDouble(pattern, FC_SIZE, size);
++    CFTypeRef traits = CFDictionaryGetValue(attributes, kCTFontTraitsAttribute);
++    if (traits && CFGetTypeID(traits) == CFDictionaryGetTypeID()) {
++        uint32_t symbolic = (uint32_t)numberValue(CFDictionaryGetValue(traits, kCTFontSymbolicTrait), 0);
++        CFTypeRef weight = CFDictionaryGetValue(traits, kCTFontWeightTrait);
++        if (weight || (symbolic & kCTFontTraitBold))
++            FcPatternAddInteger(pattern, FC_WEIGHT, fontConfigWeight(numberValue(weight,
++                symbolic & kCTFontTraitBold ? 0.4 : 0)));
++        CFTypeRef slant = CFDictionaryGetValue(traits, kCTFontSlantTrait);
++        if (slant || (symbolic & kCTFontTraitItalic))
++            FcPatternAddInteger(pattern, FC_SLANT,
++                numberValue(slant, symbolic & kCTFontTraitItalic ? 0.2 : 0) != 0 ? FC_SLANT_ITALIC : FC_SLANT_ROMAN);
++        CFTypeRef width = CFDictionaryGetValue(traits, kCTFontWidthTrait);
++        if (width || (symbolic & (kCTFontTraitExpanded | kCTFontTraitCondensed)))
++            FcPatternAddInteger(pattern, FC_WIDTH, (int)(FC_WIDTH_NORMAL *
++                (1 + numberValue(width, symbolic & kCTFontTraitExpanded ? 0.25 :
++                    symbolic & kCTFontTraitCondensed ? -0.25 : 0))));
++        if (symbolic & kCTFontTraitMonoSpace) FcPatternAddInteger(pattern, FC_SPACING, FC_MONO);
++    }
++    return pattern;
++}
++
++static void setNumber(CFMutableDictionaryRef attributes, CFStringRef key, double value) {
++    CFNumberRef number = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &value);
++    if (number) { CFDictionarySetValue(attributes, key, number); CFRelease(number); }
++}
++
++static void setString(CFMutableDictionaryRef attributes, CFStringRef key, FcPattern *pattern, const char *field) {
++    FcChar8 *string = NULL;
++    if (FcPatternGetString(pattern, field, 0, &string) != FcResultMatch || !string) return;
++    CFStringRef value = CFStringCreateWithCString(kCFAllocatorDefault, (const char *)string, kCFStringEncodingUTF8);
++    if (value) { CFDictionarySetValue(attributes, key, value); CFRelease(value); }
++}
++
++CTFontDescriptorRef _KTFontDescriptorCreateFromFontConfigPattern(FcPattern *pattern) {
++    FcChar8 *filename = NULL;
++    if (!pattern || FcPatternGetString(pattern, FC_FILE, 0, &filename) != FcResultMatch || !filename) return NULL;
++    CFMutableDictionaryRef attributes = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
++        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++    if (!attributes) return NULL;
++    setString(attributes, kCTFontNameAttribute, pattern, FC_POSTSCRIPT_NAME);
++    setString(attributes, kCTFontFamilyNameAttribute, pattern, FC_FAMILY);
++    setString(attributes, kCTFontDisplayNameAttribute, pattern, FC_FULLNAME);
++    setString(attributes, kCTFontStyleNameAttribute, pattern, FC_STYLE);
++    CFStringRef nativePath = CFStringCreateWithCString(kCFAllocatorDefault, (const char *)filename, kCFStringEncodingUTF8);
++    CFStringRef path = nativePath ? CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
++        CFSTR("/Volumes/SystemRoot%@"), nativePath) : NULL;
++    CFURLRef url = path ? CFURLCreateWithFileSystemPath(kCFAllocatorDefault, path, kCFURLPOSIXPathStyle, false) : NULL;
++    if (url) { CFDictionarySetValue(attributes, kCTFontURLAttribute, url); CFRelease(url); }
++    if (path) CFRelease(path);
++    if (nativePath) CFRelease(nativePath);
++    int index = 0;
++    FcPatternGetInteger(pattern, FC_INDEX, 0, &index);
++    CFNumberRef indexNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &index);
++    if (indexNumber) { CFDictionarySetValue(attributes, _KTFontFaceIndexAttribute, indexNumber); CFRelease(indexNumber); }
++    /* The actual file/face provides the PostScript name if the FontConfig cache lacks it. */
++    if (!CFDictionaryContainsKey(attributes, kCTFontNameAttribute)) {
++        FT_Face face = NULL;
++        @synchronized([O2Font_freetype class]) {
++            if (FT_New_Face(O2FontSharedFreeTypeLibrary(), (const char *)filename, index, &face) == 0) {
++                const char *postScriptName = FT_Get_Postscript_Name(face);
++                CFStringRef name = postScriptName ? CFStringCreateWithCString(kCFAllocatorDefault,
++                    postScriptName, kCFStringEncodingUTF8) : NULL;
++                if (name) { CFDictionarySetValue(attributes, kCTFontNameAttribute, name); CFRelease(name); }
++                FT_Done_Face(face);
++            }
++        }
++    }
++    int weight = FC_WEIGHT_REGULAR, width = FC_WIDTH_NORMAL, slant = FC_SLANT_ROMAN, spacing = FC_PROPORTIONAL;
++    FcPatternGetInteger(pattern, FC_WEIGHT, 0, &weight); FcPatternGetInteger(pattern, FC_WIDTH, 0, &width);
++    FcPatternGetInteger(pattern, FC_SLANT, 0, &slant); FcPatternGetInteger(pattern, FC_SPACING, 0, &spacing);
++    uint32_t symbolic = 0;
++    if (weight >= FC_WEIGHT_DEMIBOLD) symbolic |= kCTFontTraitBold;
++    if (slant != FC_SLANT_ROMAN) symbolic |= kCTFontTraitItalic;
++    if (width > FC_WIDTH_NORMAL) symbolic |= kCTFontTraitExpanded;
++    if (width < FC_WIDTH_NORMAL) symbolic |= kCTFontTraitCondensed;
++    if (spacing == FC_MONO || spacing == FC_CHARCELL) symbolic |= kCTFontTraitMonoSpace;
++    CFMutableDictionaryRef traits = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
++        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
++    if (traits) {
++        CFNumberRef bits = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &symbolic);
++        if (bits) { CFDictionarySetValue(traits, kCTFontSymbolicTrait, bits); CFRelease(bits); }
++        setNumber(traits, kCTFontWeightTrait, coreTextWeight(weight));
++        setNumber(traits, kCTFontWidthTrait, (double)(width - FC_WIDTH_NORMAL) / FC_WIDTH_NORMAL);
++        setNumber(traits, kCTFontSlantTrait, slant == FC_SLANT_ROMAN ? 0 : 0.2);
++        CFDictionaryRef immutable = CFDictionaryCreateCopy(kCFAllocatorDefault, traits);
++        if (immutable) { CFDictionarySetValue(attributes, kCTFontTraitsAttribute, immutable); CFRelease(immutable); }
++        CFRelease(traits);
++    }
++    FcCharSet *charset = NULL;
++    if (FcPatternGetCharSet(pattern, FC_CHARSET, 0, &charset) == FcResultMatch && charset) {
++        CFMutableCharacterSetRef characters = CFCharacterSetCreateMutable(kCFAllocatorDefault);
++        if (characters) {
++            FcChar32 map[FC_CHARSET_MAP_SIZE], next;
++            for (FcChar32 base = FcCharSetFirstPage(charset, map, &next); base != FC_CHARSET_DONE;
++                 base = FcCharSetNextPage(charset, map, &next)) {
++                for (unsigned word = 0; word < FC_CHARSET_MAP_SIZE; word++) {
++                    FcChar32 bits = map[word];
++                    while (bits) {
++                        unsigned bit = __builtin_ctz(bits);
++                        FcChar32 character = base + word * 32 + bit;
++                        if (character <= 0x10ffff)
++                            CFCharacterSetAddCharactersInRange(characters, CFRangeMake(character, 1));
++                        bits &= bits - 1;
++                    }
++                }
++            }
++            CFCharacterSetRef immutable = CFCharacterSetCreateCopy(kCFAllocatorDefault, characters);
++            if (immutable) { CFDictionarySetValue(attributes, kCTFontCharacterSetAttribute, immutable); CFRelease(immutable); }
++            CFRelease(characters);
++        }
++    }
++    FcLangSet *languageSet = NULL;
++    if (FcPatternGetLangSet(pattern, FC_LANG, 0, &languageSet) == FcResultMatch && languageSet) {
++        FcStrSet *strings = FcLangSetGetLangs(languageSet);
++        FcStrList *list = strings ? FcStrListCreate(strings) : NULL;
++        CFMutableArrayRef languages = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
++        if (list && languages) {
++            FcChar8 *language;
++            while ((language = FcStrListNext(list))) {
++                CFStringRef value = CFStringCreateWithCString(kCFAllocatorDefault, (const char *)language, kCFStringEncodingUTF8);
++                if (value) { CFArrayAppendValue(languages, value); CFRelease(value); }
++            }
++            CFArrayRef immutable = CFArrayCreateCopy(kCFAllocatorDefault, languages);
++            if (immutable) { CFDictionarySetValue(attributes, kCTFontLanguagesAttribute, immutable); CFRelease(immutable); }
++        }
++        if (languages) CFRelease(languages);
++        if (list) FcStrListDone(list);
++        if (strings) FcStrSetDestroy(strings);
++    }
++    CFDictionarySetValue(attributes, kCTFontEnabledAttribute, kCFBooleanTrue);
++    FcChar8 *format = NULL;
++    int formatValue = 0;
++    if (FcPatternGetString(pattern, FC_FONTFORMAT, 0, &format) == FcResultMatch && format) {
++        if (strcmp((const char *)format, "TrueType") == 0) formatValue = 3;
++        else if (strcmp((const char *)format, "CFF") == 0) formatValue = 1;
++        else if (strcmp((const char *)format, "Type 1") == 0) formatValue = 4;
++        else if (strcmp((const char *)format, "PCF") == 0 || strcmp((const char *)format, "BDF") == 0) formatValue = 5;
++    }
++    CFNumberRef formatNumber = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &formatValue);
++    if (formatNumber) { CFDictionarySetValue(attributes, kCTFontFormatAttribute, formatNumber); CFRelease(formatNumber); }
++    CTFontDescriptorRef result = _KTFontDescriptorCreateWithAttributes(attributes, true);
++    CFRelease(attributes);
++    return result;
++}
++
++static FcObjectSet *fontObjects(void) {
++    return FcObjectSetBuild(FC_FILE, FC_INDEX, FC_POSTSCRIPT_NAME, FC_FAMILY, FC_FULLNAME, FC_STYLE,
++        FC_WEIGHT, FC_WIDTH, FC_SLANT, FC_SPACING, FC_CHARSET, FC_LANG, FC_FONTFORMAT, NULL);
++}
++
++CFArrayRef _KTFontDescriptorCreateAvailableFontDescriptors(void) {
++    FcConfig *config = O2FontSharedFontConfig();
++    FcPattern *query = FcPatternCreate(); FcObjectSet *objects = fontObjects();
++    FcFontSet *fonts = config && query && objects ? FcFontList(config, query, objects) : NULL;
++    CFMutableArrayRef result = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
++    if (result && fonts) for (int i = 0; i < fonts->nfont; i++) {
++        CTFontDescriptorRef descriptor = _KTFontDescriptorCreateFromFontConfigPattern(fonts->fonts[i]);
++        if (descriptor) { CFArrayAppendValue(result, descriptor); CFRelease(descriptor); }
++    }
++    if (fonts) FcFontSetDestroy(fonts);
++    if (objects) FcObjectSetDestroy(objects);
++    if (query) FcPatternDestroy(query);
++    CFArrayRef immutable = result ? CFArrayCreateCopy(kCFAllocatorDefault, result) : NULL;
++    if (result) CFRelease(result);
++    return immutable;
++}
++
++static Boolean matchesMandatory(CTFontDescriptorRef query, CTFontDescriptorRef actual,
++                                CFDictionaryRef merged, CFSetRef mandatory) {
++    if (!mandatory) return true;
++    CFIndex count = CFSetGetCount(mandatory);
++    const void **keys = malloc(count * sizeof(void *));
++    if (count && !keys) return false;
++    CFSetGetValues(mandatory, keys);
++    Boolean result = true;
++    for (CFIndex i = 0; i < count; i++) {
++        CFTypeRef expected = CFDictionaryGetValue(query->attributes, keys[i]);
++        /* Identity constraints must match the resolved face. Instance/custom attrs are
++           preserved on that face before checking their exact mandatory values. */
++        CFDictionaryRef foundAttributes = selectionAttribute(keys[i]) ? actual->attributes : merged;
++        CFTypeRef found = CFDictionaryGetValue(foundAttributes, keys[i]);
++        if (expected && (!found || !CFEqual(expected, found))) { result = false; break; }
++    }
++    free(keys);
++    return result;
++}
++
++static void preserveQueryAttribute(const void *key, const void *value, void *context) {
++    CFMutableDictionaryRef result = context;
++    /* Resolved identity and coverage are supplied by the actual font; custom attrs remain retained. */
++    if (!CFDictionaryContainsKey(result, key) || CFEqual(key, kCTFontSizeAttribute) ||
++        CFEqual(key, kCTFontMatrixAttribute) || CFEqual(key, kCTFontVariationAttribute) ||
++        CFEqual(key, kCTFontFeatureSettingsAttribute) || CFEqual(key, kCTFontCascadeListAttribute))
++        CFDictionarySetValue(result, key, value);
++}
++
++static CTFontDescriptorRef normalizePatternForQuery(FcPattern *pattern, CTFontDescriptorRef query,
++                                                   CFSetRef mandatory) {
++    CTFontDescriptorRef actual = _KTFontDescriptorCreateFromFontConfigPattern(pattern);
++    if (!actual) return NULL;
++    CFMutableDictionaryRef merged = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, actual->attributes);
++    if (!merged) { CFRelease(actual); return NULL; }
++    CFDictionaryApplyFunction(query->attributes, preserveQueryAttribute, merged);
++    if (!matchesMandatory(query, actual, merged, mandatory)) {
++        CFRelease(merged); CFRelease(actual); return NULL;
++    }
++    CTFontDescriptorRef result = _KTFontDescriptorCreateWithAttributes(merged, true);
++    CFRelease(merged); CFRelease(actual);
++    return result;
++}
++
++CFArrayRef CTFontDescriptorCreateMatchingFontDescriptors(CTFontDescriptorRef descriptor, CFSetRef mandatoryAttributes) {
++    if (!isDescriptor(descriptor) || (mandatoryAttributes && CFGetTypeID(mandatoryAttributes) != CFSetGetTypeID())) return NULL;
++    if (descriptor->normalized) {
++        const void *value = descriptor;
++        return CFArrayCreate(kCFAllocatorDefault, &value, 1, &kCFTypeArrayCallBacks);
++    }
++    FcConfig *config = O2FontSharedFontConfig();
++    FcPattern *query = _KTFontDescriptorCreateFontConfigPattern(descriptor);
++    FcObjectSet *objects = fontObjects();
++    /* A scalable installed face supports arbitrary sizes; FC_SIZE is a match preference, not a listing filter. */
++    if (query) FcPatternDel(query, FC_SIZE);
++    FcFontSet *fonts = config && query && objects ? FcFontList(config, query, objects) : NULL;
++    CFMutableArrayRef result = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
++    if (result && fonts) for (int i = 0; i < fonts->nfont; i++) {
++        CTFontDescriptorRef match = normalizePatternForQuery(fonts->fonts[i], descriptor, mandatoryAttributes);
++        if (match) { CFArrayAppendValue(result, match); CFRelease(match); }
++    }
++    /* Resolve family aliases/defaults through the same backend as actual font creation. */
++    if (result && CFArrayGetCount(result) == 0 && config && query &&
++        (!mandatoryAttributes || CFSetGetCount(mandatoryAttributes) == 0)) {
++        FcConfigSubstitute(config, query, FcMatchPattern); FcDefaultSubstitute(query);
++        FcResult status; FcPattern *best = FcFontMatch(config, query, &status);
++        if (best) {
++            CTFontDescriptorRef match = normalizePatternForQuery(best, descriptor, NULL);
++            if (match) { CFArrayAppendValue(result, match); CFRelease(match); }
++            FcPatternDestroy(best);
++        }
++    }
++    if (fonts) FcFontSetDestroy(fonts);
++    if (objects) FcObjectSetDestroy(objects);
++    if (query) FcPatternDestroy(query);
++    CFArrayRef immutable = result && CFArrayGetCount(result) ? CFArrayCreateCopy(kCFAllocatorDefault, result) : NULL;
++    if (result) CFRelease(result);
++    return immutable;
++}
++
++CTFontDescriptorRef CTFontDescriptorCreateMatchingFontDescriptor(CTFontDescriptorRef descriptor,
++                                                               CFSetRef mandatoryAttributes) {
++    if (!isDescriptor(descriptor) || (mandatoryAttributes && CFGetTypeID(mandatoryAttributes) != CFSetGetTypeID())) return NULL;
++    if (descriptor->normalized) return (CTFontDescriptorRef)CFRetain(descriptor);
++    FcConfig *config = O2FontSharedFontConfig();
++    FcPattern *query = _KTFontDescriptorCreateFontConfigPattern(descriptor);
++    if (!config || !query) { if (query) FcPatternDestroy(query); return NULL; }
++    FcConfigSubstitute(config, query, FcMatchPattern); FcDefaultSubstitute(query);
++    FcResult status; FcPattern *best = FcFontMatch(config, query, &status);
++    CTFontDescriptorRef result = best ? normalizePatternForQuery(best, descriptor, mandatoryAttributes) : NULL;
++    if (best) FcPatternDestroy(best);
++    FcPatternDestroy(query);
++    /* A lower-ranked face can still satisfy an explicit mandatory constraint. */
++    if (!result && mandatoryAttributes) {
++        CFArrayRef matches = CTFontDescriptorCreateMatchingFontDescriptors(descriptor, mandatoryAttributes);
++        if (matches) {
++            if (CFArrayGetCount(matches)) result = (CTFontDescriptorRef)CFRetain(CFArrayGetValueAtIndex(matches, 0));
++            CFRelease(matches);
++        }
++    }
++    return result;
++}
+diff --git a/src/external/cocotron/CoreText/CTFontDescriptorInternal.h b/src/external/cocotron/CoreText/CTFontDescriptorInternal.h
+new file mode 100644
+--- /dev/null
++++ b/src/external/cocotron/CoreText/CTFontDescriptorInternal.h
+@@ -0,0 +1,13 @@
++#pragma once
++
++#import <CoreText/CTFontDescriptor.h>
++#import <Onyx2D/O2Font_freetype.h>
++
++/* Native FreeType face index, including the FontConfig named-instance bits. */
++extern const CFStringRef _KTFontFaceIndexAttribute;
++
++/* Create rule: caller owns the descriptor/pattern and must release/destroy it. */
++CTFontDescriptorRef _KTFontDescriptorCreateFromFontConfigPattern(FcPattern *pattern);
++CTFontDescriptorRef _KTFontDescriptorCreateWithAttributes(CFDictionaryRef attributes, Boolean normalized);
++FcPattern *_KTFontDescriptorCreateFontConfigPattern(CTFontDescriptorRef descriptor);
++CFArrayRef _KTFontDescriptorCreateAvailableFontDescriptors(void);
+diff --git a/src/external/cocotron/CoreText/KTFont.m b/src/external/cocotron/CoreText/KTFont.m
+--- a/src/external/cocotron/CoreText/KTFont.m
++++ b/src/external/cocotron/CoreText/KTFont.m
+@@ -19,14 +19,48 @@
+ #import <CoreText/KTFont.h>
+ #import <Foundation/NSArray.h>
+ #import <Onyx2D/O2Exceptions.h>
++#include <math.h>
+ 
+ @implementation KTFont
+ 
+ - initWithFont: (CGFontRef) font size: (CGFloat) size {
++    return [self initWithFont:font size:size matrix:NULL descriptor:NULL];
++}
++
++- initWithFont: (CGFontRef) font size: (CGFloat) size
++       matrix: (const CGAffineTransform *) matrix
++   descriptor: (CTFontDescriptorRef) descriptor {
++    self = [super init];
++    if (self == nil)
++        return nil;
++    if (font == NULL || CGFontGetUnitsPerEm(font) <= 0) {
++        [self release];
++        return nil;
++    }
+     _font = CGFontRetain(font);
+     _unitsPerEm = CGFontGetUnitsPerEm(_font);
+-    _size = size;
++    _size = size > 0 ? size : 12.0;
++    _matrix = matrix ? *matrix : CGAffineTransformIdentity;
++    _descriptor = descriptor ? (CTFontDescriptorRef)CFRetain(descriptor) : NULL;
+     return self;
++}
++
++- (CFTypeID) _cfTypeID { return CTFontGetTypeID(); }
++- (CGFontRef) graphicsFont { return _font; }
++- (CTFontDescriptorRef) fontDescriptor { return _descriptor; }
++- (CGAffineTransform) fontMatrix { return _matrix; }
++- (CGFloat) unitsPerEm { return _unitsPerEm; }
++
++- (void) setFontDescriptor: (CTFontDescriptorRef) descriptor {
++    CTFontDescriptorRef replacement = descriptor ? (CTFontDescriptorRef)CFRetain(descriptor) : NULL;
++    if (_descriptor)
++        CFRelease(_descriptor);
++    _descriptor = replacement;
++}
++
++static CGFloat fontVerticalScale(CGFloat size, CGFloat units,
++                                  CGAffineTransform matrix) {
++    return units > 0 ? size / units * hypot(matrix.c, matrix.d) : 0;
+ }
+ 
+ - initWithUIFontType: (CTFontUIFontType) uiFontType
+@@ -39,6 +73,8 @@
+ 
+ - (void) dealloc {
+     CGFontRelease(_font);
++    if (_descriptor)
++        CFRelease(_descriptor);
+     [super dealloc];
+ }
+ 
+@@ -55,26 +91,31 @@
+ }
+ 
+ - (CGRect) boundingRect {
+-    O2InvalidAbstractInvocation();
+-    return CGRectZero;
++    CGRect rect = CGFontGetFontBBox(_font);
++    CGAffineTransform scale = CGAffineTransformMakeScale(_size / _unitsPerEm,
++                                                        _size / _unitsPerEm);
++    CGAffineTransform linearMatrix = _matrix;
++    linearMatrix.tx = 0;
++    linearMatrix.ty = 0;
++    return CGRectApplyAffineTransform(rect, CGAffineTransformConcat(scale, linearMatrix));
+ }
+ 
+ - (CGFloat) ascender {
+     CGFloat ascent = CGFontGetAscent(_font);
+ 
+-    return (ascent / _unitsPerEm) * _size;
++    return ascent * fontVerticalScale(_size, _unitsPerEm, _matrix);
+ }
+ 
+ // CT descenter is the opposite of the CG one on Cocoa
+ - (CGFloat) descender {
+     CGFloat descent = CGFontGetDescent(_font);
+-    return -(descent / _unitsPerEm) * _size;
++    return -descent * fontVerticalScale(_size, _unitsPerEm, _matrix);
+ }
+ 
+ - (CGFloat) leading {
+     CGFloat leading = CGFontGetLeading(_font);
+ 
+-    return (leading / _unitsPerEm) * _size;
++    return leading * fontVerticalScale(_size, _unitsPerEm, _matrix);
+ }
+ 
+ - (CGFloat) underlineThickness {
+@@ -94,13 +135,13 @@
+ - (CGFloat) xHeight {
+     CGFloat xHeight = CGFontGetXHeight(_font);
+ 
+-    return (xHeight / _unitsPerEm) * _size;
++    return xHeight * fontVerticalScale(_size, _unitsPerEm, _matrix);
+ }
+ 
+ - (CGFloat) capHeight {
+     CGFloat capHeight = CGFontGetCapHeight(_font);
+ 
+-    return (capHeight / _unitsPerEm) * _size;
++    return capHeight * fontVerticalScale(_size, _unitsPerEm, _matrix);
+ }
+ 
+ - (NSUInteger) numberOfGlyphs {
+diff --git a/src/external/cocotron/CoreText/KTFont_FT.m b/src/external/cocotron/CoreText/KTFont_FT.m
+--- a/src/external/cocotron/CoreText/KTFont_FT.m
++++ b/src/external/cocotron/CoreText/KTFont_FT.m
+@@ -20,6 +20,15 @@
+ 
+ #import <CoreText/KTFont_FT.h>
+ #import <Onyx2D/O2Font_freetype.h>
++#ifdef DARLING
++#define __linux__
++#endif
++#import FT_TRUETYPE_TABLES_H
++#import FT_OUTLINE_H
++#ifdef DARLING
++#undef __linux__
++#endif
++#include <math.h>
+ 
+ @implementation KTFont (KTFont_FT)
+ + (id) allocWithZone: (NSZone *) zone {
+@@ -27,81 +36,271 @@
+ }
+ @end
+ 
++static CGPoint fontVector(CGFloat x, CGFloat y, CGFloat size, CGFloat units,
++                          CGAffineTransform matrix) {
++    CGFloat scale = size / units;
++    return CGPointMake(scale * (x * matrix.a + y * matrix.c),
++                       scale * (x * matrix.b + y * matrix.d));
++}
++
++static CGFloat verticalMetric(FT_Pos value, CGFloat size, CGFloat units,
++                              CGAffineTransform matrix) {
++    return value * size / units * hypot(matrix.c, matrix.d);
++}
++
++static FT_Pos glyphTop(FT_Face face, FT_ULong character) {
++    FT_UInt glyph = FT_Get_Char_Index(face, character);
++    if (glyph && !FT_Load_Glyph(face, glyph,
++            FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING | FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_TRANSFORM))
++        return face->glyph->metrics.horiBearingY;
++    return 0;
++}
++
++typedef struct {
++    CGMutablePathRef path;
++    CGAffineTransform matrix;
++    BOOL contourOpen;
++} KTOutlineContext;
++
++static int outlineMoveTo(const FT_Vector *to, void *user) {
++    KTOutlineContext *context = user;
++    if (context->contourOpen)
++        CGPathCloseSubpath(context->path);
++    CGPathMoveToPoint(context->path, &context->matrix, to->x, to->y);
++    context->contourOpen = YES;
++    return 0;
++}
++static int outlineLineTo(const FT_Vector *to, void *user) {
++    KTOutlineContext *context = user;
++    CGPathAddLineToPoint(context->path, &context->matrix, to->x, to->y);
++    return 0;
++}
++static int outlineConicTo(const FT_Vector *control, const FT_Vector *to, void *user) {
++    KTOutlineContext *context = user;
++    CGPathAddQuadCurveToPoint(context->path, &context->matrix,
++                             control->x, control->y, to->x, to->y);
++    return 0;
++}
++static int outlineCubicTo(const FT_Vector *first, const FT_Vector *second,
++                          const FT_Vector *to, void *user) {
++    KTOutlineContext *context = user;
++    CGPathAddCurveToPoint(context->path, &context->matrix,
++                         first->x, first->y, second->x, second->y, to->x, to->y);
++    return 0;
++}
++
+ @implementation KTFont_FT
+ 
+ - initWithUIFontType: (CTFontUIFontType) uiFontType
+                 size: (CGFloat) size
+-            language: (NSString *) language
+-{
+-    O2Font *font = nil;
+-
++            language: (NSString *) language {
++    NSString *pattern = @"sans-serif";
++    CGFloat defaultSize = 13;
+     switch (uiFontType) {
+-
+-    case kCTFontMenuTitleFontType:
+-    case kCTFontMenuItemFontType:
+-        if (size == 0)
+-            size = 12;
+-        font = O2FontCreateWithFontName(@"San Francisco");
+-        break;
+-
++    case kCTFontUIFontNone:
++        [self release];
++        return nil;
++    case kCTFontUIFontUserFixedPitch:
++        pattern = @"monospace";
++        defaultSize = 12;
++        break;
++    case kCTFontUIFontEmphasizedSystem:
++    case kCTFontUIFontAlertHeader:
++        pattern = @"sans-serif:weight=bold";
++        break;
++    case kCTFontUIFontSmallEmphasizedSystem:
++    case kCTFontUIFontEmphasizedSystemDetail:
++        pattern = @"sans-serif:weight=bold";
++        defaultSize = 11;
++        break;
++    case kCTFontUIFontMiniEmphasizedSystem:
++        pattern = @"sans-serif:weight=bold";
++        defaultSize = 9;
++        break;
++    case kCTFontUIFontSmallSystem:
++    case kCTFontUIFontSmallToolbar:
++    case kCTFontUIFontSystemDetail:
++    case kCTFontUIFontPalette:
++    case kCTFontUIFontToolTip:
++    case kCTFontUIFontUtilityWindowTitle:
++        defaultSize = 11;
++        break;
++    case kCTFontUIFontMiniSystem:
++        defaultSize = 9;
++        break;
++    case kCTFontUIFontUser:
++    case kCTFontUIFontLabel:
++        defaultSize = 12;
++        break;
++    case kCTFontUIFontSystem:
++    case kCTFontUIFontViews:
++    case kCTFontUIFontApplication:
++    case kCTFontUIFontMenuTitle:
++    case kCTFontUIFontMenuItem:
++    case kCTFontUIFontMenuItemMark:
++    case kCTFontUIFontMenuItemCmdKey:
++    case kCTFontUIFontWindowTitle:
++    case kCTFontUIFontPushButton:
++    case kCTFontUIFontToolbar:
++    case kCTFontUIFontMessage:
++    case kCTFontUIFontControlContent:
++        break;
+     default:
++        [self release];
+         return nil;
+     }
+-
+-    self = [self initWithFont: (CGFontRef)font size: size];
+-
+-    [font release];
+-
++    if (language && [language length])
++        pattern = [NSString stringWithFormat:@"%@:lang=%@", pattern, language];
++    O2FontRef font = O2FontCreateWithFontName(pattern);
++    self = [self initWithFont:(CGFontRef)font size:size > 0 ? size : defaultSize];
++    O2FontRelease(font);
+     return self;
+ }
+ 
+ - (void) getGlyphs: (CGGlyph *) glyphs
+         forCharacters: (const unichar *) characters
+-               length: (NSUInteger) length
+-{
+-    O2Font_freetype *o2Font = (O2Font_freetype *) _font;
+-    FT_Face face = [o2Font face];
+-
+-    int i;
+-    for (i = 0; i < length; i++) {
+-        glyphs[i] = FT_Get_Char_Index(face, characters[i]);
++               length: (NSUInteger) length {
++    @synchronized((id)_font) {
++        FT_Face face = [(O2Font_freetype *)_font face];
++        for (NSUInteger i = 0; i < length; ++i) {
++            FT_ULong code = characters[i];
++            if (code >= 0xd800 && code <= 0xdbff && i + 1 < length &&
++                    characters[i + 1] >= 0xdc00 && characters[i + 1] <= 0xdfff) {
++                code = 0x10000 + ((code - 0xd800) << 10) + (characters[i + 1] - 0xdc00);
++                glyphs[i] = FT_Get_Char_Index(face, code);
++                glyphs[++i] = 0;
++            } else {
++                glyphs[i] = (code >= 0xd800 && code <= 0xdfff) ? 0 : FT_Get_Char_Index(face, code);
++            }
++        }
+     }
+ }
+ 
+ - (void) getAdvancements: (CGSize *) advancements
+                forGlyphs: (const CGGlyph *) glyphs
+-                   count: (NSUInteger) count
+-{
+-    O2Font_freetype *o2Font = (O2Font_freetype *) _font;
+-    FT_Face face = [o2Font face];
+-
+-    int i;
+-    FT_Set_Pixel_Sizes(face, _size, _size);
+-
+-    for (i = 0; i < count; i++) {
+-        FT_Load_Glyph(face, glyphs[i], FT_LOAD_DEFAULT);
+-        advancements[i] = CGSizeMake(face->glyph->advance.x / (O2Float)(2 << 5),
+-                       face->glyph->advance.y / (O2Float)(2 << 5));
+-    }
++                   count: (NSUInteger) count {
++    if (!advancements)
++        return;
++    @synchronized((id)_font) {
++        FT_Face face = [(O2Font_freetype *)_font face];
++        for (NSUInteger i = 0; i < count; ++i) {
++            CGPoint vector = CGPointZero;
++            if (!FT_Load_Glyph(face, glyphs[i],
++                    FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING | FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_TRANSFORM))
++                vector = fontVector(face->glyph->metrics.horiAdvance, 0, _size, _unitsPerEm, _matrix);
++            advancements[i] = CGSizeMake(vector.x, vector.y);
++        }
++    }
++}
++
++- (CGRect) getBoundingRects: (CGRect *) rects
++                 forGlyphs: (const CGGlyph *) glyphs
++                     count: (NSUInteger) count {
++    CGRect aggregate = CGRectZero;
++    BOOL hasBounds = NO;
++    CGAffineTransform scale = CGAffineTransformMakeScale(_size / _unitsPerEm,
++                                                        _size / _unitsPerEm);
++    CGAffineTransform linearMatrix = _matrix;
++    linearMatrix.tx = 0;
++    linearMatrix.ty = 0;
++    CGAffineTransform transform = CGAffineTransformConcat(scale, linearMatrix);
++    @synchronized((id)_font) {
++        FT_Face face = [(O2Font_freetype *)_font face];
++        for (NSUInteger i = 0; i < count; ++i) {
++            CGRect rect = CGRectZero;
++            if (!FT_Load_Glyph(face, glyphs[i],
++                    FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING | FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_TRANSFORM)) {
++                FT_Glyph_Metrics metrics = face->glyph->metrics;
++                rect = CGRectMake(metrics.horiBearingX, metrics.horiBearingY - metrics.height,
++                                  metrics.width, metrics.height);
++                rect = CGRectApplyAffineTransform(rect, transform);
++            }
++            if (rects)
++                rects[i] = rect;
++            if (rect.size.width > 0 && rect.size.height > 0) {
++                aggregate = hasBounds ? CGRectUnion(aggregate, rect) : rect;
++                hasBounds = YES;
++            }
++        }
++    }
++    return aggregate;
++}
++
++- (CGFloat) underlineThickness {
++    @synchronized((id)_font) {
++        FT_Face face = [(O2Font_freetype *)_font face];
++        return verticalMetric(face->underline_thickness, _size, _unitsPerEm, _matrix);
++    }
++}
++- (CGFloat) underlinePosition {
++    @synchronized((id)_font) {
++        FT_Face face = [(O2Font_freetype *)_font face];
++        return verticalMetric(face->underline_position, _size, _unitsPerEm, _matrix);
++    }
++}
++- (CGFloat) capHeight {
++    @synchronized((id)_font) {
++        FT_Face face = [(O2Font_freetype *)_font face];
++        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
++        FT_Pos height = os2 && os2->version != 0xffff && os2->version >= 2 ? os2->sCapHeight : 0;
++        if (height <= 0)
++            height = glyphTop(face, 'H');
++        return verticalMetric(height, _size, _unitsPerEm, _matrix);
++    }
++}
++- (CGFloat) xHeight {
++    @synchronized((id)_font) {
++        FT_Face face = [(O2Font_freetype *)_font face];
++        TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
++        FT_Pos height = os2 && os2->version != 0xffff && os2->version >= 2 ? os2->sxHeight : 0;
++        if (height <= 0)
++            height = glyphTop(face, 'x');
++        return verticalMetric(height, _size, _unitsPerEm, _matrix);
++    }
++}
++
++- (CGPathRef) createPathForGlyph: (CGGlyph) glyph
++                       transform: (CGAffineTransform *) xform {
++    CGMutablePathRef path = CGPathCreateMutable();
++    if (!path)
++        return NULL;
++    CGAffineTransform scale = CGAffineTransformMakeScale(_size / _unitsPerEm,
++                                                        _size / _unitsPerEm);
++    CGAffineTransform linearMatrix = _matrix;
++    linearMatrix.tx = 0;
++    linearMatrix.ty = 0;
++    KTOutlineContext context = { path, CGAffineTransformConcat(scale, linearMatrix), NO };
++    if (xform)
++        context.matrix = CGAffineTransformConcat(context.matrix, *xform);
++    @synchronized((id)_font) {
++        FT_Face face = [(O2Font_freetype *)_font face];
++        if (FT_Load_Glyph(face, glyph,
++                FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING | FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_TRANSFORM) ||
++                face->glyph->format != FT_GLYPH_FORMAT_OUTLINE) {
++            CGPathRelease(path);
++            return NULL;
++        }
++        FT_Outline_Funcs callbacks = { outlineMoveTo, outlineLineTo, outlineConicTo,
++                                      outlineCubicTo, 0, 0 };
++        if (FT_Outline_Decompose(&face->glyph->outline, &callbacks, &context)) {
++            CGPathRelease(path);
++            return NULL;
++        }
++    }
++    if (context.contourOpen)
++        CGPathCloseSubpath(path);
++    return path;
+ }
+ 
+ - (CGPoint) positionOfGlyph: (CGGlyph) current
+             precededByGlyph: (CGGlyph) previous
+-                  isNominal: (BOOL *) isNominalp
+-{
+-    O2Font_freetype *o2Font = (O2Font_freetype *) _font;
+-    FT_Face face = [o2Font face];
+-
+-    *isNominalp = YES;
+-
+-    if (!current)
+-        return NSZeroPoint;
+-
+-    FT_Set_Pixel_Sizes(face, _size, _size);
+-
+-    FT_Load_Glyph(face, current, FT_LOAD_DEFAULT);
+-    return NSMakePoint(face->glyph->advance.x / (O2Float)(2 << 5),
+-                       face->glyph->advance.y / (O2Float)(2 << 5));
+-}
+-
++                  isNominal: (BOOL *) isNominalp {
++    if (isNominalp)
++        *isNominalp = YES;
++    if (!previous)
++        return CGPointZero;
++    CGSize advance;
++    [self getAdvancements:&advance forGlyphs:&previous count:1];
++    return CGPointMake(advance.width, advance.height);
++}
+ @end
+diff --git a/src/external/cocotron/CoreText/include/CoreText/CTFontCollection.h b/src/external/cocotron/CoreText/include/CoreText/CTFontCollection.h
+--- a/src/external/cocotron/CoreText/include/CoreText/CTFontCollection.h
++++ b/src/external/cocotron/CoreText/include/CoreText/CTFontCollection.h
+@@ -3,6 +3,9 @@
+ 
+ typedef struct __CTFontCollection* CTFontCollectionRef;
+ 
++CORETEXT_EXPORT const CFStringRef kCTFontCollectionRemoveDuplicatesOption;
++CORETEXT_EXPORT CFTypeID CTFontCollectionGetTypeID(void);
+ CORETEXT_EXPORT CTFontCollectionRef CTFontCollectionCreateFromAvailableFonts(CFDictionaryRef options);
+ CORETEXT_EXPORT CFArrayRef CTFontCollectionCreateMatchingFontDescriptors(CTFontCollectionRef collection);
+ CORETEXT_EXPORT CTFontCollectionRef CTFontCollectionCreateWithFontDescriptors(CFArrayRef queryDescriptors, CFDictionaryRef options);
++CORETEXT_EXPORT CTFontCollectionRef CTFontCollectionCreateCopyWithFontDescriptors(CTFontCollectionRef original, CFArrayRef queryDescriptors, CFDictionaryRef options);
+diff --git a/src/external/cocotron/CoreText/include/CoreText/CTFontDescriptor.h b/src/external/cocotron/CoreText/include/CoreText/CTFontDescriptor.h
+--- a/src/external/cocotron/CoreText/include/CoreText/CTFontDescriptor.h
++++ b/src/external/cocotron/CoreText/include/CoreText/CTFontDescriptor.h
+@@ -1,4 +1,8 @@
+ #import <CoreFoundation/CFString.h>
++#import <CoreFoundation/CFDictionary.h>
++#import <CoreFoundation/CFArray.h>
++#import <CoreFoundation/CFSet.h>
++#import <CoreGraphics/CGAffineTransform.h>
+ #import <CoreText/CoreTextExport.h>
+ #import <CoreText/CTFontTraits.h>
+ 
+@@ -39,5 +43,13 @@
+ } CTFontOrientation;
+ 
+ CORETEXT_EXPORT CFTypeRef CTFontDescriptorCopyAttribute(CTFontDescriptorRef descriptor, CFStringRef attribute);
++CORETEXT_EXPORT CFTypeID CTFontDescriptorGetTypeID(void);
++CORETEXT_EXPORT CTFontDescriptorRef CTFontDescriptorCreateWithAttributes(CFDictionaryRef attributes);
++CORETEXT_EXPORT CTFontDescriptorRef CTFontDescriptorCreateWithNameAndSize(CFStringRef name, CGFloat size);
++CORETEXT_EXPORT CTFontDescriptorRef CTFontDescriptorCreateCopyWithAttributes(CTFontDescriptorRef original, CFDictionaryRef attributes);
++CORETEXT_EXPORT CFDictionaryRef CTFontDescriptorCopyAttributes(CTFontDescriptorRef descriptor);
++CORETEXT_EXPORT CFTypeRef CTFontDescriptorCopyLocalizedAttribute(CTFontDescriptorRef descriptor, CFStringRef attribute, CFStringRef *language);
++CORETEXT_EXPORT CFArrayRef CTFontDescriptorCreateMatchingFontDescriptors(CTFontDescriptorRef descriptor, CFSetRef mandatoryAttributes);
++CORETEXT_EXPORT CTFontDescriptorRef CTFontDescriptorCreateMatchingFontDescriptor(CTFontDescriptorRef descriptor, CFSetRef mandatoryAttributes);
+ 
+ CF_IMPLICIT_BRIDGING_DISABLED
+diff --git a/src/external/cocotron/CoreText/include/CoreText/CTFontTraits.h b/src/external/cocotron/CoreText/include/CoreText/CTFontTraits.h
+--- a/src/external/cocotron/CoreText/include/CoreText/CTFontTraits.h
++++ b/src/external/cocotron/CoreText/include/CoreText/CTFontTraits.h
+@@ -1,3 +1,11 @@
++#import <CoreFoundation/CFString.h>
++#import <CoreText/CoreTextExport.h>
++
++CORETEXT_EXPORT const CFStringRef kCTFontSymbolicTrait;
++CORETEXT_EXPORT const CFStringRef kCTFontWeightTrait;
++CORETEXT_EXPORT const CFStringRef kCTFontWidthTrait;
++CORETEXT_EXPORT const CFStringRef kCTFontSlantTrait;
++
+ enum {
+   kCTFontClassMaskShift = 28,
+ };
+diff --git a/src/external/cocotron/CoreText/include/CoreText/KTFont.h b/src/external/cocotron/CoreText/include/CoreText/KTFont.h
+--- a/src/external/cocotron/CoreText/include/CoreText/KTFont.h
++++ b/src/external/cocotron/CoreText/include/CoreText/KTFont.h
+@@ -27,9 +27,19 @@
+     CGFloat _size;
+     CGFloat _unitsPerEm;
+     CGGlyph **_twoLevel;
++    CGAffineTransform _matrix;
++    CTFontDescriptorRef _descriptor;
+ }
+ 
+ - initWithFont: (CGFontRef) font size: (CGFloat) size;
++- initWithFont: (CGFontRef) font size: (CGFloat) size
++       matrix: (const CGAffineTransform *) matrix
++   descriptor: (CTFontDescriptorRef) descriptor;
++- (CGFontRef) graphicsFont;
++- (CTFontDescriptorRef) fontDescriptor;
++- (CGAffineTransform) fontMatrix;
++- (CGFloat) unitsPerEm;
++- (void) setFontDescriptor: (CTFontDescriptorRef) descriptor;
+ - initWithUIFontType: (CTFontUIFontType) uiFontType
+                 size: (CGFloat) size
+             language: (NSString *) language;
+@@ -63,6 +73,10 @@
+                forGlyphs: (const CGGlyph *) glyphs
+                    count: (NSUInteger) count;
+ 
++- (CGRect) getBoundingRects: (CGRect *) rects
++                 forGlyphs: (const CGGlyph *) glyphs
++                     count: (NSUInteger) count;
++
+ - (CGPathRef) createPathForGlyph: (CGGlyph) glyph
+                        transform: (CGAffineTransform *) xform;
+ 
+diff --git a/src/external/cocotron/CoreText/stubs.c b/src/external/cocotron/CoreText/stubs.c
+--- a/src/external/cocotron/CoreText/stubs.c
++++ b/src/external/cocotron/CoreText/stubs.c
+@@ -1,6 +1 @@
+-#include <stdio.h>
+-
+-void *CTFontDescriptorCreateWithAttributes(void) {
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return NULL;
+-}
++/* Descriptor APIs are implemented in CTFontDescriptor.m. */
+diff --git a/src/external/cocotron/Onyx2D/O2Font_freetype.m b/src/external/cocotron/Onyx2D/O2Font_freetype.m
+--- a/src/external/cocotron/Onyx2D/O2Font_freetype.m
++++ b/src/external/cocotron/Onyx2D/O2Font_freetype.m
+@@ -1,6 +1,15 @@
+ #import <Onyx2D/O2Font_freetype.h>
+ #ifdef FREETYPE_PRESENT
+ #import <Onyx2D/O2Encoding.h>
++#import <Foundation/NSData.h>
++#ifdef DARLING
++#define __linux__
++#endif
++#import FT_TRUETYPE_TABLES_H
++#ifdef DARLING
++#undef __linux__
++#endif
++#include <stdlib.h>
+ 
+ @implementation O2Font_freetype
+ 
+@@ -18,13 +27,10 @@
+ 
+ FT_Library O2FontSharedFreeTypeLibrary() {
+     static FT_Library library = NULL;
+-
+-    if (library == NULL) {
+-        if (FT_Init_FreeType(&library) != 0) {
++    @synchronized([O2Font_freetype class]) {
++        if (library == NULL && FT_Init_FreeType(&library) != 0)
+             NSLog(@"FT_Init_FreeType failed");
+-        }
+-    }
+-
++    }
+     return library;
+ }
+ 
+@@ -46,48 +52,48 @@
+ 
+ FcConfig *O2FontSharedFontConfig() {
+     static FcConfig *fontConfig = NULL;
+-
+-    if (fontConfig == NULL) {
+-        fontConfig = FcInitLoadConfigAndFonts();
+-
+-        id appFontsPath = [[NSBundle mainBundle]
+-                objectForInfoDictionaryKey: @"ATSApplicationFontsPath"];
+-        if ([appFontsPath isKindOfClass: [NSString class]]) {
+-            addAppFont(fontConfig, appFontsPath);
+-        } else if ([appFontsPath isKindOfClass: [NSArray class]]) {
+-            for (NSString *path in appFontsPath) {
+-                addAppFont(fontConfig, path);
+-            }
+-        }
+-    }
+-
++    @synchronized([O2Font_freetype class]) {
++        if (fontConfig == NULL) {
++            fontConfig = FcInitLoadConfigAndFonts();
++            if (!fontConfig)
++                return NULL;
++            id appFontsPath = [[NSBundle mainBundle]
++                    objectForInfoDictionaryKey:@"ATSApplicationFontsPath"];
++            if ([appFontsPath isKindOfClass:[NSString class]])
++                addAppFont(fontConfig, appFontsPath);
++            else if ([appFontsPath isKindOfClass:[NSArray class]])
++                for (NSString *path in appFontsPath)
++                    addAppFont(fontConfig, path);
++        }
++    }
+     return fontConfig;
+ }
+ 
++static FcPattern *matchForPattern(NSString *name) {
++    FcConfig *config = O2FontSharedFontConfig();
++    if (!config)
++        return NULL;
++    FcPattern *pattern = FcNameParse((const FcChar8 *)[name UTF8String]);
++    if (!pattern)
++        return NULL;
++    FcConfigSubstitute(config, pattern, FcMatchPattern);
++    FcDefaultSubstitute(pattern);
++    FcResult result;
++    FcPattern *match = FcFontMatch(config, pattern, &result);
++    FcPatternDestroy(pattern);
++    return match;
++}
++
+ + (NSString *) filenameForPattern: (NSString *) pattern {
+-    FcConfig *config = O2FontSharedFontConfig();
+-
+-    FcPattern *pat = FcNameParse((unsigned char *) [pattern UTF8String]);
+-    FcConfigSubstitute(config, pat, FcMatchPattern);
+-    FcDefaultSubstitute(pat);
+-
+-    FcResult fcResult;
+-    FcPattern *match = FcFontMatch(config, pat, &fcResult);
+-    FcPatternDestroy(pat);
+-    if (match == NULL) {
+-        return nil;
+-    }
+-
++    FcPattern *match = matchForPattern(pattern);
++    if (!match)
++        return nil;
+     FcChar8 *filename = NULL;
+-    FcPatternGetString(match, FC_FILE, 0, &filename);
+-
+-    NSString *res = nil;
+-    if (filename != NULL) {
+-        res = [NSString stringWithUTF8String: (char *) filename];
+-    }
+-
++    NSString *result = nil;
++    if (FcPatternGetString(match, FC_FILE, 0, &filename) == FcResultMatch)
++        result = [NSString stringWithUTF8String:(const char *)filename];
+     FcPatternDestroy(match);
+-    return res;
++    return result;
+ }
+ 
+ - (instancetype) initWithDataProvider: (O2DataProviderRef) provider {
+@@ -99,9 +105,11 @@
+     const void *bytes = [provider bytes];
+     size_t length = [provider length];
+ 
+-    FT_Face face;
+-    int error = FT_New_Memory_Face(O2FontSharedFreeTypeLibrary(), bytes, length,
+-                                   0, &face);
++    FT_Face face = NULL;
++    FT_Error error;
++    @synchronized([O2Font_freetype class]) {
++        error = FT_New_Memory_Face(O2FontSharedFreeTypeLibrary(), bytes, length, 0, &face);
++    }
+ 
+     if (error != 0) {
+         NSLog(@"FT_New_Memory_Face() = %d", error);
+@@ -113,29 +121,57 @@
+ }
+ 
+ - (instancetype) initWithFontName: (NSString *) name {
+-    self = [super initWithFontName: name];
+-
+-    NSString *filename = [[self class] filenameForPattern: name];
+-    if (filename == nil) {
+-        filename = [[self class] filenameForPattern: @""];
+-    }
+-    if (filename == nil) {
+-        NSLog(@"No font found for name %@", name);
++    FcPattern *match = matchForPattern(name ? name : @"");
++    if (!match) {
+         [self release];
+         return nil;
+     }
+-
+-    FT_Face face;
+-    FT_Error error = FT_New_Face(O2FontSharedFreeTypeLibrary(),
+-                                 [filename fileSystemRepresentation], 0, &face);
+-
+-    if (error != 0) {
+-        NSLog(@"FT_New_Face() = %d", error);
++    FcChar8 *file = NULL;
++    int faceIndex = 0;
++    NSString *filename = nil;
++    if (FcPatternGetString(match, FC_FILE, 0, &file) == FcResultMatch)
++        filename = [[NSString alloc] initWithUTF8String:(const char *)file];
++    FcPatternGetInteger(match, FC_INDEX, 0, &faceIndex);
++    FcPatternDestroy(match);
++    self = [self initWithFontFilename:filename faceIndex:faceIndex];
++    [filename release];
++    return self;
++}
++
++- (instancetype) initWithFontFilename: (NSString *) filename
++                           faceIndex: (NSInteger) faceIndex {
++    self = [super initWithFontName:filename];
++    if (!self)
++        return nil;
++    if (!filename || faceIndex < 0) {
+         [self release];
+         return nil;
+     }
+-
+-    return [self initWithFace: face];
++    FT_Face face = NULL;
++    FT_Error error;
++    @synchronized([O2Font_freetype class]) {
++        error = FT_New_Face(O2FontSharedFreeTypeLibrary(),
++                            [filename fileSystemRepresentation], faceIndex, &face);
++    }
++    if (error) {
++        NSLog(@"FT_New_Face(%@, %ld) = %d", filename, (long)faceIndex, error);
++        [self release];
++        return nil;
++    }
++    _sourceFilename = [filename copy];
++    _sourceFaceIndex = face->face_index;
++    return [self initWithFace:face];
++}
++
++- (NSString *) fontFilename { return _sourceFilename; }
++- (NSInteger) fontFaceIndex { return _sourceFaceIndex; }
++
++static FT_Pos unscaledGlyphTop(FT_Face face, FT_ULong character) {
++    FT_UInt glyph = FT_Get_Char_Index(face, character);
++    if (glyph && !FT_Load_Glyph(face, glyph,
++            FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING | FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_TRANSFORM))
++        return face->glyph->metrics.horiBearingY;
++    return 0;
+ }
+ 
+ - (instancetype) initWithFace: (FT_Face) face {
+@@ -159,14 +195,14 @@
+         _ftEncoding = FT_ENCODING_UNICODE;
+     } else if (hasMacRoman) {
+         _ftEncoding = FT_ENCODING_APPLE_ROMAN;
+-    } else {
++    } else if (face->num_charmaps > 0) {
+         NSLog(@"encoding = %c %c %c %c", face->charmaps[0]->encoding >> 24,
+               face->charmaps[0]->encoding >> 16,
+               face->charmaps[0]->encoding >> 8, face->charmaps[0]->encoding);
+         _ftEncoding = face->charmaps[0]->encoding;
+     }
+ 
+-    if (FT_Select_Charmap(face, _ftEncoding) != 0) {
++    if (face->num_charmaps > 0 && FT_Select_Charmap(face, _ftEncoding) != 0) {
+         NSLog(@"FT_Select_Charmap(%d) failed", _ftEncoding);
+     }
+ 
+@@ -177,10 +213,27 @@
+     _unitsPerEm = (O2Float) face->units_per_EM;
+     _ascent = face->ascender;
+     _descent = face->descender;
+-    _leading = 0;
+-    _capHeight = face->height;
+-    _xHeight = face->height;
+-    _italicAngle = 0;
++    _leading = face->height - (face->ascender - face->descender);
++    if (_leading < 0)
++        _leading = 0;
++    TT_OS2 *os2 = FT_Get_Sfnt_Table(face, ft_sfnt_os2);
++    _capHeight = os2 && os2->version != 0xffff && os2->version >= 2 ? os2->sCapHeight : 0;
++    _xHeight = os2 && os2->version != 0xffff && os2->version >= 2 ? os2->sxHeight : 0;
++    if (_capHeight <= 0)
++        _capHeight = unscaledGlyphTop(face, 'H');
++    if (_xHeight <= 0)
++        _xHeight = unscaledGlyphTop(face, 'x');
++    TT_Postscript *post = FT_Get_Sfnt_Table(face, ft_sfnt_post);
++    _italicAngle = post ? (O2Float)post->italicAngle / 65536.0 : 0;
++    const char *postscriptName = FT_Get_Postscript_Name(face);
++    NSString *resolvedName = postscriptName ? [NSString stringWithUTF8String:postscriptName] : nil;
++    if (!resolvedName && face->family_name)
++        resolvedName = [NSString stringWithUTF8String:face->family_name];
++    if (resolvedName) {
++        [_name release];
++        _name = [resolvedName copy];
++    }
++    _sourceFaceIndex = face->face_index;
+     _stemV = 0;
+     _bbox.origin.x = face->bbox.xMin;
+     _bbox.origin.y = face->bbox.yMin;
+@@ -192,7 +245,10 @@
+ }
+ 
+ - (void) dealloc {
+-    FT_Done_Face(_face);
++    if (_face) {
++        @synchronized([O2Font_freetype class]) { FT_Done_Face(_face); }
++    }
++    [_sourceFilename release];
+     [_macRomanEncoding release];
+     [_macExpertEncoding release];
+     [_winAnsiEncoding release];
+@@ -208,35 +264,59 @@
+ }
+ 
+ - (void) fetchAdvances {
+-    FT_Set_Char_Size(_face, 0, _unitsPerEm * 64, 72, 72);
+-
+-    _advances = NSZoneMalloc(NULL, sizeof(NSInteger) * _numberOfGlyphs);
+-
+-    for (O2Glyph glyph = 0; glyph < _numberOfGlyphs; glyph++) {
+-        FT_Load_Glyph(_face, glyph, FT_LOAD_DEFAULT);
+-
+-        _advances[glyph] = _face->glyph->advance.x / (O2Float)(2 << 5);
++    @synchronized(self) {
++        if (_advances)
++            return;
++        _advances = NSZoneMalloc(NULL, sizeof(NSInteger) * _numberOfGlyphs);
++        for (NSInteger glyph = 0; glyph < _numberOfGlyphs; glyph++) {
++            _advances[glyph] = 0;
++            if (!FT_Load_Glyph(_face, glyph,
++                    FT_LOAD_NO_SCALE | FT_LOAD_NO_HINTING | FT_LOAD_NO_BITMAP | FT_LOAD_IGNORE_TRANSFORM))
++                _advances[glyph] = _face->glyph->metrics.horiAdvance;
++        }
++    }
++}
++
++- (NSData *) copyTableForTag: (uint32_t) tag {
++    @synchronized(self) {
++        FT_ULong length = 0;
++        if (FT_Load_Sfnt_Table(_face, tag, 0, NULL, &length) || !length)
++            return nil;
++        void *bytes = malloc(length);
++        if (!bytes)
++            return nil;
++        if (FT_Load_Sfnt_Table(_face, tag, 0, bytes, &length)) {
++            free(bytes);
++            return nil;
++        }
++        NSData *data = [[NSData alloc] initWithBytes:bytes length:length];
++        free(bytes);
++        return data;
+     }
+ }
+ 
+ - (O2Glyph) glyphWithGlyphName: (NSString *) name {
+-    return FT_Get_Name_Index(_face, (char *) [name cString]);
++    @synchronized(self) {
++        return FT_Get_Name_Index(_face, (char *)[name UTF8String]);
++    }
+ }
+ 
+ - (NSString *) copyGlyphNameForGlyph: (O2Glyph) glyph {
+-    unsigned char buffer[100];
+-    if (FT_Get_Glyph_Name(_face, glyph, buffer, sizeof(buffer)) != 0) {
+-        return nil;
+-    }
+-    return [[NSString alloc] initWithUTF8String: (const char *) buffer];
++    @synchronized(self) {
++        unsigned char buffer[256];
++        if (FT_Get_Glyph_Name(_face, glyph, buffer, sizeof(buffer)) != 0)
++            return nil;
++        return [[NSString alloc] initWithUTF8String:(const char *)buffer];
++    }
+ }
+ 
+ - (void) getGlyphs: (O2Glyph *) glyphs
+         forCodePoints: (uint16_t *) codes
+                length: (NSInteger) length
+ {
+-    for (int i = 0; i < length; i++) {
+-        glyphs[i] = FT_Get_Char_Index(_face, codes[i]);
++    @synchronized(self) {
++        for (NSInteger i = 0; i < length; i++)
++            glyphs[i] = FT_Get_Char_Index(_face, codes[i]);
+     }
+ }
+ 
+diff --git a/src/external/cocotron/Onyx2D/include/Onyx2D/O2Font_freetype.h b/src/external/cocotron/Onyx2D/include/Onyx2D/O2Font_freetype.h
+--- a/src/external/cocotron/Onyx2D/include/Onyx2D/O2Font_freetype.h
++++ b/src/external/cocotron/Onyx2D/include/Onyx2D/O2Font_freetype.h
+@@ -20,6 +20,8 @@
+ @interface O2Font_freetype : O2Font {
+     FT_Face _face;
+     FT_Encoding _ftEncoding;
++    NSString *_sourceFilename;
++    NSInteger _sourceFaceIndex;
+     O2Encoding *_macRomanEncoding;
+     O2Encoding *_macExpertEncoding;
+     O2Encoding *_winAnsiEncoding;
+@@ -29,6 +31,10 @@
+ - (instancetype) initWithDataProvider: (O2DataProviderRef) provider;
+ 
+ - (FT_Face) face;
++- (instancetype) initWithFontFilename: (NSString *) filename
++                           faceIndex: (NSInteger) faceIndex;
++- (NSString *) fontFilename;
++- (NSInteger) fontFaceIndex;
+ 
+ FT_Face O2FontFreeTypeFace(O2Font_freetype *self);
+ 

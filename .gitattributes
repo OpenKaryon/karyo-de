@@ -9,3 +9,4 @@ resources/fonts/*-OFL.txt whitespace=-blank-at-eol
 # including a final blank context line which must keep its hunk count.
 integrations/compositor/patches/**/*.patch whitespace=-blank-at-eol,-space-before-tab,-blank-at-eof
 integrations/win32/wine-patches/*.patch whitespace=-blank-at-eol,-space-before-tab,-blank-at-eof
+integrations/macos/runtime/patches/*.patch whitespace=-blank-at-eol,-space-before-tab,-blank-at-eof
