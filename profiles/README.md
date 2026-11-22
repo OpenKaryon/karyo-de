@@ -1366,3 +1366,16 @@ again. No role cache or catalog environment survives that second native login.
 Temporary QA autologin and role entries are removed; account/PAM bytes and the
 original display-manager configuration are restored. This is an unprotected
 Home startup/lifecycle gate; interactive protected entry has separate acceptance.
+
+The fixed installed-home-wireguard.py fixture and public --home-vpn gate now
+verify a real pre-existing Home kernel WireGuard tunnel alongside cold public
+Work NetBird on both bases. Home resolves its own QA zone and exchanges TCP over
+an authenticated kernel handshake. Both Work peers exchange real reciprocal
+TCP/UDP over IP and managed private DNS, retain external DNS/HTTPS, and cannot
+resolve the Home-only zone. A temporary lab management view identifies the live
+counterpart without assuming that NetBird's on-demand Idle means disconnected.
+An explicit incoming-payload barrier keeps both peers alive through reciprocal
+verification. Captured logout/provider/account/host-runtime and Home tunnel
+teardown restore the original host snapshots. This does not accept ExternalProvider's
+legacy firewall/broker integration, simultaneous Work exit-node routing or live
+Home-VPN reconnects; those are distinct external/lifecycle gates.
