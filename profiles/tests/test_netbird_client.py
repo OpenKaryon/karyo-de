@@ -94,6 +94,7 @@ class ClientLaunchTest(unittest.TestCase):
         args, env = client.command("gui", [], {"WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS": "1"},
                                    read=lambda path: "unix:///run/private/control.sock")
         self.assertEqual(env["WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS"], "0")
+        self.assertEqual(env["WEBKIT_DISABLE_DMABUF_RENDERER"], "1")
         self.assertNotIn("WEBKIT_FORCE_SANDBOX", env)
         self.assertEqual(args[0], "/usr/bin/setpriv")
 

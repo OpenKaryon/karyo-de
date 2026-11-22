@@ -7,6 +7,7 @@ import re
 import stat
 
 from .logind import LoginOwner, Sessions
+from .catalog import DATA_ENVIRONMENT, require_netbird_catalog
 from .services import NativeProcess, ServiceError, UnitIdentity, host_controller, program_identity
 from .storage import atomic_write, trusted_directory
 
@@ -73,12 +74,14 @@ def manager_exec_start(command, uid):
 
 
 class UserManagerScope:
-    def __init__(self, files, *, sessions=None, command=None, process=None, netbird=False):
-        if type(netbird) is not bool:
+    def __init__(self, files, *, sessions=None, command=None, process=None, netbird=False, catalog=False):
+        if type(netbird) is not bool or type(catalog) is not bool or catalog and not netbird:
             raise ValueError("The provider launch policy must be explicit")
         self.files, self.network = files, files.network
+        self.catalog = catalog
         self.environment = (("KARYO_NETBIRD_ENDPOINT=/run/karyo-netbird-" + self.network.spec.token + "/client.json",)
                             if netbird else ())
+        if catalog: self.environment += (DATA_ENVIRONMENT,)
         self.command = self.network.command if command is None else command
         self.sessions = Sessions() if sessions is None else sessions
         self.process = NativeProcess() if process is None else process
@@ -136,6 +139,7 @@ class UserManagerScope:
 
     def prepare(self):
         self.guard()
+        if self.catalog: require_netbird_catalog()
         if self.created or self.fd is not None or self.removed:
             raise ManagerRetained(self)
         rows = self.info()

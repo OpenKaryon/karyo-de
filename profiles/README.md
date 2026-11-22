@@ -1272,3 +1272,26 @@ not silently promoted or adopted.
 This boundary permits connected-provider lifetime checks. Native connected
 teardown/recovery, peer traffic, DNS and public activation have their own gates;
 this declaration alone is not proof of those behaviors.
+
+
+### Captured provider catalog
+
+New journaled NetBird desktops publish the fixed packaged catalog at
+`/usr/share/karyo/profile-catalog/netbird` through the same `XDG_DATA_DIRS` policy
+in their native user manager and graphical owner. The default system data roots
+remain available. Plain desktops receive no provider catalog. The client
+component owns the provider desktop identity there, with a scoped GUI executable;
+no upstream global launcher, daemon or polkit action is installed by this layer.
+GUI launch retains the upstream DMABUF-renderer default and the strict sandbox.
+
+Schema7 records only the fixed `session.catalog = "netbird"` discriminator before
+manager preparation; it requires a captured provider and accepts no free-form
+path or command. Older session records without that field restore their exact
+legacy manager policy, without adding the new environment or rewriting files.
+Prepared, live and closing recovery use the recorded variant. Journal promotion
+never downgrades after catalog/session removal. Packaged root-owned catalog data
+must exist before a new catalog-enabled manager is prepared.
+
+The inert optional provider package is built separately by Karyo Builder. Public
+VPN startup still requires its explicit integration gate; catalog publication is
+not a browser enrollment or complete migration claim.

@@ -39,8 +39,8 @@ def graphical_receipt(graph):
             "compositor":list(graph.compositor),"entered":graph.entered}
 
 
-def restore_manager(files,proof,*,netbird=False):
-    manager=UserManagerScope(files,netbird=netbird)
+def restore_manager(files,proof,*,netbird=False,catalog=False):
+    manager=UserManagerScope(files,netbird=netbird,catalog=catalog)
     manager.initial_dropins=frozenset(proof["dropins"])
     manager.directory_identity=tuple(proof["directory"]);manager.file_identity=tuple(proof["file"])
     try:
@@ -125,11 +125,13 @@ class JournalSession:
         dns.services.verify()
         from .journal_forwarding import JournalForwarding
         forwarding=JournalForwarding.restore(journal,dns.network) if "forwarding" in record else None
-        manager=UserManagerScope(dns.files,netbird="provider" in record)
+        manager=UserManagerScope(dns.files,netbird="provider" in record,catalog="provider" in record)
         scope=cls(journal,dns,manager,forwarding=forwarding)
         try:
             scope.provider=restore_optional(journal,dns)
-            journal.change(record,dict(record,session={"pending":"manager-prepare","manager":None,"graphical":None}))
+            session={"pending":"manager-prepare","manager":None,"graphical":None}
+            if "provider" in record: session["catalog"]="netbird"
+            journal.change(record,dict(record,session=session))
             manager.prepare()
             scope.update(pending=None,manager=manager_receipt(manager))
             scope.update(pending="login-start")
@@ -157,7 +159,7 @@ class JournalSession:
             wrapped=JournalNetwork(journal,network)
             dns=JournalDNS.restore_observers(journal,wrapped,accounts=accounts)
             provider=restore_optional(journal,dns)
-            manager=restore_manager(dns.files,value["manager"],netbird=provider is not None)
+            manager=restore_manager(dns.files,value["manager"],netbird=provider is not None,catalog="catalog" in value)
             graph=restore_graph(manager,value["graphical"])
             from .journal_forwarding import JournalForwarding
             forwarding=JournalForwarding.restore(journal,wrapped) if "forwarding" in record else None
@@ -257,7 +259,7 @@ def recover_prepared_session(journal,store,record,*,accounts=None,sessions=None)
     try:
         wrapped=JournalNetwork(journal,network)
         dns,provider=restore_offline_services(journal,wrapped,accounts=accounts)
-        manager=restore_manager(dns.files,value["manager"],netbird=provider is not None)
+        manager=restore_manager(dns.files,value["manager"],netbird=provider is not None,catalog="catalog" in value)
         graph=GraphicalSession(manager)
         if graph.info()["LoadState"]!="not-found":
             raise JournalRetained("An unrecorded graphical unit prevents preparation recovery")

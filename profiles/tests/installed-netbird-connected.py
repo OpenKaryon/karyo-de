@@ -88,7 +88,7 @@ with RuntimeJournal() as journal:
  assert result.returncode==0 and status.returncode==0 and value.get('daemonStatus')=='Connected' and verifies
  with store.locked():graph.verify_consumers();graph.provider.verify()
  record=journal.record(graph.token)
- assert journal.snapshot()['schema']==6 and record['network']['contents']=='tunnel'
+ assert journal.snapshot()['schema']==7 and record['network']['contents']=='tunnel' and record['session']['catalog']=='netbird'
  identities={'provider':record['provider']['service'],'graphical':record['session']['graphical'],'manager':record['session']['manager']}
  graph.release_handles();journal.close()
  journal=RuntimeJournal()

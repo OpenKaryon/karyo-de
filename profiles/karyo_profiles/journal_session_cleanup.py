@@ -45,9 +45,9 @@ def baseline_policy(manager,rows):
             and manager_exec_start(manager.command,manager.account.uid)==BASE_MANAGER)
 
 
-def removing_manager(files,proof,*,allow_missing,netbird=False):
+def removing_manager(files,proof,*,allow_missing,netbird=False,catalog=False):
     """Restore full policy or finish its captured empty/absent removal directory."""
-    manager=UserManagerScope(files,netbird=netbird)
+    manager=UserManagerScope(files,netbird=netbird,catalog=catalog)
     manager.initial_dropins=frozenset(proof["dropins"])
     manager.directory_identity=tuple(proof["directory"]);manager.file_identity=tuple(proof["file"])
     manager.created=True
@@ -103,8 +103,8 @@ def recover_closed_session(journal,store,record,*,accounts=None,sessions=None):
         dns,provider=restore_offline_services(journal,wrapped,accounts=accounts)
         # Check completed graph ownership before removing even an empty policy
         # directory. Constructing this metadata object has no native side effects.
-        closed_graph(UserManagerScope(dns.files,netbird=provider is not None),value,sessions)
-        manager=removing_manager(dns.files,value["manager"],allow_missing=value["pending"]=="manager-close",netbird=provider is not None)
+        closed_graph(UserManagerScope(dns.files,netbird=provider is not None,catalog="catalog" in value),value,sessions)
+        manager=removing_manager(dns.files,value["manager"],allow_missing=value["pending"]=="manager-close",netbird=provider is not None,catalog="catalog" in value)
         offline(account,accounts,sessions)
         closing=dict(record,session=dict(value,pending="manager-close",graphical=None))
         journal.change(record,closing)

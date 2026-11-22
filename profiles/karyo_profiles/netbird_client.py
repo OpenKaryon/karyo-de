@@ -116,6 +116,7 @@ def command(kind, arguments, environment, *, read=capture):
         # even when the native bubblewrap policy permits the renderer sandbox.
         # Its bootstrap respects an explicit value; WebKit treats 0 as enabled.
         env["WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS"] = "0"
+        env["WEBKIT_DISABLE_DMABUF_RENDERER"] = "1"  # Preserve the upstream desktop launch default.
     args = ["/usr/bin/setpriv", "--inh-caps=-all", "--ambient-caps=-all", "--", program,
             flag, address, *arguments]
     return args, env

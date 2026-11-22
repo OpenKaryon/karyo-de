@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=NetBird
+Comment=NetBird for this isolated desktop
+Exec=@CMAKE_INSTALL_FULL_BINDIR@/karyo-netbird-gui
+Icon=netbird
+Type=Application
+Terminal=false
+Categories=Network;
+Keywords=netbird;
+StartupWMClass=org.wails.netbird

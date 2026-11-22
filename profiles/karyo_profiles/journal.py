@@ -122,6 +122,8 @@ def validate_record(value):
             raise ValueError("A session requires acknowledged private DNS services")
         from .journal_session_record import validate_session
         validate_session(value["session"],account)
+        if "catalog" in value["session"] and "provider" not in value:
+            raise ValueError("The private catalog requires its captured provider")
 
 
 class RuntimeJournal:
@@ -181,23 +183,25 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or data["schema"] not in {1, 2, 3, 4, 5, 6} or data["boot"] != self.boot
+                or type(data["schema"]) is not int or data["schema"] not in {1, 2, 3, 4, 5, 6, 7} or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
-            if "dns" in record and data["schema"] not in {2,3,4,5,6}:
+            if "dns" in record and data["schema"] not in {2,3,4,5,6,7}:
                 raise ValueError("DNS ownership requires journal schema 2 or later")
-            if "session" in record and data["schema"] not in {3,4,5,6}:
+            if "session" in record and data["schema"] not in {3,4,5,6,7}:
                 raise ValueError("Session ownership requires journal schema 3 or later")
-            if "forwarding" in record and data["schema"] not in {4,5,6}:
+            if "forwarding" in record and data["schema"] not in {4,5,6,7}:
                 raise ValueError("Forwarding ownership requires journal schema 4 or later")
-            if "provider" in record and data["schema"] not in {5,6}:
+            if "provider" in record and data["schema"] not in {5,6,7}:
                 raise ValueError("Provider ownership requires journal schema 5 or later")
-            if record["network"] is not None and "contents" in record["network"] and data["schema"] != 6:
-                raise ValueError("Namespace tunnel delegation requires journal schema 6")
+            if record["network"] is not None and "contents" in record["network"] and data["schema"] not in {6,7}:
+                raise ValueError("Namespace tunnel delegation requires journal schema 6 or later")
+            if "catalog" in record.get("session", {}) and data["schema"] != 7:
+                raise ValueError("Scoped catalog ownership requires journal schema 7")
             account = record["account"]
             if account["name"] in names or account["uid"] in uids or record["token"] in tokens:
                 raise ValueError("Duplicate host journal profile identity")
@@ -301,7 +305,9 @@ class RuntimeJournal:
         if replacement is not None and "provider" in replacement:
             data["schema"] = max(data["schema"], 5)
         if replacement is not None and replacement["network"] is not None and "contents" in replacement["network"]:
-            data["schema"] = 6
+            data["schema"] = max(data["schema"], 6)
+        if replacement is not None and "catalog" in replacement.get("session", {}):
+            data["schema"] = 7
         self.save(data)
         if replacement is None:
             self.known.discard(expected["token"])

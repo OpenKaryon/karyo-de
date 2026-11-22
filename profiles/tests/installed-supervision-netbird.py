@@ -204,7 +204,7 @@ def supervise(record,source,mode,connected=False):
         if connected:
             # Read-only inspection: the real socket host owns the journal lock.
             captured=json.loads(Path("/run/karyo/profile-host/state.json").read_bytes())
-            require(captured["schema"]==6 and captured["profiles"]==[record],"Connected host recovery changed captured native receipts")
+            require(captured["schema"]==7 and captured["profiles"]==[record] and record["session"].get("catalog")=="netbird","Connected host recovery changed captured native receipts")
             status=run("/usr/sbin/runuser","-u","kq-switch-work","--","/usr/bin/env",
                 "XDG_RUNTIME_DIR=/run/user/1002","DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus",
                 "/usr/bin/systemd-run","--user","--wait","--pipe","--collect",

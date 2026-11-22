@@ -80,6 +80,11 @@ foreach(KARYO_NETBIRD_CLIENT IN ITEMS cli gui)
     install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-netbird-${KARYO_NETBIRD_CLIENT}"
         DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-netbird-client)
 endforeach()
+configure_file("${profile_source}/netbird.desktop.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/org.wails.netbird.desktop" @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.wails.netbird.desktop"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/karyo/profile-catalog/netbird/applications
+    COMPONENT profile-netbird-client)
 configure_file("${profile_source}/netbird-opener.in"
     "${CMAKE_CURRENT_BINARY_DIR}/karyo-netbird-xdg-open" @ONLY)
 install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-netbird-xdg-open"

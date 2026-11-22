@@ -35,7 +35,9 @@ def owner(value,account,*,manager=False):
 
 
 def validate_session(value,account):
-    if not isinstance(value,dict) or set(value)!={"pending","manager","graphical"}:
+    if (not isinstance(value,dict) or not {"pending","manager","graphical"} <= set(value)
+            or set(value) - {"pending","manager","graphical","catalog"}
+            or "catalog" in value and value["catalog"] != "netbird"):
         raise ValueError("Invalid graphical session journal")
     pending=value["pending"]
     if pending is not None and (not isinstance(pending,str) or pending not in {

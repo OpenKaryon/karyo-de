@@ -63,6 +63,24 @@ if sys.argv[1:2] == ["--fake-browser"]:
             require(time.monotonic() < deadline, "The browser could not reach the later callback listener")
             time.sleep(.1)
     raise SystemExit(0)
+if sys.argv[1:] in (["--catalog-work"], ["--catalog-home"]):
+    import ctypes
+    work = sys.argv[1] == "--catalog-work"
+    require(os.getuid() == os.geteuid() == (1002 if work else 1001), "Unknown catalog QA account")
+    gio = ctypes.CDLL("libgio-2.0.so.0")
+    gio.g_desktop_app_info_new.argtypes = [ctypes.c_char_p]; gio.g_desktop_app_info_new.restype = ctypes.c_void_p
+    info = gio.g_desktop_app_info_new(b"org.wails.netbird.desktop")
+    value = {"visible": bool(info), "uid": os.getuid(), "data_dirs": os.environ.get("XDG_DATA_DIRS", "")}
+    if info:
+        for function, key in (("g_app_info_get_id", "id"), ("g_app_info_get_name", "name"),
+                ("g_app_info_get_executable", "executable"), ("g_desktop_app_info_get_filename", "filename")):
+            method = getattr(gio, function); method.argtypes = [ctypes.c_void_p]; method.restype = ctypes.c_char_p
+            value[key] = method(info).decode()
+        gio.g_app_info_should_show.argtypes = [ctypes.c_void_p]; gio.g_app_info_should_show.restype = ctypes.c_int
+        value["should_show"] = bool(gio.g_app_info_should_show(info))
+        objects = ctypes.CDLL("libgobject-2.0.so.0"); objects.g_object_unref.argtypes = [ctypes.c_void_p]
+        objects.g_object_unref(info)
+    print(json.dumps(value), flush=True); raise SystemExit(0)
 require(os.getuid() == os.geteuid() == 0 and sys.argv[1:] in ([], ["--window-only"]), "Use the root QA driver")
 window_only = sys.argv[1:] == ["--window-only"]
 sys.path.insert(0, "/usr/libexec/karyo/profiles")
@@ -171,6 +189,20 @@ try:
                 "--unit=karyo-qa-netbird-status.service", "--", "/usr/bin/karyo-netbird-cli", "status", "--json"),
                 capture_output=True, text=True, timeout=20)
             require(result.returncode == 0 and isinstance(json.loads(result.stdout), dict), "Scoped CLI failed: " + result.stderr)
+            catalog = json.loads(run(*user("/usr/bin/systemd-run", "--user", "--wait", "--pipe", "--collect",
+                "--unit=karyo-qa-netbird-catalog.service", "--", "/usr/local/libexec/karyo-qa-netbird-client", "--catalog-work")))
+            require(catalog.get("visible") and catalog.get("should_show") and catalog.get("id") == "org.wails.netbird.desktop"
+                and catalog.get("executable") == "/usr/bin/karyo-netbird-gui"
+                and catalog.get("filename") == "/usr/share/karyo/profile-catalog/netbird/applications/org.wails.netbird.desktop",
+                "Work did not discover the packaged scoped launcher")
+            home_catalog = json.loads(run("/usr/sbin/runuser", "-u", "karyoqa", "--", "/usr/bin/env",
+                "XDG_RUNTIME_DIR=/run/user/1001", "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus",
+                "/usr/bin/systemd-run", "--user", "--wait", "--pipe", "--collect", "--unit=karyo-qa-netbird-home-catalog.service",
+                "--", "/usr/local/libexec/karyo-qa-netbird-client", "--catalog-home"))
+            require(not home_catalog["visible"] and "/usr/share/karyo/profile-catalog/netbird" not in home_catalog["data_dirs"],
+                    "Home gained the private provider catalog")
+            require(journal.snapshot()["schema"] == 7 and journal.record(network.token)["session"]["catalog"] == "netbird",
+                    "Catalog launch policy is not captured")
             callback = subprocess.run(user("/usr/bin/systemd-run", "--user", "--wait", "--pipe", "--collect",
                 "--unit=karyo-qa-netbird-callback.service", "--", "/usr/local/libexec/karyo-qa-netbird-client", "--callback-driver"),
                 capture_output=True, text=True, timeout=20)
@@ -200,6 +232,20 @@ try:
             require(b"WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=0" in environment
                     and not any(row.split(b"=", 1)[0] in {b"WEBKIT_DISABLE_SANDBOX", b"G_DISABLE_SANDBOX"} for row in environment),
                     "GUI did not preserve the renderer sandbox")
+            expected_data = b"XDG_DATA_DIRS=/usr/share/karyo/profile-catalog/netbird:/usr/local/share:/usr/share"
+            observed = [{"role": role, "pid": pid, "data": [row.decode() for row in
+                Path("/proc", str(pid), "environ").read_bytes().split(bytes([0])) if row.startswith(b"XDG_DATA_DIRS=")]}
+                for role, pid in (("manager", graph.manager.identity.pid), ("graph", graph.graph.pid), ("gui", int(gui["MainPID"])))]
+            print(json.dumps({"catalog_environments": observed}), flush=True)
+            for observation in observed:
+                allowed = [[expected_data.decode()]]
+                if observation["role"] == "gui" and socket.gethostname() == "karyo-de-ubuntu-acceptance":
+                    allowed.append([expected_data.decode() + ":/var/lib/snapd/desktop"])
+                require(observation["data"] in allowed,
+                        "Captured owner lost its private catalog prefix or gained an unknown data root")
+            require(b"WEBKIT_DISABLE_DMABUF_RENDERER=1" in environment, "GUI lost the upstream rendering launch default")
+            print(json.dumps({"catalog_work": catalog, "catalog_home": home_catalog,
+                "native_toplevels": run(*user("/usr/bin/wlrctl", "toplevel", "list")).splitlines()}), flush=True)
             if not window_only:
                 wait(lambda: sandbox_renderer(gui), "WebKit renderer sandbox was not observed")
             sandboxed = sandbox_renderer(gui)
