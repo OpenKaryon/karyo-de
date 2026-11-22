@@ -1,0 +1,56 @@
+Description: Identify standard Win32 menus as X11 popups
+Origin: vendor, reviewed from prototype26bad17
+License: LGPL-2.1-or-later
+Forwarded: not-needed
+
+--- a/dlls/winex11.drv/x11drv.h
++++ b/dlls/winex11.drv/x11drv.h
+@@ -510,6 +510,7 @@
+     XATOM__NET_WM_WINDOW_TYPE,
+     XATOM__NET_WM_WINDOW_TYPE_DIALOG,
+     XATOM__NET_WM_WINDOW_TYPE_NORMAL,
++    XATOM__NET_WM_WINDOW_TYPE_POPUP_MENU,
+     XATOM__NET_WM_WINDOW_TYPE_UTILITY,
+     XATOM__NET_WORKAREA,
+     XATOM__GTK_WORKAREAS_D0,
+--- a/dlls/winex11.drv/x11drv_main.c
++++ b/dlls/winex11.drv/x11drv_main.c
+@@ -152,6 +152,7 @@
+     "_NET_WM_WINDOW_TYPE",
+     "_NET_WM_WINDOW_TYPE_DIALOG",
+     "_NET_WM_WINDOW_TYPE_NORMAL",
++    "_NET_WM_WINDOW_TYPE_POPUP_MENU",
+     "_NET_WM_WINDOW_TYPE_UTILITY",
+     "_NET_WORKAREA",
+     "_GTK_WORKAREAS_D0",
+--- a/dlls/winex11.drv/window.c
++++ b/dlls/winex11.drv/window.c
+@@ -945,6 +945,8 @@
+     Window group_leader = data->whole_window;
+     HWND owner = NtUserGetWindowRelative( data->hwnd, GW_OWNER );
+     Window owner_win = 0;
++    /* The system PopupMenu class is atom #32768. */
++    BOOL popup_menu = NtUserGetClassLongW( data->hwnd, GCW_ATOM ) == 32768;
+     XWMHints *wm_hints;
+     Atom window_type;
+ 
+@@ -964,7 +966,9 @@
+      * only normal windows, and doesn't handle correctly TRANSIENT_FOR hint for
+      * dialogs owned by fullscreen windows.
+      */
+-    if (((style & WS_POPUP) || (ex_style & WS_EX_DLGMODALFRAME)) && owner)
++    if (popup_menu)
++        window_type = x11drv_atom(_NET_WM_WINDOW_TYPE_POPUP_MENU);
++    else if (((style & WS_POPUP) || (ex_style & WS_EX_DLGMODALFRAME)) && owner)
+         window_type = x11drv_atom(_NET_WM_WINDOW_TYPE_DIALOG);
+     else
+         window_type = x11drv_atom(_NET_WM_WINDOW_TYPE_NORMAL);
+@@ -975,7 +979,7 @@
+     if ((wm_hints = XAllocWMHints()))
+     {
+         wm_hints->flags = InputHint | StateHint | WindowGroupHint;
+-        wm_hints->input = !use_take_focus && !(style & WS_DISABLED);
++        wm_hints->input = !popup_menu && !use_take_focus && !(style & WS_DISABLED);
+         wm_hints->initial_state = (style & WS_MINIMIZE) ? IconicState : NormalState;
+         wm_hints->window_group = group_leader;
+         if (data->icon_pixmap)

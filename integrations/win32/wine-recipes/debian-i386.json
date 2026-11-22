@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "source": {
+    "name": "wine",
+    "version": "10.0~repack-6",
+    "dsc": {
+      "path": "../../../out/wine/debian/inputs/wine_10.0~repack-6.dsc",
+      "sha256": "473ba1ffd6f51ed3025d1d041edc94296e7bfbc6a82baafd660c841fbd7a5453"
+    },
+    "archives": [
+      {
+        "path": "../../../out/wine/debian/inputs/wine_10.0~repack-6.debian.tar.xz",
+        "sha256": "2a8343e7da627528a348e591fcf4531a9935512d771f896226b5f375d4898679"
+      },
+      {
+        "path": "../../../out/wine/debian/inputs/wine_10.0~repack.orig.tar.xz",
+        "sha256": "e87ff2971c9b2e79fc63341f044d7513e66f3c3782b49609746428caa87c6ee6"
+      }
+    ]
+  },
+  "patches": [
+    {
+      "path": "../wine-patches/x11-popup-menu-type.patch",
+      "sha256": "54207a770bba208440a00ac434a12e7a57db78643f4c24094cc16dfe250e1be6"
+    }
+  ],
+  "build": {
+    "revision": "karyo1",
+    "distribution": "trixie",
+    "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
+    "message": "Identify generic standard Win32 menus as nonactivating X11 popup menus.",
+    "binaries": [
+      "libwine",
+      "wine",
+      "wine32",
+      "wine32-preloader",
+      "fonts-wine"
+    ],
+    "source_date_epoch": 1795215210,
+    "architecture": "i386"
+  }
+}

@@ -75,3 +75,74 @@ PE32/MSI32, Unicode/GDI/icon/registration/prefix/exit status and both keyboard/
 mouse menus pass on stock Ubuntu26.04 Wine10's native WoW64 without i386 system
 packages. Debian13's legacy Wine64 still requires a matching32-bit native runtime
 for that gate. These results do not replace the separate patched-engine checks.
+
+
+## Reviewed native Wine menu patch
+
+wine-recipes/{debian,ubuntu}.json and wine-patches/x11-popup-menu-type.patch
+rebuild the selected native Wine source with Builder's source-package stage.
+The derived engine patch retains LGPL-2.1-or-later, separate from this launcher's
+GPL-3.0-or-later code. Only the standard PopupMenu system class atom32768 changes:
+its X11 type becomes POPUP_MENU and it never requests keyboard focus. No app
+name, registry profile or private prefix is consulted by this engine patch.
+
+Prepare the matching native source-builder/compositor/Win32 QA images as above,
+then prepare the Wine build image from this checkout:
+
+    docker build -f integrations/win32/environments/debian/wine-source.Dockerfile -t karyo-wine-source-builder:debian integrations/win32/environments/debian
+    python integrations/win32/fetch-wine-inputs.py --base debian --image karyo-wine-source-builder:debian
+    karyo-builder source-package integrations/win32/wine-recipes/debian.json --image karyo-wine-source-builder:debian --output out/wine/debian/menu-packages --jobs 2
+
+Ubuntu uses its own environment, recipe and base name ubuntu. Existing source
+inputs are verified before any download; different existing bytes are preserved
+and rejected. Fresh downloads use signed native APT metadata and must match the
+recipe's complete DSC/archive SHA256s. The actual source build has no network.
+Native copyright/control dependencies and normal packaging remain intact.
+
+Ubuntu Wine10 needs older Unicode generator data than the current archive.
+Only unicode-data, unicode-idna and unicode-cldr-core may come from the signed
+Ubuntu snapshot20250417T000000Z; every other package from that snapshot is pinned
+out. Native ABI libraries remain resolute. This source/QA preparation does not
+change runtime or host APT sources. Reference: https://snapshot.ubuntu.com/.
+Native Wine packaging itself disables upstream tests; real executable/menu
+acceptance is required separately and must not be described as those unit tests.
+
+Builder's installed Win32 acceptance driver takes --wine-package-directory for
+the successful native output and installs a checksum-verified runtime subset.
+The --pe32 option additionally tests Ubuntu's native WoW64. Native Debian Wine32
+uses a separate i386 source build and still requires matching package/installation
+acceptance before that architecture can be called complete. Engine packaging,
+ordinary-user launch, compositor palette behavior and caption styling remain
+separate gates.
+
+
+## Matching native Wine32 on Debian
+
+Debian13's legacy Wine64 and Wine32 need the same native package version and
+shared Multi-Arch:same payload. Build the i386 SDK with the prepared Builder
+native386 base, then reuse the checksum-locked Debian source inputs:
+
+    docker build --platform=linux/386 -f integrations/win32/environments/debian/wine-source-i386.Dockerfile -t karyo-wine-source-builder:debian-i386 integrations/win32/environments/debian
+    karyo-builder source-package integrations/win32/wine-recipes/debian-i386.json --image karyo-wine-source-builder:debian-i386 --output out/wine/debian-i386/menu-packages --jobs 2
+
+The32-bit recipe keeps the64-bit source, patch bytes, revision and changelog
+epoch. tests/check-wine-shared.py compares actual native control identity and
+streams both libwine payloads, rejecting differing shared content, types, mode
+or ownership. Real tiny-DEB negative fixtures cover mismatched version,
+architecture, content and mode. The actual matching pair agrees on88 shared
+files, with separate786 amd64 and845 i386 paths.
+
+runtime-i386.Dockerfile prepares only a disposable amd64 QA image with stock
+32-bit dependencies and native i686 MinGW for our own fixtures. It changes no
+host or product APT configuration. Builder's installed acceptance takes
+--wine-i386-package-directory together with the64-bit output and --pe32. It
+checks matching source/version/patches/epoch, image ancestry and artifacts,
+compares shared files before unpacking, and installs both runtime architectures
+in one transaction. Only runtime packages are selected; all/fonts packages come
+from the64-bit build.
+
+Real PE32/MSI32 and PE64/MSI64, private-user controls, registration/icon/Unicode
+and keyboard/persistent-pointer menus pass with this matching Debian pair.
+Existing-user deployment and legacy-prefix import remain separate from this
+clean-image installation gate. Actual owned palettes and Windows-style frames
+also retain their own acceptance; these launch tests do not establish them.

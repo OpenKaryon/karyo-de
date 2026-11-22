@@ -540,3 +540,22 @@ GPL-3.0-or-later QA code. The unmodified wlr-virtual-pointer-unstable-v1 XML
 retains its MIT license and Josef Gajdusek copyright, at official upstream
 c11408942e2fb54d41dadb84cdf844331076ae11. Its URL/hash are recorded beside the
 XML. These fixtures and protocol data are not installed in runtime packages.
+
+
+The standard-menu engine patch adapts the prototype's x11-popup-menu-type.patch
+at donor26bad17cef413d26c36c117f2f1123dca4edded7. The original reviewed file SHA256
+is e3c20df0962946899b8ead8147a734342dd701fc001ddabc090255bc665bbe3a;
+its body was rechecked against that exact Git object. Changes to Wine-derived
+source retain LGPL-2.1-or-later, not this repository's own GPL-3.0-or-later default.
+Native Debian/Ubuntu source and binary packages retain their copyright files.
+The recipes preserve native control dependencies and packaging; only reviewed
+menu behavior is added. Generator data from a signed Ubuntu snapshot is confined
+to source/QA preparation and is not a foreign native-library runtime transplant.
+
+
+The native Wine coinstallation inspector and tiny-DEB negative fixtures are own
+GPL-3.0-or-later QA. They read native package control/payload streams with dpkg,
+compare shared paths without extracting into a live system, and add no runtime
+service or privilege mechanism. Wine32 reuses the exact reviewed source/patch and
+changelog epoch of the Wine64 recipe. SDK/dependency preparation remains isolated
+from product and host package configuration.
