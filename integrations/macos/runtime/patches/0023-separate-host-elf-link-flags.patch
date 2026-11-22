@@ -1,0 +1,47 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -67,6 +67,36 @@
+ 
+ project(darling)
+ 
++# Keep host ELF linker policy separate from ld64's Mach-O targets.
++# Global linker flags otherwise reach both output formats, including native
++# package hardening switches such as -Wl,-z,relro which ld64 cannot accept.
++set(_darling_host_link_configs DEBUG RELEASE RELWITHDEBINFO MINSIZEREL
++    ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
++list(TRANSFORM _darling_host_link_configs TOUPPER)
++list(REMOVE_DUPLICATES _darling_host_link_configs)
++foreach(_darling_host_link_kind EXE SHARED MODULE)
++    if(_darling_host_link_kind STREQUAL "EXE")
++        set(_darling_host_link_type EXECUTABLE)
++    elseif(_darling_host_link_kind STREQUAL "SHARED")
++        set(_darling_host_link_type SHARED_LIBRARY)
++    else()
++        set(_darling_host_link_type MODULE_LIBRARY)
++    endif()
++    foreach(_darling_host_link_config __BASE ${_darling_host_link_configs})
++        set(_darling_host_link_variable "CMAKE_${_darling_host_link_kind}_LINKER_FLAGS")
++        set(_darling_host_link_condition "$<AND:$<NOT:$<BOOL:$<TARGET_PROPERTY:DARLING_MACHO>>>,$<STREQUAL:$<TARGET_PROPERTY:TYPE>,${_darling_host_link_type}>>")
++        if(NOT _darling_host_link_config STREQUAL "__BASE")
++            string(APPEND _darling_host_link_variable "_${_darling_host_link_config}")
++            set(_darling_host_link_condition "$<AND:${_darling_host_link_condition},$<CONFIG:${_darling_host_link_config}>>")
++        endif()
++        if(NOT "${${_darling_host_link_variable}}" STREQUAL "")
++            add_link_options("$<${_darling_host_link_condition}:SHELL:${${_darling_host_link_variable}}>")
++            set(${_darling_host_link_variable} "")
++        endif()
++    endforeach()
++endforeach()
++# End host ELF linker policy boundary.
++
+ enable_language(ASM)
+ 
+ set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME "core")
+--- a/cmake/use_ld64.cmake
++++ b/cmake/use_ld64.cmake
+@@ -1,4 +1,5 @@
+ FUNCTION(use_ld64 target)
++	set_property(TARGET ${target} PROPERTY DARLING_MACHO TRUE)
+ 	set_property(TARGET ${target} APPEND_STRING PROPERTY
+ 		LINK_FLAGS " -fuse-ld=${CMAKE_BINARY_DIR}/src/external/cctools-port/cctools/ld64/src/${APPLE_TARGET_TRIPLET_PRIMARY}-ld ")
+ 

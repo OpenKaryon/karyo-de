@@ -90,6 +90,18 @@
     {
       "file": "0022-explicit-source-archive-version.patch",
       "sha256": "3c6dd66a3d82a955be9c23732496267e0d0d27bc354246f805c600acd02acbfd"
+    },
+    {
+      "file": "0023-separate-host-elf-link-flags.patch",
+      "sha256": "b8abaa878156be84737e84b16c91c11279158f0f61e6eb8434a77abc382abb2c"
+    },
+    {
+      "file": "0024-match-objc-runtime-build-mode.patch",
+      "sha256": "a50ac2c376fe6e94b3a0f29be4d51892deda6bcf46d8613f23303135d9358158"
+    },
+    {
+      "file": "0025-foundation-literal-assertion-format.patch",
+      "sha256": "e443efeefa8b48906791e94875f7194a8cd2a51d89794c8803b8852b7112d3ee"
     }
   ]
 }

@@ -12,7 +12,7 @@ import sys
 import tarfile
 import tempfile
 
-from patch_policy import DARLING_REVISION, COCOTRON_REVISION, MAX_FILE_BYTES, EXPECTED_PATCH_COUNT, parse_paths
+from patch_policy import DARLING_REVISION, COCOTRON_REVISION, OBJC_REVISION, FOUNDATION_REVISION, MAX_FILE_BYTES, EXPECTED_PATCH_COUNT, parse_paths
 from prepare_swift import digest, matches
 
 
@@ -77,6 +77,14 @@ def verify(snapshot, recipe, output):
     if (len(cocotron) != 1 or cocotron[0].get("revision") != COCOTRON_REVISION
             or cocotron[0].get("url") != "https://github.com/darlinghq/darling-cocotron.git"):
         raise ValueError("Pinned Cocotron source snapshot required")
+    objc = [m for m in manifest.get("modules", []) if m.get("path", "").rstrip("/") == "src/external/objc4"]
+    if (len(objc) != 1 or objc[0].get("revision") != OBJC_REVISION
+            or objc[0].get("url") != "https://github.com/darlinghq/darling-objc4.git"):
+        raise ValueError("Pinned Objective-C runtime source snapshot required")
+    foundation = [m for m in manifest.get("modules", []) if m.get("path", "").rstrip("/") == "src/external/foundation"]
+    if (len(foundation) != 1 or foundation[0].get("revision") != FOUNDATION_REVISION
+            or foundation[0].get("url") != "https://github.com/darlinghq/darling-foundation.git"):
+        raise ValueError("Pinned Foundation source snapshot required")
     artifact = manifest.get("archive", {})
     if (artifact.get("file") != "source.tar.gz" or type(artifact.get("bytes")) is not int
             or not isinstance(artifact.get("sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", artifact["sha256"])):
@@ -87,7 +95,7 @@ def verify(snapshot, recipe, output):
     patches, files, added = capture_patches(recipe)
     originals = {}
     report = {"schema": 1, "kind": "darling-patch-stack", "status": "pending",
-              "source": manifest["source"], "cocotron_revision": COCOTRON_REVISION,
+              "source": manifest["source"], "cocotron_revision": COCOTRON_REVISION, "objc_revision": OBJC_REVISION,
               "snapshot_manifest_sha256": digest(snapshot / "manifest.json"), "archive": artifact,
               "checker_sha256": digest(Path(__file__)), "policy_sha256": digest(Path(__file__).with_name("patch_policy.py")),
               "patches": [{k: v for k, v in p.items() if k != "data"} for p in patches],

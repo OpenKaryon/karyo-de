@@ -141,3 +141,90 @@ hashes and source-effect proof. The verifier now checks both Git and the actual
 quilt push/pop sequence with zero fuzz, compares final patched bytes and restores
 all53 pristine files. Native quilt versions can differ while results agree;
 per-base receipts retain tool versions separately from shared source effects.
+
+## Ordinary Debian source package
+
+prepare_source.py takes the complete snapshot, verified Swift provenance and a
+current native zero-fuzz patch receipt. It rechecks all44 actual materialized
+payloads, requires matching checker/policy and ordered patch hashes, captures
+packaging files and emits a normal unsigned Debian3.0(quilt) DSC, original
+archive, deterministic Debian overlay and two ordinary Builder source recipes.
+No Linux source tree is extracted on Windows. Both native extractors prove the
+overlay replaces the upstream debian directory, including old maintainer hooks.
+
+```sh
+python3 prepare_source.py COMPLETE --swift-provenance SWIFT_PROVENANCE \
+  --patch-verification NATIVE_PATCH_REPORT --output out/source-inputs
+# Use the generated directory and its recipe with the existing Builder:
+karyo-builder source-package out/source-inputs/JOB/trixie.json \
+  --image karyo-darling-source-builder:debian --output out/native-debian --jobs 2
+# After Debian completes, use resolute.json with the Ubuntu SDK.
+```
+
+The source package uses normal debhelper/CMake/Ninja, stock components, the
+reviewed revision and native architecture. It retains the one upstream SUID
+bootstrap at usr/bin/darling, rejects other privileged or writable payloads,
+audits actual Linux ELF dependencies and21 native wrap_elf bridges plus Metal's
+Vulkan/LLVM loaders, derives native runtime owners and preserves upstream
+notices/build provenance. The compiler/header/dependency results are native to
+each base; a Debian binary is never copied into the Ubuntu runtime package.
+
+Twenty source/packaging cases pass as ordinary users on Debian13 and Ubuntu26.04.
+They include actual DSC extraction, obsolete-hook removal, strong checksum
+metadata, deterministic overlays, stale-proof rejection and privileged/writable
+payload guards. The complete dependency/install audit can only pass after a
+real engine build; these unit cases do not establish that result. The first
+corrected Debian invocation has reached actual Clang/Ninja compilation.
+Binary installation, namespace/SUID bootstrap and real CLI/Cocoa/Qt application
+acceptance remain required subsequent gates.
+
+## Host ELF and guest Mach-O linker boundary
+
+Patch0023 routes base/configuration-specific CMake linker flags to Linux native
+executables, shared libraries and modules, and marks ld64 targets explicitly.
+This preserves native distro hardening without feeding ELF-only -z switches to
+Apple's linker. Compilation flags and existing guest target options remain in
+place. The source policy admits only the exact root CMake and use_ld64 files.
+
+Both native bases pass21 source/packaging cases. The new case executes the
+actual added CMake block, builds six small ELF fixtures and checks native
+RELRO/BIND_NOW plus exclusion of host flags from marked guest targets. These
+marked fixtures test flag routing; they are not Mac application execution.
+Real23-patch Git/quilt proofs restore55 original source files on both bases.
+The staged runtime auditor additionally requires ELF RELRO on the actual SUID
+bootstrap. The next complete engine build must prove real Mach-O linking and
+all native dependency/install invariants, followed by bootstrap/application QA.
+
+## Objective-C runtime build modes
+
+The next actual Release compilation exposed objc4's unconditional
+OBJC_IS_DEBUG_BUILD=1, contradicting its own NDEBUG-derived DEBUG invariant.
+Patch0024 selects the correct constant for Release, RelWithDebInfo and MinSizeRel,
+while preserving Debug and unspecified configurations. It does not change the
+runtime's client-facing DEBUG interpretation or disable the mismatch guard.
+The verifier now checks the exact objc4 module pin as well as the root/Cocotron.
+
+Both native suites pass22 cases, including compilation/execution across all five
+standard/default build modes. Both actual zero-fuzz Git/quilt stacks restore
+56 files for all24 patches. A fourth real Debian invocation uses this correction;
+completed engine packaging and actual runtime/application gates remain pending.
+
+The stock runtime also supplies its upstream declarative binfmt configuration.
+It is preserved as stock runtime data; the package build does not load handlers
+or run activation commands on the host. Actual installation/registration and
+SUID/namespace behavior must be verified in a separate kernel guest, not inferred
+from Docker's restricted build environment.
+
+## Foundation assertion format safety
+
+The following real Release build reached Foundation and rejected two assertion
+calls that treated NSInternalInconsistencyException as a format string. Common
+patch0025 supplies a literal @"%@" format and passes that exception name as data
+in both hash/map implementations. Keep format-security enabled. The Foundation
+module revision55a4341b470c2a56fea667c1d2167fb074226f04 is verified independently.
+
+Both native source suites pass23 cases. The Objective-C compiler regression
+rejects both original calls and accepts their actual patched arguments with
+-Werror=format-security. Both complete25-patch Git/zero-fuzz quilt runs restore
+all58 selected source files. This does not establish a completed engine build;
+full native package auditing and application execution remain subsequent gates.

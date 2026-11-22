@@ -1,0 +1,14 @@
+--- a/src/external/objc4/runtime/CMakeLists.txt
++++ b/src/external/objc4/runtime/CMakeLists.txt
+@@ -23,7 +23,10 @@
+ 			-fno-rtti -fno-exceptions -Wno-c++11-narrowing -fvisibility-inlines-hidden -Wno-invalid-offsetof -Wno-deprecated-objc-isa-usage \
+ 			-Wno-cast-of-sel-type -Wstrict-aliasing=2 -Wstrict-overflow=4 -fstrict-aliasing -fno-delete-null-pointer-checks")
+ 
+-add_definitions(-DOBJC_NO_GC -DOBJC_IS_DEBUG_BUILD=1)
++add_definitions(-DOBJC_NO_GC)
++# Match NDEBUG in CMake's standard optimized configurations; preserve the
++# original debug runtime for Debug and the unspecified build configuration.
++add_compile_definitions(OBJC_IS_DEBUG_BUILD=$<IF:$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>,$<CONFIG:MinSizeRel>>,0,1>)
+ add_definitions(-DTARGET_OS_IPHONE=0 -DOS_OBJECT_USE_OBJC=0 -D_LIBCPP_VISIBLE="")
+ 
+ include_directories(${CMAKE_CURRENT_SOURCE_DIR})

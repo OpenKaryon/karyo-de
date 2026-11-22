@@ -6,9 +6,12 @@ import shlex
 
 DARLING_REVISION = '60ba801decee7a00782f74f6be4c8ffb013f79ff'
 COCOTRON_REVISION = 'c8d38d16a9f613d300157bebbab2b9501bc0c274'
+OBJC_REVISION = '1a12df76d12bfc9fdfffadb290f7742763568765'
+FOUNDATION_REVISION = '55a4341b470c2a56fea667c1d2167fb074226f04'
 COCOTRON_PREFIX = 'src/external/cocotron/'
-EXPECTED_PATCH_COUNT = 22
-EXACT_ROOT_FILES = {'src/startup/darling.c', 'src/CMakeLists.txt',
+EXPECTED_PATCH_COUNT = 25
+EXACT_ROOT_FILES = {'src/external/foundation/src/NSConcreteMapTable.m',
+                    'src/external/foundation/src/NSConcreteHashTable.m', 'src/startup/darling.c', 'src/CMakeLists.txt', 'CMakeLists.txt', 'cmake/use_ld64.cmake', 'src/external/objc4/runtime/CMakeLists.txt',
                     'src/frameworks/CoreServices/src/FSEvents/CMakeLists.txt',
                     'src/external/cocotron/AppKit/NSApplication.m',
                     'src/external/cocotron/AppKit/NSView.m',
@@ -53,7 +56,7 @@ def confined_path(value, side):
         and name[len(COCOTRON_PREFIX):].startswith(COCOTRON_DIRECTORIES))
     if not permitted:
         raise ValueError('Path outside the explicit runtime source directories: ' + name)
-    if path.name != 'CMakeLists.txt' and path.suffix not in ('.c', '.m', '.h'):
+    if path.name != 'CMakeLists.txt' and path.suffix not in ('.c', '.m', '.h') and name != 'cmake/use_ld64.cmake':
         raise ValueError('Unexpected source file kind: ' + name)
     return name
 

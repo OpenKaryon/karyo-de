@@ -1,0 +1,11 @@
+Darling source: https://github.com/darlinghq/darling
+Root revision: 60ba801decee7a00782f74f6be4c8ffb013f79ff
+
+The root Darling license is GPL-3.0. Imported components retain their original
+copyright notices and licenses. Available original notices and a hash index
+are included in upstream-licenses/ and license-index.json. The matching source
+snapshot, patches, Swift binary inputs and build settings are recorded in
+build-provenance.json. Swift's original notice is preserved separately.
+
+Karyo's Debian preparation and integration code is GPL-3.0-or-later.
+The complete GPL version3 text is available in /usr/share/common-licenses/GPL-3.

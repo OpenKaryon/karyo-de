@@ -1,0 +1,28 @@
+Subject: Preserve Foundation assertion descriptions as literal format arguments
+
+Keep the exception name as data and retain compiler format-security checks.
+
+diff --git a/src/external/foundation/src/NSConcreteHashTable.m b/src/external/foundation/src/NSConcreteHashTable.m
+--- a/src/external/foundation/src/NSConcreteHashTable.m
++++ b/src/external/foundation/src/NSConcreteHashTable.m
+@@ -308,7 +308,7 @@
+   if (concreteClass == Nil)
+     {
+       [NSConcreteHashTable class];	// Force +initialize
+-      NSCAssert(concreteClass != Nil, NSInternalInconsistencyException);
++      NSCAssert(concreteClass != Nil, @"%@", NSInternalInconsistencyException);
+     }
+   table = (GSIMapTable)[concreteClass allocWithZone: zone];
+ 
+diff --git a/src/external/foundation/src/NSConcreteMapTable.m b/src/external/foundation/src/NSConcreteMapTable.m
+--- a/src/external/foundation/src/NSConcreteMapTable.m
++++ b/src/external/foundation/src/NSConcreteMapTable.m
+@@ -469,7 +469,7 @@
+   if (concreteClass == Nil)
+     {
+       [NSConcreteMapTable class];	// Force +initialize
+-      NSCAssert(concreteClass != Nil, NSInternalInconsistencyException);
++      NSCAssert(concreteClass != Nil, @"%@", NSInternalInconsistencyException);
+     }
+   table = (GSIMapTable)[concreteClass allocWithZone: zone];
+ 

@@ -1,0 +1,21 @@
+#!/usr/bin/make -f
+export DH_VERBOSE = 1
+%:
+	dh $@ --buildsystem=cmake+ninja --builddirectory=obj-karyo
+
+override_dh_auto_configure:
+	dh_auto_configure --buildsystem=cmake+ninja --builddirectory=obj-karyo -- \
+		-DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+		-DTARGET_i386=OFF -DCOMPONENTS=stock -DDEBIAN_PACKAGING=ON \
+		-DCOMPILE_PY2_BYTECODE=OFF -DDARLING_SOURCE_REVISION=60ba801decee7a00782f74f6be4c8ffb013f79ff \
+		-DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+override_dh_auto_install:
+	dh_auto_install --buildsystem=cmake+ninja --builddirectory=obj-karyo --destdir=debian/karyo-darling-runtime
+
+override_dh_fixperms:
+	dh_fixperms
+	chmod 4755 debian/karyo-darling-runtime/usr/bin/darling
+
+override_dh_shlibdeps:
+	python3 debian/karyo/native_audit.py --source . --stage debian/karyo-darling-runtime --build obj-karyo
