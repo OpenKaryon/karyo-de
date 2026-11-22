@@ -191,3 +191,26 @@ Legacy-prefix import, existing-user upgrade, full taskbar association,
 Windows-like frame/child styling and actual third-party applications remain
 separate gates. These are headless software-rendered checks, not physical GPU,
 VMware host integration or full DE migration completion.
+
+
+### Existing prefix architecture
+
+New per-application prefixes still select win64. When a selected prefix already
+contains system.reg, the launcher removes inherited WINEARCH and lets Wine
+validate its existing architecture. It does not parse/rewrite a registry or
+convert a win32 prefix into win64. An incompatible native engine can still
+reject the prefix; this is not acceptance of legacy-prefix import or conversion.
+The source regression covers win32, win64 and an older unannotated registry,
+preserves their bytes and verifies new-prefix behavior after removing the marker.
+
+
+The installed package from 236dd5a also passes a real existing-prefix check.
+Debian's matching multilib Wine creates a native win32 prefix: the old launcher
+rejects it twice for the forced win64 mismatch, while the new package runs the
+same PE32 twice. Ubuntu's native WoW64 runs PE32 twice in an existing win64
+prefix. Both preserve the architecture marker and a pre-existing data file.
+The actor waits for native wineserver to flush initialization before inspecting
+registry metadata, discovers Ubuntu's private server through native package
+contents and runs without a host display, credentials or personal prefix.
+This does not establish pure win32-prefix compatibility on Ubuntu, prefix
+import/conversion, a new Wine engine or a complete joined current-HEAD desktop.

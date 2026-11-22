@@ -63,6 +63,22 @@ class LauncherTests(unittest.TestCase):
         self.assertFalse(any(k.startswith(('QT_','QML','QSG_')) for k in result));self.assertNotIn('LD_PRELOAD',result)
         self.assertEqual(result['WINEDLLOVERRIDES'],'d3d11=n,b;winemenubuilder.exe=d');self.assertEqual(env['WINEPREFIX'],'/unrelated')
 
+    def test_existing_prefix_does_not_force_a_new_wine_architecture(self):
+        context=self.context('legacy-suite')
+        prefix=Path(context['prefix']);prefix.mkdir(parents=True)
+        registry=prefix/'system.reg'
+        for header in (b'WINE REGISTRY Version 2\n#arch=win32\n',
+                       b'WINE REGISTRY Version 2\n#arch=win64\n',
+                       b'WINE REGISTRY Version 2\n'):
+            with self.subTest(header=header):
+                registry.write_bytes(header)
+                env=backend.wine_environment(context,{**self.environment,'WINEARCH':'win64'})
+                self.assertNotIn('WINEARCH',env)
+                self.assertEqual(env['WINEPREFIX'],str(prefix))
+                self.assertEqual(registry.read_bytes(),header)
+        registry.unlink()
+        self.assertEqual(backend.wine_environment(context,self.environment)['WINEARCH'],'win64')
+
     def test_msi_conversion_is_bounded_and_installer_arguments_remain_literal(self):
         context=self.context();context['kind']='msi';child=types.SimpleNamespace(pid=124,wait=lambda:0)
         with patch.object(backend.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'Z:\\Setup Пример.msi\n')) as convert,patch.object(backend.subprocess,'Popen',return_value=child) as start:

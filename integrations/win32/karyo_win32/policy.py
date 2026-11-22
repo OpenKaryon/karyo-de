@@ -82,7 +82,12 @@ def wine_environment(context, environment):
     ):
         result.pop(name, None)
     account=pwd.getpwuid(os.getuid())
-    result.update(WINEPREFIX=context['prefix'], WINEARCH='win64',HOME=account.pw_dir,USER=account.pw_name,LOGNAME=account.pw_name)
+    result.update(WINEPREFIX=context['prefix'],HOME=account.pw_dir,USER=account.pw_name,LOGNAME=account.pw_name)
+    # WINEARCH selects a new prefix; forcing it on an existing prefix can
+    # reject a valid legacy win32 installation. Let Wine validate its own
+    # registry format and architecture without reading or rewriting it here.
+    if not os.path.lexists(Path(context['prefix']) / 'system.reg'):
+        result['WINEARCH'] = 'win64'
     # Wine-generated shortcuts call Wine directly and can reuse the wrong session.
     # Our registered menu entries resolve the current session on every launch.
     overrides = result.get('WINEDLLOVERRIDES', '').strip(';')
