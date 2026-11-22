@@ -117,3 +117,5 @@ include(cmake/XClipboard.cmake)
 include(cmake/VMware.cmake)
 
 include(cmake/Win32.cmake)
+
+include(cmake/MacOS.cmake)

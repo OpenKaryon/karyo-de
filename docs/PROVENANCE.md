@@ -742,3 +742,27 @@ network. No personal prefix, credentials or machine configuration are included.
 The existing fixed upstream application manifest governs the optional 7-Zip
 input and its notices; neither that executable nor a generated Wine prefix
 belongs in the source tree or product package.
+
+
+### Optional Intel macOS launcher core
+
+The application inspector, account/profile planner and direct-child output
+observer are adapted from our prototype macOS launcher at reviewed revision
+26bad17cef413d26c36c117f2f1123dca4edded7, original path
+distro/distro/packages/openkaryon-macos/usr/lib/openkaryon-macos/macos_runtime.py,
+SHA2569bae9d6f4d61eb6aa9f3a0365794cd46c47e61ee6926c73aebfaf7405975721d.
+The new public Python package separates these responsibilities and removes the
+old two-slot storage authority. Its entrypoint, descriptor-based private storage,
+credential/capability checks, inspection API, CMake boundary and regression tests
+are original GPL-3.0-or-later work, preserving the reviewed fixed-script and
+persistent-daemon behavior. No Darling engine, Apple binary, SDK, personal prefix
+or application is included in this component. Native wrapper checks use clearly
+identified Linux subprocess fixtures, not simulated Darling acceptance.
+
+
+The installed macOS core actor is original GPL-3.0-or-later QA. It constructs
+only a32-byte synthetic Mach-O header for nonexecuting inspection and an explicit
+Linux subprocess engine fixture. It captures ordinary credentials/capabilities,
+private-log and existing-data behavior through the installed isolated entrypoint.
+No Darling, Apple or third-party executable is embedded or represented as a
+compatibility pass by that fixture.
