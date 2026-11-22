@@ -50,13 +50,17 @@
     {
       "path": "../patches/ubuntu/win32-caption-buttons.patch",
       "sha256": "310f8c57979ddf8c6d7f2722c46c644757622896ca7d33b4800b3dd0ae92a91e"
+    },
+    {
+      "path": "../patches/ubuntu/win32-rounded-frames.patch",
+      "sha256": "c884c31a4a9cbca460d693280c7c3d5010c2a4ab2c10b34b9397f78064b212a9"
     }
   ],
   "build": {
-    "revision": "karyo7",
+    "revision": "karyo8",
     "distribution": "resolute",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Use independent Windows caption assets and accurate button hitboxes.",
+    "message": "Round floating Windows frames and owned dialog content with native scene masks.",
     "binaries": [
       "labwc"
     ],

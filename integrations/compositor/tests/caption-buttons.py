@@ -165,8 +165,8 @@ def checks(env, output, baseline):
         connection.close()
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(checker=checks, description=__doc__, actor_path=Path(__file__), config_xml=None):
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--baseline', action='store_true', help='Require the earlier missing Windows buttons; not positive acceptance')
     args = parser.parse_args()
@@ -179,7 +179,7 @@ def main():
         config = private / 'config'
         config.mkdir()
         ready = private / 'display'
-        (config / 'rc.xml').write_text('<labwc_config><focus><followMouse>no</followMouse></focus></labwc_config>')
+        (config / 'rc.xml').write_text(config_xml or '<labwc_config><focus><followMouse>no</followMouse></focus></labwc_config>')
         (config / 'autostart').write_text('#!/bin/sh\nprintf "%s\\n" "$DISPLAY" > "' + str(ready) + '"\n')
         (config / 'autostart').chmod(0o700)
         env = {**os.environ, 'XDG_RUNTIME_DIR':str(runtime), 'XDG_CONFIG_HOME':str(private / 'xdg'),
@@ -195,11 +195,12 @@ def main():
                 assert server.poll() is None
                 env['DISPLAY'] = ready.read_text().strip()
                 env['WAYLAND_DISPLAY'] = next(p.name for p in runtime.glob('wayland-*') if p.is_socket())
-                frames = checks(env, args.output, args.baseline)
+                env['KARYO_TEST_SERVER_PID'] = str(server.pid)
+                frames = checker(env, args.output, args.baseline)
                 report = {'accepted':True, 'baseline':args.baseline, 'uid':os.getuid(), 'real_wine_application':False,
                     'private_pointer':True, 'frames':frames,
                     'labwc_version':subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', 'labwc'], text=True),
-                    'actor_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+                    'actor_sha256':hashlib.sha256(actor_path.read_bytes()).hexdigest()}
                 (args.output / 'acceptance.json').write_text(json.dumps(report, indent=2) + '\n')
                 print(json.dumps(report), flush=True)
             finally:

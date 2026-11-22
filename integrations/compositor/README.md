@@ -17,12 +17,24 @@ repository, personal configuration or downloaded binary is committed.
 
 ## Prepare and build
 
+Current compositor recipes require the added scene-mask declaration in the native
+wlroots development package. First build the matching wlroots recipe described
+below and put its matching runtime and development DEBs into a disposable SDK
+image based on the native compositor builder. Install both there with dpkg -i
+and require apt-get check before using that image for the compositor command.
+Use Debian wlroots karyo4 or Ubuntu karyo3; stock headers cannot compile this API.
+These are SDK preparation steps inside a container, not host package commands.
+The --image arguments below refer to that prepared native image, whose immutable
+identity is captured by Builder. Name it karyo-compositor-sdk:trixie (or
+karyo-compositor-sdk:ubuntu2604). No private temporary image ID is required.
+
+
 From a Karyo DE checkout with Karyo Builder installed:
 
     docker build -t karyo-source-builder:trixie ../karyo-builder/environments/source-debian13
     docker build -t karyo-compositor-builder:trixie integrations/compositor/environments/debian
     python integrations/compositor/fetch-inputs.py --base debian --image karyo-compositor-builder:trixie
-    karyo-builder source-package integrations/compositor/recipes/debian.json --image karyo-compositor-builder:trixie --output out/compositor/debian/final-packages
+    karyo-builder source-package integrations/compositor/recipes/debian.json --image karyo-compositor-sdk:trixie --output out/compositor/debian/final-packages
 
 Ubuntu uses source-ubuntu2604, environments/ubuntu, recipes/ubuntu.json and image
 tags karyo-source-builder:ubuntu2604 / karyo-compositor-builder:ubuntu2604.
@@ -315,10 +327,10 @@ pass; upstream wlroots reports no defined tests, so the own runtime fixtures
 provide the new feature gate. Builder docs/VALIDATION-SCENE-CLIP.md records the
 exact packages, source and acceptance identities.
 
-This supplies the renderer/input mechanism for subsequent rounded Windows frames.
-The current compositor recipes do not yet apply these masks to application
-frames. Theme resources, frame metrics/icons, floating/maximized rules and real
-pointer transport on rounded parent/owned windows remain the next integration.
+That API checkpoint supplied the renderer/input mechanism without applying it
+to application frames. The rounded-frame integration below now uses it with
+per-view themes and actual pointer tests. Registered app icons and broader real
+application/deployment coverage remain separate integration work.
 
 
 ## Per-view Windows theme foundation
@@ -344,9 +356,10 @@ new Wine-color requirement. This is an X11 model test, separately accompanied by
 real PE32/PE64 Wine palette regressions in Builder acceptance.
 
 This is an intentionally separate prerequisite, not the completed Windows theme.
-Caption assets/widths are covered below; application icon matching, lower/client
-rounding, input corners and real third-party applications remain separate gates. Wine-internal child/MDI
-shaping and scene-mask API acceptance remain independently documented.
+Caption assets/widths and rounded client/input corners are covered below.
+Application icon matching and real third-party applications remain separate
+gates. Wine-internal child/MDI shaping and scene-mask API acceptance are
+independently documented.
 
 
 ## Windows caption assets and hitboxes
@@ -371,5 +384,44 @@ clicks maximize/restore/minimize and normal WM_DELETE_WINDOW close, then checks
 narrow widths. --baseline separately observes the previous missing buttons;
 it does not satisfy positive acceptance. SVG thin-stroke antialiasing and the
 software cursor are accounted for without accepting the light title background
-as white glyph ink. Lower/client corner clipping and registered app icons are
-still subsequent steps.
+as white glyph ink. Rounded frame clipping is documented below; registered app icons remain a
+subsequent step.
+
+
+## Floating Windows frame corners
+
+Debian labwc +karyo11 requires wlroots 0.18 +karyo4; Ubuntu labwc +karyo8 retains
+native wlroots 0.19 +karyo3. Ordinary floating Wine SSD frames use a six-logical-pixel
+outer radius at both ends, including curved lower border buffers. Content matches
+the inner border. A titlebar ancestor mask also covers button hitboxes, leaving
+shadows and native resize extents outside that mask. Fully maximized/fullscreen
+frames remain square. Rounded image variants remain populated; Windows variants
+use the shared scene mask rather than global Linux image-modifier geometry.
+
+Opaque managed Wine dialogs/utilities with an actual parent and client-painted
+captions use a four-pixel content mask. Normal custom CSD windows, ARGB surfaces,
+menus, tooltips and override-redirect popups keep their own shape. Parent/type/
+class changes recompute or clear the mask, as do geometry and decoration changes.
+Reload/unmap destroys or refreshes masks through the existing scene lifetime.
+There is no program-name rule or Wine-prefix override.
+
+Debian's old XWM ignored property deletion for WM_TRANSIENT_FOR and window type.
+The native 0.19.2 parser semantics are backported to clear stale metadata and
+emit existing notifications, including safe empty type arrays. All 114 public
+headers, 770 existing exports and SONAME match the accepted wlroots3 ABI exactly.
+Ubuntu already has this behavior; its library is not rebuilt for this step.
+
+Builder check-caption-buttons.py --scenario rounded-frames freezes the actor and
+shared harness, verifies native artifacts and runs 23 real X11 pointer/pixel
+phases per base. They cover all four corners, click-through on owned cutouts,
+normal client input, caption corner safety, resize, minimize/restore, max/fullscreen,
+reload, removed/restored parent/type/class, normal CSD, ARGB and override popups.
+--baseline observes the previous square package separately. The default caption
+scenario still checks visible control glyphs and real edge actions.
+
+check-win32-palettes.py --rounded-frames additionally checks the four corners of
+the actual PE32/64 main and four owned tools after group restore, with mapped and
+unmapped tiny owners. Real menu, child-glyph, native model/protocol and lock gates
+remain separate. These are headless/Pixman scale 1 tests; physical GPU, fractional
+scaling, app icon matching, third-party programs and full current-HEAD deployment
+are not established by this checkpoint.

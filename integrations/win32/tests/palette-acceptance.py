@@ -17,6 +17,7 @@ def main():
     parser.add_argument('--bits', type=int, choices=(32, 64), default=64)
     parser.add_argument('--compositor-package', type=Path)
     parser.add_argument('--trace-wayland', action='store_true', help='Capture Xwayland client protocol for a missing-surface investigation')
+    parser.add_argument('--rounded-frames', action='store_true', help='Verify actual Wine frame corners after group restore')
     parser.add_argument('--mapped-owner', action='store_true', help='Stress a visible 1x1 no-activate helper; not the canonical hidden owner')
     parser.add_argument('--baseline', action='store_true', help='Observe old behavior without asserting a missing group')
     args = parser.parse_args()
@@ -207,6 +208,30 @@ def main():
                         require(window.get_wm_transient_for().id == owner.id, 'Ownership was rewritten')
                     stable_focus('restored group')
                     report['cases'].append('group hide/restore preserves real NormalState and process')
+                    if args.rounded_frames:
+                        with Image.open(args.output / 'restored-0.png') as captured:
+                            rgb = captured.convert('RGB')
+                        measurements = []
+                        for window in palettes:
+                            box = window.get_geometry()
+                            vertices = [(box.x, box.y), (box.x + box.width - 1, box.y),
+                                (box.x, box.y + box.height - 1),
+                                (box.x + box.width - 1, box.y + box.height - 1)]
+                            pixels = [rgb.getpixel(p) for p in vertices]
+                            require(all(p == (80, 80, 80) for p in pixels),
+                                'Actual Wine tool corners were not clipped: ' + str((box.depth, pixels)))
+                            measurements.append({'window':window.get_wm_name(),
+                                'depth':box.depth, 'corners':pixels})
+                        box = frame.get_geometry()
+                        vertices = [(box.x - 1, box.y - 24), (box.x + box.width, box.y - 24),
+                            (box.x - 1, box.y + box.height), (box.x + box.width, box.y + box.height)]
+                        pixels = [rgb.getpixel(p) for p in vertices]
+                        require(all(p == (0, 0, 0) for p in pixels),
+                            'Actual Wine main corners were not clipped: ' + str(pixels))
+                        measurements.append({'window':frame.get_wm_name(), 'corners':pixels})
+                        report['rounded_frame_pixels'] = measurements
+                        report['cases'].append('real Wine main and four owned tools have four rounded corners')
+
                 if not args.baseline:
                     outsider = root.create_window(1040, 560, 160, 100, 0, connection.screen().root_depth, X.InputOutput, X.CopyFromParent, background_pixel=0x224466)
                     outsider.set_wm_name('Karyo foreign-process focus QA')

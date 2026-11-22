@@ -45,7 +45,7 @@
     },
     {
       "path": "../patches/debian/win32-owner-hints-dependency.patch",
-      "sha256": "a593aa4d09cd4ae593022978a61ac9d949c11ed3e9fdd96281ecd5a204303c6a"
+      "sha256": "4631d9f65f4c236fecac51b6842c25aedc1961e964801a11071647484d90fd6f"
     },
     {
       "path": "../patches/debian/absolute-pointer-motion.patch",
@@ -58,13 +58,17 @@
     {
       "path": "../patches/debian/win32-caption-buttons.patch",
       "sha256": "796018c2a75bf18e7f84fd59425cf89da77266732897dfbd18b48fa89d512c2f"
+    },
+    {
+      "path": "../patches/debian/win32-rounded-frames.patch",
+      "sha256": "4bc68c0b93d628e73f3e5098e31806c0df17a3fcc5b279bd72c816ba4cb62a3c"
     }
   ],
   "build": {
-    "revision": "karyo9",
+    "revision": "karyo11",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Use independent Windows caption assets and accurate button hitboxes.",
+    "message": "Round floating Windows frames and owned dialog content with native scene masks.",
     "binaries": [
       "labwc"
     ],

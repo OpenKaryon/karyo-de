@@ -517,7 +517,7 @@ Xwayland remain external test dependencies with their own licensing.
 
 
 The independent Windows launcher adapts the prototype openkaryon-win32 Python
-launcher at donor26bad17cef413d26c36c117f2f1123dca4edded7. It is split into own
+launcher at donor 26bad17cef413d26c36c117f2f1123dca4edded7. It is split into own
 GPL-3.0-or-later policy/storage/registration/frontend modules. Per-account storage,
 ordinary credential validation, capability reset, bounded owner-checked records
 and Karyo-scoped MIME defaults replace the obsolete two-slot environment model.
@@ -543,7 +543,7 @@ XML. These fixtures and protocol data are not installed in runtime packages.
 
 
 The standard-menu engine patch adapts the prototype's x11-popup-menu-type.patch
-at donor26bad17cef413d26c36c117f2f1123dca4edded7. The original reviewed file SHA256
+at donor 26bad17cef413d26c36c117f2f1123dca4edded7. The original reviewed file SHA256
 is e3c20df0962946899b8ead8147a734342dd701fc001ddabc090255bc665bbe3a;
 its body was rechecked against that exact Git object. Changes to Wine-derived
 source retain LGPL-2.1-or-later, not this repository's own GPL-3.0-or-later default.
@@ -592,7 +592,7 @@ The independent real-X11/Wine acceptance code stays GPL-3.0-or-later.
 
 
 The default owned/child caption close-button patch reviews the prototype's
-child-close-button.patch at donor26bad17cef413d26c36c117f2f1123dca4edded7,
+child-close-button.patch at donor 26bad17cef413d26c36c117f2f1123dca4edded7,
 original SHA256 bf5a30f00d307ece05052f64e1037b9e7b59d157a66d9448fc982d0fd6dec586.
 The adaptation saves/restores the whole GDI DC state, forces copy-pen drawing
 and preserves the native disabled-button path. It retains LGPL-2.1-or-later
@@ -653,10 +653,29 @@ application, personal path, executable resource or private prefix is incorporate
 ### Windows caption controls
 
 The native caption geometry patches review the width/layout/hitbox and asset
-lookup sections of wine-windows-caption-details.patch from donor26bad17,
-SHA256a72d24b57e366beab910d199be3149961c5815036fa90accff6e5f10e6a1a29f.
+lookup sections of wine-windows-caption-details.patch from donor 26bad17,
+SHA256 a72d24b57e366beab910d199be3149961c5815036fa90accff6e5f10e6a1a29f.
 The actual Git blob was checked. Native derivatives retain GPL-2.0-only and
 upstream notices. Caption rounding portions remain a subsequent step.
 The independent SVG glyph resources, CMake installation and pointer/pixel actor
 are original Karyo code/resources under GPL-3.0-or-later, without copied binary
 artwork, Windows fonts or application-specific configuration.
+
+
+### Floating Windows frame masks and metadata deletion
+
+The native GPL-2.0-only frame derivatives review donor 26bad17 caption-details
+(SHA256 a72d24b57e366beab910d199be3149961c5815036fa90accff6e5f10e6a1a29f),
+rounded-bottom (39f9cfb8ea855191bc6000b378a95303f3555d19b569149959572e39a59587eb)
+and rounded-client-frames
+(b603d8234c4a4d0151404452c22749881fff06044398c3440fd687fa3e4b641a).
+Actual Git blobs match the reviewed inputs. Offset-aware scene masks cover
+caption hitboxes as well as pixels, without borrowing the Linux theme's button
+modifiers. Native upstream notices remain intact.
+
+The Debian MIT XWM derivative backports property-removal parsing from the native
+wlroots 0.19.2 xwayland/xwm.c in the checksummed Ubuntu source recipe. It preserves
+the previous unmapped-parent hint refresh and public ABI, rather than importing
+Ubuntu binaries or changing structures. Existing MIT source/copyright notices
+and patches/WLROOTS-LICENSE apply. The independent shared harness, rounded-frame
+actor and real Wine corner QA are original GPL-3.0-or-later code.

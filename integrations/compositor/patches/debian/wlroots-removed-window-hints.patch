@@ -1,0 +1,49 @@
+Description: Clear removed X11 parent and window-type properties
+ Backport native wlroots 0.19.2 property-removal semantics to 0.18.2.
+ Invalid types remain rejected; deletion clears stale parent/type metadata,
+ handles the empty type array and emits native scene-state notifications.
+Origin: backport, native wlroots 0.19.2 xwayland/xwm.c
+License: MIT, follows upstream wlroots
+Forwarded: not-needed
+
+--- a/xwayland/xwm.c
++++ b/xwayland/xwm.c
+@@ -634,9 +634,10 @@
+ 		xcb_get_property_reply_t *reply) {
++	if (reply->type != XCB_ATOM_WINDOW && reply->type != XCB_ATOM_NONE) {
++		wlr_log(WLR_DEBUG, "Invalid WM_TRANSIENT_FOR property type");
++		return;
++	}
++
+ 	struct wlr_xwayland_surface *found_parent = NULL;
+-	if (reply->type != XCB_ATOM_WINDOW) {
+-		return;
+-	}
+-
+ 	xcb_window_t *xid = xcb_get_property_value(reply);
+-	if (xid != NULL) {
++	if (reply->type != XCB_ATOM_NONE && xid != NULL) {
+ 		found_parent = lookup_surface(xwm, *xid);
+@@ -666,3 +667,4 @@
+ 		xcb_get_property_reply_t *reply) {
+-	if (reply->type != XCB_ATOM_ATOM) {
++	if (reply->type != XCB_ATOM_ATOM && reply->type != XCB_ATOM_NONE) {
++		wlr_log(WLR_DEBUG, "Invalid NET_WM_WINDOW_TYPE property type");
+ 		return;
+@@ -675,7 +677,11 @@
+ 	free(xsurface->window_type);
+-	xsurface->window_type = malloc(atoms_size);
+-	if (xsurface->window_type == NULL) {
+-		return;
+-	}
+-	memcpy(xsurface->window_type, atoms, atoms_size);
++	if (atoms_len > 0) {
++		xsurface->window_type = malloc(atoms_size);
++		if (xsurface->window_type == NULL) {
++			return;
++		}
++		memcpy(xsurface->window_type, atoms, atoms_size);
++	} else {
++		xsurface->window_type = NULL;
++	}
+ 	xsurface->window_type_len = atoms_len;

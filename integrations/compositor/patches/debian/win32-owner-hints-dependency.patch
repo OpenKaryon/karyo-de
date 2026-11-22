@@ -9,7 +9,7 @@ Forwarded: not-needed
   xwayland,
   ${misc:Depends},
   ${shlibs:Depends},
-+ libwlroots-0.18 (= 0.18.2-3+karyo3),
++ libwlroots-0.18 (= 0.18.2-3+karyo4),
  Suggests:
   foot | alacritty | x-terminal-emulator,
   kanshi,

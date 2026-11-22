@@ -1,0 +1,573 @@
+Description: Round ordinary and structurally owned Wine frames with scene masks
+ Adapt per-theme corners and native border buffers, clip content and titlebar
+ button hitboxes without clipping shadows or resize extents. Keep full/maximized
+ frames square and exclude menus, tooltips, normal CSD and alpha surfaces.
+Origin: other, prototype 26bad17cef413d26c36c117f2f1123dca4edded7
+Author: Karyo Developers
+License: GPL-2.0-only (upstream files retain their original notices)
+Forwarded: not-needed
+
+--- a/include/common/scene-helpers.h
++++ b/include/common/scene-helpers.h
+@@ -11,6 +11,10 @@
+ 
+ struct wlr_surface *lab_wlr_surface_from_node(struct wlr_scene_node *node);
+ 
++/* Logical pixel-center mask; offsets allow a titlebar above the client origin. */
++void lab_wlr_scene_set_rounded_clip(struct wlr_scene_node *node, int x, int y,
++	int width, int height, int top_radius, int bottom_radius);
++
+ /**
+  * lab_get_prev_node - return previous (sibling) node
+  * @node: node to find the previous node from
+--- a/include/ssd-internal.h
++++ b/include/ssd-internal.h
+@@ -16,6 +16,8 @@
+ #define FOR_EACH_END }
+ 
+ struct theme *ssd_theme(struct view *view);
++int ssd_theme_corner_width(const struct theme *theme);
++bool ssd_should_round_bottom(const struct ssd *ssd);
+ int ssd_title_button_width(const struct theme *theme, enum ssd_part_type type);
+ 
+ struct ssd_button {
+@@ -80,6 +82,7 @@
+ 		 * such a small titlebar.
+ 		 */
+ 		bool was_squared;
++		bool bottom_rounded;
+ 
+ 		struct wlr_box geometry;
+ 		struct ssd_state_title {
+--- a/include/ssd.h
++++ b/include/ssd.h
+@@ -87,7 +87,9 @@
+  */
+ struct ssd *ssd_create(struct view *view, bool active);
+ struct border ssd_get_margin(const struct ssd *ssd);
++bool ssd_uses_windows_frame(struct view *view);
+ void ssd_update_app_theme(struct view *view);
++void ssd_update_client_clip(struct ssd *ssd);
+ int ssd_get_corner_width(void);
+ void ssd_update_margin(struct ssd *ssd);
+ void ssd_set_active(struct ssd *ssd, bool active);
+--- a/include/theme.h
++++ b/include/theme.h
+@@ -11,6 +11,8 @@
+ #include <stdio.h>
+ #include <wlr/render/wlr_renderer.h>
+ #include "ssd.h"
++
++#define WINDOWS_FRAME_RADIUS 6
+ 
+ struct lab_img;
+ 
+@@ -92,6 +94,8 @@
+ 
+ 		struct lab_data_buffer *corner_top_left_normal;
+ 		struct lab_data_buffer *corner_top_right_normal;
++		struct lab_data_buffer *corner_bottom_left;
++		struct lab_data_buffer *corner_bottom_right;
+ 
+ 		struct lab_data_buffer *shadow_corner_top;
+ 		struct lab_data_buffer *shadow_corner_bottom;
+--- a/include/xwayland.h
++++ b/include/xwayland.h
+@@ -69,6 +69,7 @@
+ 	struct wl_listener set_override_redirect;
+ 	struct wl_listener set_strut_partial;
+ 	struct wl_listener set_window_type;
++	struct wl_listener set_parent;
+ 	struct wl_listener map_request;
+ 
+ 	/* Not (yet) implemented */
+--- a/src/common/scene-helpers.c
++++ b/src/common/scene-helpers.c
+@@ -6,6 +6,7 @@
+ #include <wlr/util/log.h>
+ #include <wlr/util/region.h>
+ #include <wlr/util/transform.h>
++#include "common/macros.h"
+ #include "common/scene-helpers.h"
+ #include "labwc.h"
+ #include "magnifier.h"
+@@ -149,3 +150,49 @@
+ 
+ 	return true;
+ }
++
++static void
++subtract_corner_rows(pixman_region32_t *clip, int width, int height, int radius, bool top)
++{
++	int diameter = 2 * radius;
++	for (int row = 0; row < radius; ++row) {
++		int dy = 2 * row + 1;
++		int inset = 0;
++		for (int dx = diameter - 1; dx * dx + dy * dy > diameter * diameter; dx -= 2) {
++			++inset;
++		}
++		if (!inset) {
++			continue;
++		}
++		int y = top ? radius - 1 - row : height - radius + row;
++		pixman_region32_t edge;
++		pixman_region32_init_rect(&edge, 0, y, inset, 1);
++		pixman_region32_union_rect(&edge, &edge, width - inset, y, inset, 1);
++		pixman_region32_subtract(clip, clip, &edge);
++		pixman_region32_fini(&edge);
++	}
++}
++
++void
++lab_wlr_scene_set_rounded_clip(struct wlr_scene_node *node, int x, int y,
++		int width, int height, int top_radius, int bottom_radius)
++{
++	if (width <= 0 || height <= 0) {
++		wlr_scene_node_set_clip_region(node, NULL);
++		return;
++	}
++	int limit = MIN(width / 2, height / 2);
++	top_radius = MIN(MAX(top_radius, 0), limit);
++	bottom_radius = MIN(MAX(bottom_radius, 0), limit);
++	if (!top_radius && !bottom_radius) {
++		wlr_scene_node_set_clip_region(node, NULL);
++		return;
++	}
++	pixman_region32_t clip;
++	pixman_region32_init_rect(&clip, 0, 0, width, height);
++	subtract_corner_rows(&clip, width, height, top_radius, true);
++	subtract_corner_rows(&clip, width, height, bottom_radius, false);
++	pixman_region32_translate(&clip, x, y);
++	wlr_scene_node_set_clip_region(node, &clip);
++	pixman_region32_fini(&clip);
++}
+--- a/src/ssd/ssd-border.c
++++ b/src/ssd/ssd-border.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ 
+ #include <assert.h>
++#include "buffer.h"
+ #include "common/scene-helpers.h"
+ #include "labwc.h"
+ #include "ssd-internal.h"
+@@ -11,6 +12,37 @@
+ 	&(ssd)->border.active, \
+ 	&(ssd)->border.inactive)
+ 
++bool
++ssd_should_round_bottom(const struct ssd *ssd)
++{
++	struct view *view = ssd->view;
++	return ssd->theme->windows_frame && view_is_floating(view)
++		&& !view->shaded && ssd->titlebar.height > 0
++		&& view->current.width >= 2 * WINDOWS_FRAME_RADIUS
++		&& view->current.height >= WINDOWS_FRAME_RADIUS;
++}
++
++void
++ssd_update_client_clip(struct ssd *ssd)
++{
++	if (!ssd || !ssd->theme->windows_frame) {
++		return;
++	}
++	struct view *view = ssd->view;
++	int border = ssd->theme->border_width;
++	int top = view_is_floating(view) && ssd->titlebar.height > 0
++		? WINDOWS_FRAME_RADIUS : 0;
++	/* Include button hitboxes, not shadows or resize extents. */
++	lab_wlr_scene_set_rounded_clip(&ssd->titlebar.tree->node,
++		-border, -ssd->titlebar.height - border,
++		view->current.width + 2 * border, ssd->titlebar.height + border, top, 0);
++	if (view->content_tree) {
++		int bottom = ssd_should_round_bottom(ssd) ? MAX(0, WINDOWS_FRAME_RADIUS - border) : 0;
++		lab_wlr_scene_set_rounded_clip(&view->content_tree->node, 0, 0,
++			view->current.width, view->current.height, 0, bottom);
++	}
++}
++
+ void
+ ssd_border_create(struct ssd *ssd)
+ {
+@@ -22,7 +54,7 @@
+ 	int width = view->current.width;
+ 	int height = view_effective_height(view, /* use_pending */ false);
+ 	int full_width = width + 2 * theme->border_width;
+-	int corner_width = ssd_get_corner_width();
++	int corner_width = ssd_theme_corner_width(ssd->theme);
+ 
+ 	float *color;
+ 	struct wlr_scene_tree *parent;
+@@ -52,6 +84,12 @@
+ 			width - 2 * corner_width, theme->border_width,
+ 			theme->border_width + corner_width,
+ 			-(ssd->titlebar.height + theme->border_width), color);
++		if (theme->windows_frame) {
++			add_scene_buffer(&subtree->parts, LAB_SSD_PART_CORNER_BOTTOM_LEFT,
++				parent, &theme->window[active].corner_bottom_left->base, 0, 0);
++			add_scene_buffer(&subtree->parts, LAB_SSD_PART_CORNER_BOTTOM_RIGHT,
++				parent, &theme->window[active].corner_bottom_right->base, 0, 0);
++		}
+ 	} FOR_EACH_END
+ 
+ 	if (view->maximized == VIEW_AXIS_BOTH) {
+@@ -73,6 +111,8 @@
+ 	assert(ssd);
+ 	assert(ssd->border.tree);
+ 
++	ssd->state.bottom_rounded = ssd_should_round_bottom(ssd);
++	ssd_update_client_clip(ssd);
+ 	struct view *view = ssd->view;
+ 	if (view->maximized == VIEW_AXIS_BOTH
+ 			&& ssd->border.tree->node.enabled) {
+@@ -94,7 +134,7 @@
+ 	int width = view->current.width;
+ 	int height = view_effective_height(view, /* use_pending */ false);
+ 	int full_width = width + 2 * theme->border_width;
+-	int corner_width = ssd_get_corner_width();
++	int corner_width = ssd_theme_corner_width(ssd->theme);
+ 
+ 	/*
+ 	 * From here on we have to cover the following border scenarios:
+@@ -127,12 +167,26 @@
+ 	int top_x = ssd->titlebar.height <= 0 || ssd->state.was_squared
+ 		? 0
+ 		: theme->border_width + corner_width;
++	int bottom_inset = ssd->state.bottom_rounded ? WINDOWS_FRAME_RADIUS : 0;
++	int bottom_y = height + theme->border_width - WINDOWS_FRAME_RADIUS;
++	if (bottom_inset) {
++		side_height = bottom_y - side_y;
++	}
++
+ 
+ 	struct ssd_part *part;
+ 	struct wlr_scene_rect *rect;
+ 	struct ssd_sub_tree *subtree;
+ 	FOR_EACH_STATE(ssd, subtree) {
+ 		wl_list_for_each(part, &subtree->parts, link) {
++			if (part->type == LAB_SSD_PART_CORNER_BOTTOM_LEFT
++					|| part->type == LAB_SSD_PART_CORNER_BOTTOM_RIGHT) {
++				wlr_scene_node_set_enabled(part->node, ssd->state.bottom_rounded);
++				wlr_scene_node_set_position(part->node,
++					part->type == LAB_SSD_PART_CORNER_BOTTOM_LEFT
++						? 0 : full_width - WINDOWS_FRAME_RADIUS, bottom_y);
++				continue;
++			}
+ 			rect = wlr_scene_rect_from_node(part->node);
+ 			switch (part->type) {
+ 			case LAB_SSD_PART_LEFT:
+@@ -153,11 +207,8 @@
+ 				continue;
+ 			case LAB_SSD_PART_BOTTOM:
+ 				wlr_scene_rect_set_size(rect,
+-					full_width,
+-					theme->border_width);
+-				wlr_scene_node_set_position(part->node,
+-					0,
+-					height);
++					full_width - 2 * bottom_inset, theme->border_width);
++				wlr_scene_node_set_position(part->node, bottom_inset, height);
+ 				continue;
+ 			case LAB_SSD_PART_TOP:
+ 				wlr_scene_rect_set_size(rect,
+@@ -179,6 +230,9 @@
+ {
+ 	assert(ssd);
+ 	assert(ssd->border.tree);
++	if (ssd->theme->windows_frame && ssd->view->content_tree) {
++		wlr_scene_node_set_clip_region(&ssd->view->content_tree->node, NULL);
++	}
+ 
+ 	struct ssd_sub_tree *subtree;
+ 	FOR_EACH_STATE(ssd, subtree) {
+--- a/src/ssd/ssd-titlebar.c
++++ b/src/ssd/ssd-titlebar.c
+@@ -33,7 +33,7 @@
+ 	struct view *view = ssd->view;
+ 	struct theme *theme = ssd_theme(view);
+ 	int width = view->current.width;
+-	int corner_width = ssd_get_corner_width();
++	int corner_width = ssd_theme_corner_width(ssd->theme);
+ 
+ 	float *color;
+ 	struct wlr_scene_tree *parent;
+@@ -142,7 +142,7 @@
+ {
+ 	struct view *view = ssd->view;
+ 	int width = view->current.width;
+-	int corner_width = ssd_get_corner_width();
++	int corner_width = ssd_theme_corner_width(ssd->theme);
+ 	struct theme *theme = ssd_theme(view);
+ 
+ 	struct ssd_part *part;
+@@ -266,7 +266,7 @@
+ {
+ 	struct view *view = ssd->view;
+ 	int width = view->current.width;
+-	int corner_width = ssd_get_corner_width();
++	int corner_width = ssd_theme_corner_width(ssd->theme);
+ 	struct theme *theme = ssd_theme(view);
+ 
+ 	bool maximized = view->maximized == VIEW_AXIS_BOTH;
+@@ -570,9 +570,10 @@
+ ssd_should_be_squared(struct ssd *ssd)
+ {
+ 	struct view *view = ssd->view;
+-	int corner_width = ssd_get_corner_width();
+-
+-	return (ssd->theme->windows_frame || view_is_tiled_and_notify_tiled(view)
++	int corner_width = ssd_theme_corner_width(ssd->theme);
++
++	return ((ssd->theme->windows_frame && !view_is_floating(view))
++			|| view_is_tiled_and_notify_tiled(view)
+ 			|| view->current.width < corner_width * 2)
+ 		&& view->maximized != VIEW_AXIS_BOTH;
+ }
+--- a/src/ssd/ssd.c
++++ b/src/ssd/ssd.c
+@@ -27,6 +27,12 @@
+ 		}
+ 	}
+ 	return view->server->theme;
++}
++
++bool
++ssd_uses_windows_frame(struct view *view)
++{
++	return select_view_theme(view)->windows_frame;
+ }
+ 
+ struct theme *
+@@ -307,6 +313,12 @@
+ }
+ 
+ int
++ssd_theme_corner_width(const struct theme *theme)
++{
++	return theme->windows_frame ? WINDOWS_FRAME_RADIUS : ssd_get_corner_width();
++}
++
++int
+ ssd_get_corner_width(void)
+ {
+ 	/* ensure a minimum corner width */
+@@ -348,6 +360,7 @@
+ 	bool state_changed = ssd->state.was_maximized != maximized
+ 		|| ssd->state.was_shaded != view->shaded
+ 		|| ssd->state.was_squared != squared
++		|| ssd->state.bottom_rounded != ssd_should_round_bottom(ssd)
+ 		|| ssd->state.was_omnipresent != view->visible_on_all_workspaces;
+ 
+ 	if (update_extents) {
+--- a/src/theme.c
++++ b/src/theme.c
+@@ -33,7 +33,7 @@
+ #include "labwc.h"
+ #include "theme.h"
+ #include "buffer.h"
+-#include "ssd.h"
++#include "ssd-internal.h"
+ 
+ struct button {
+ 	const char *name;
+@@ -56,6 +56,7 @@
+ 	float *fill_color;
+ 	float *border_color;
+ 	enum corner corner;
++	bool flip_y;
+ };
+ 
+ #define zero_array(arr) memset(arr, 0, sizeof(arr))
+@@ -249,8 +250,10 @@
+ 			&rc.title_buttons_left, link) {
+ 		if (leftmost_button->type == b->type) {
+ 			*rounded_img = lab_img_copy(*img);
+-			lab_img_add_modifier(*rounded_img,
+-				round_left_corner_button);
++			if (!theme->windows_frame) {
++				lab_img_add_modifier(*rounded_img,
++					round_left_corner_button);
++			}
+ 		}
+ 		break;
+ 	}
+@@ -259,8 +262,10 @@
+ 			&rc.title_buttons_right, link) {
+ 		if (rightmost_button->type == b->type) {
+ 			*rounded_img = lab_img_copy(*img);
+-			lab_img_add_modifier(*rounded_img,
+-				round_right_corner_button);
++			if (!theme->windows_frame) {
++				lab_img_add_modifier(*rounded_img,
++					round_right_corner_button);
++			}
+ 		}
+ 		break;
+ 	}
+@@ -1030,6 +1035,10 @@
+ 	/* set transparent background */
+ 	cairo_set_operator(cairo, CAIRO_OPERATOR_CLEAR);
+ 	cairo_paint(cairo);
++	if (ctx->flip_y) {
++		cairo_translate(cairo, 0, h);
++		cairo_scale(cairo, 1, -1);
++	}
+ 
+ 	/*
+ 	 * Create outline path and fill. Illustration of top-left corner buffer:
+@@ -1175,7 +1184,7 @@
+ static void
+ create_corners(struct theme *theme)
+ {
+-	int corner_width = ssd_get_corner_width();
++	int corner_width = ssd_theme_corner_width(theme);
+ 
+ 	struct wlr_box box = {
+ 		.x = 0,
+@@ -1187,7 +1196,7 @@
+ 	for (int active = THEME_INACTIVE; active <= THEME_ACTIVE; active++) {
+ 		struct rounded_corner_ctx ctx = {
+ 			.box = &box,
+-			.radius = rc.corner_radius,
++			.radius = theme->windows_frame ? WINDOWS_FRAME_RADIUS : rc.corner_radius,
+ 			.line_width = theme->border_width,
+ 			.fill_color = theme->window[active].title_bg_color,
+ 			.border_color = theme->window[active].border_color,
+@@ -1196,6 +1205,16 @@
+ 		theme->window[active].corner_top_left_normal = rounded_rect(&ctx);
+ 		ctx.corner = LAB_CORNER_TOP_RIGHT;
+ 		theme->window[active].corner_top_right_normal = rounded_rect(&ctx);
++		if (theme->windows_frame) {
++			struct wlr_box bottom = { .width = WINDOWS_FRAME_RADIUS,
++				.height = WINDOWS_FRAME_RADIUS };
++			ctx.box = &bottom;
++			ctx.flip_y = true;
++			ctx.fill_color = (float[4]){ 0 };
++			theme->window[active].corner_bottom_right = rounded_rect(&ctx);
++			ctx.corner = LAB_CORNER_TOP_LEFT;
++			theme->window[active].corner_bottom_left = rounded_rect(&ctx);
++		}
+ 	}
+ }
+ 
+@@ -1560,6 +1579,8 @@
+ 	for (int active = THEME_INACTIVE; active <= THEME_ACTIVE; active++) {
+ 		zdrop(&theme->window[active].corner_top_left_normal);
+ 		zdrop(&theme->window[active].corner_top_right_normal);
++		zdrop(&theme->window[active].corner_bottom_left);
++		zdrop(&theme->window[active].corner_bottom_right);
+ 		zdrop(&theme->window[active].shadow_corner_top);
+ 		zdrop(&theme->window[active].shadow_corner_bottom);
+ 		zdrop(&theme->window[active].shadow_edge);
+--- a/src/xwayland.c
++++ b/src/xwayland.c
+@@ -8,6 +8,7 @@
+ #include "common/array.h"
+ #include "common/macros.h"
+ #include "common/mem.h"
++#include "common/scene-helpers.h"
+ #include "config/rcxml.h"
+ #include "config/session.h"
+ #include "foreign-toplevel.h"
+@@ -270,6 +271,30 @@
+ }
+ 
+ static void
++update_window_clip(struct view *view)
++{
++	if (!view->surface || !view->content_tree) {
++		return;
++	}
++	struct wlr_scene_node *node = &view->content_tree->node;
++	if (!ssd_uses_windows_frame(view)) {
++		wlr_scene_node_set_clip_region(node, NULL);
++		return;
++	}
++	if (view->ssd) {
++		ssd_update_client_clip(view->ssd);
++		return;
++	}
++	struct wlr_xwayland_surface *surface = xwayland_surface_from_view(view);
++	bool tool = xwayland_view_contains_window_type(view, NET_WM_WINDOW_TYPE_DIALOG)
++		|| xwayland_view_contains_window_type(view, NET_WM_WINDOW_TYPE_UTILITY);
++	int radius = surface->parent && tool && !surface->override_redirect
++		&& !surface->has_alpha && view_is_floating(view) ? 4 : 0;
++	lab_wlr_scene_set_rounded_clip(node, 0, 0, view->current.width,
++		view->current.height, radius, radius);
++}
++
++static void
+ handle_commit(struct wl_listener *listener, void *data)
+ {
+ 	struct view *view = wl_container_of(listener, view, commit);
+@@ -287,6 +312,7 @@
+ 	 */
+ 	if (current->width != state->width || current->height != state->height) {
+ 		view_impl_apply_geometry(view, state->width, state->height);
++		update_window_clip(view);
+ 	}
+ }
+ 
+@@ -394,6 +420,7 @@
+ 	wl_list_remove(&xwayland_view->set_override_redirect.link);
+ 	wl_list_remove(&xwayland_view->set_strut_partial.link);
+ 	wl_list_remove(&xwayland_view->set_window_type.link);
++	wl_list_remove(&xwayland_view->set_parent.link);
+ 	wl_list_remove(&xwayland_view->map_request.link);
+ 
+ 	view_destroy(view);
+@@ -405,6 +432,7 @@
+ 	view->pending = geo;
+ 	wlr_xwayland_surface_configure(xwayland_surface_from_view(view),
+ 		geo.x, geo.y, geo.width, geo.height);
++	update_window_clip(view);
+ 
+ 	/*
+ 	 * For unknown reasons, XWayland surfaces that are completely
+@@ -525,6 +553,7 @@
+ 		wl_container_of(listener, xwayland_view, set_class);
+ 	struct view *view = &xwayland_view->base;
+ 	ssd_update_app_theme(view);
++	update_window_clip(view);
+ 	view_update_app_id(view);
+ }
+ 
+@@ -581,12 +610,21 @@
+ 	} else {
+ 		view_set_ssd_mode(view, LAB_SSD_MODE_NONE);
+ 	}
++	update_window_clip(view);
+ }
+ 
+ static void
+ handle_set_window_type(struct wl_listener *listener, void *data)
+ {
+-	/* Intentionally left blank */
++	struct xwayland_view *view = wl_container_of(listener, view, set_window_type);
++	update_window_clip(&view->base);
++}
++
++static void
++handle_set_parent(struct wl_listener *listener, void *data)
++{
++	struct xwayland_view *view = wl_container_of(listener, view, set_parent);
++	update_window_clip(&view->base);
+ }
+ 
+ static void
+@@ -833,6 +871,7 @@
+ 	view->commit.notify = handle_commit;
+ 
+ 	view_impl_map(view);
++	update_window_clip(view);
+ 	view->been_mapped = true;
+ 
+ 	/* Update usable area to account for XWayland "struts" (panels) */
+@@ -1081,6 +1120,7 @@
+ 	CONNECT_SIGNAL(xsurface, xwayland_view, set_override_redirect);
+ 	CONNECT_SIGNAL(xsurface, xwayland_view, set_strut_partial);
+ 	CONNECT_SIGNAL(xsurface, xwayland_view, set_window_type);
++	CONNECT_SIGNAL(xsurface, xwayland_view, set_parent);
+ 	CONNECT_SIGNAL(xsurface, xwayland_view, map_request);
+ 
+ 	view_init(view);

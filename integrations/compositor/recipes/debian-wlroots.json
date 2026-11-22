@@ -34,13 +34,17 @@
     {
       "path": "../patches/debian/wlroots-scene-clip-region.patch",
       "sha256": "8176ad83d0420c233b1e187a681cbc6b5412ddf1e26b3e49497a9411e21422a6"
+    },
+    {
+      "path": "../patches/debian/wlroots-removed-window-hints.patch",
+      "sha256": "820630baa67cf8fff500a467baa61a1ee95a8e57875aef209fbf5ea354cb58da"
     }
   ],
   "build": {
-    "revision": "karyo3",
+    "revision": "karyo4",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Clip scene rendering and input with private addon masks.",
+    "message": "Clear removed transient-parent and window-type hints using native newer semantics.",
     "binaries": [
       "libwlroots-0.18",
       "libwlroots-0.18-dev",
