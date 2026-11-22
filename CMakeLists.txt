@@ -113,3 +113,5 @@ endif()
 include(cmake/Profiles.cmake)
 
 include(cmake/XClipboard.cmake)
+
+include(cmake/VMware.cmake)

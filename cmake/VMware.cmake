@@ -1,0 +1,13 @@
+get_filename_component(vmware_source "${CMAKE_CURRENT_LIST_DIR}/../integrations/vmware" ABSOLUTE)
+configure_file("${vmware_source}/entrypoint.in" "${CMAKE_CURRENT_BINARY_DIR}/karyo-vmware-agent" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-vmware-agent" DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT vmware-session-runtime)
+install(DIRECTORY "${vmware_source}/karyo_vmware" DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo/vmware
+    COMPONENT vmware-session-runtime FILES_MATCHING PATTERN "*.py" PATTERN "__pycache__" EXCLUDE)
+install(FILES "${vmware_source}/karyo-vmware.conf" DESTINATION lib/tmpfiles.d COMPONENT vmware-session-runtime)
+install(FILES "${vmware_source}/vmware-user.desktop" DESTINATION ${CMAKE_INSTALL_DATADIR}/karyo/vmware/config/autostart COMPONENT vmware-session-runtime)
+install(FILES "${vmware_source}/../../LICENSE" "${vmware_source}/README.md" DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-vmware-session COMPONENT vmware-session-runtime)
+if(BUILD_TESTING)
+    find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME vmware-session-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover -s ${vmware_source}/tests -v)
+    set_tests_properties(vmware-session-policy PROPERTIES ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+endif()

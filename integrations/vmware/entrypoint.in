@@ -1,0 +1,10 @@
+#!/usr/bin/python3 -I
+# SPDX-License-Identifier: GPL-3.0-or-later
+import sys
+sys.dont_write_bytecode=True
+if sys.argv[1:]==['--config-directory']:
+    print('@CMAKE_INSTALL_FULL_DATADIR@/karyo/vmware/config')
+    raise SystemExit(0)
+sys.path.insert(0,'@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/vmware')
+from karyo_vmware.agent import main
+raise SystemExit(main())

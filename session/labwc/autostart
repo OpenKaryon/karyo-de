@@ -23,6 +23,18 @@ if command -v karyo-application-catalog >/dev/null 2>&1; then
         catalog_environment='XDG_DATA_DIRS XDG_CONFIG_DIRS'
     fi
 fi
+# Optional VMware policy affects only this Karyo session's XDG view.
+vmware_ready=0
+if command -v karyo-vmware-agent >/dev/null 2>&1; then
+    if vmware_config=$(karyo-vmware-agent --config-directory) && [ -n "$vmware_config" ]; then
+        export XDG_CONFIG_DIRS="$vmware_config:${XDG_CONFIG_DIRS:-/etc/xdg}"
+        case " $catalog_environment " in
+            *" XDG_CONFIG_DIRS "*) : ;;
+            *) catalog_environment="$catalog_environment XDG_CONFIG_DIRS" ;;
+        esac
+        vmware_ready=1
+    fi
+fi
 # labwc supplies WAYLAND_DISPLAY after the compositor is ready.
 if command -v dbus-update-activation-environment >/dev/null 2>&1; then
     dbus-update-activation-environment --systemd WAYLAND_DISPLAY \
@@ -32,6 +44,9 @@ fi
 # Optional family sharing runs as this ordinary user, only after startup PAM.
 if command -v karyo-profile-clipboard >/dev/null 2>&1; then
     karyo-profile-clipboard &
+fi
+if [ "$vmware_ready" = 1 ]; then
+    karyo-vmware-agent &
 fi
 # Optional Files claims FileManager1 only if another manager does not own it.
 if command -v karyo-files >/dev/null 2>&1; then

@@ -146,7 +146,7 @@ printf '%s\\n' "$@" > "$PROBE"
     def test_startup_auth_failure_never_launches_session_clients(self):
         self.program("karyo-lock", '#!/bin/sh\nprintf "%s\\n" "$*" > "$PROBE"\nexit 1\n')
         self.program("labwc", '#!/bin/sh\nprintf "%s\\n" "$*" >> "$PROBE"\n')
-        for program in ("karyo-shell", "karyo-files", "dex", "dbus-update-activation-environment", "karyo-application-catalog", "karyo-profile-clipboard"):
+        for program in ("karyo-shell", "karyo-files", "dex", "dbus-update-activation-environment", "karyo-application-catalog", "karyo-profile-clipboard", "karyo-vmware-agent"):
             self.program(program, '#!/bin/sh\necho forbidden >> "$FORBIDDEN_PROBE"\n')
         self.env["FORBIDDEN_PROBE"] = str(self.root / "forbidden")
         autostart = self.root / "share/karyo/session/labwc/autostart"
@@ -179,11 +179,26 @@ printf '%s\\n' "$@" > "$PROBE"
         self.assertEqual((self.root / "catalog-clipboard").read_text().splitlines(),
                          (self.root / "catalog-client").read_text().splitlines())
 
+    def test_optional_vmware_mask_is_session_local_and_precedes_autostart(self):
+        self.env['XDG_CONFIG_DIRS']='/existing/config:/etc/xdg'
+        self.env['VMWARE_PROBE']=str(self.root/'vmware-probe')
+        self.env['DEX_PROBE']=str(self.root/'dex-probe')
+        self.program('karyo-vmware-agent', "#!/bin/sh\nif [ \"$*\" = --config-directory ]; then echo '/karyo/vmware config'; else printf '%s\\n' \"$XDG_CONFIG_DIRS\" > \"$VMWARE_PROBE\"; fi\n")
+        self.program('dex', "#!/bin/sh\nprintf '%s\\n' \"$XDG_CONFIG_DIRS\" > \"$DEX_PROBE\"\n")
+        self.program('karyo-shell', '#!/bin/sh\nexit 1\n')
+        self.program('date', '#!/bin/sh\necho 100\n')
+        self.program('sleep', '#!/bin/sh\nexit 0\n')
+        result=subprocess.run([str(self.root/'share/karyo/session/labwc/autostart')],env=self.env,capture_output=True,text=True,timeout=5)
+        self.assertEqual(result.returncode,0,result.stderr)
+        expected='/karyo/vmware config:/existing/config:/etc/xdg'
+        self.assertEqual((self.root/'vmware-probe').read_text().strip(),expected)
+        self.assertEqual((self.root/'dex-probe').read_text().strip(),expected)
+
     def test_invalid_optional_catalog_never_starts_normal_clients(self):
         self.env["FORBIDDEN_PROBE"] = str(self.root / "forbidden")
         self.program("karyo-application-catalog", "#!/bin/sh\nexit 1\n")
         self.program("labwc", '#!/bin/sh\nprintf "%s\\n" "$*" > "$PROBE"\n')
-        for name in ("karyo-files", "dex", "karyo-shell", "dbus-update-activation-environment", "karyo-profile-clipboard"):
+        for name in ("karyo-files", "dex", "karyo-shell", "dbus-update-activation-environment", "karyo-profile-clipboard", "karyo-vmware-agent"):
             self.program(name, '#!/bin/sh\necho forbidden >> "$FORBIDDEN_PROBE"\n')
         autostart = self.root / "share/karyo/session/labwc/autostart"
         result = subprocess.run([str(autostart)], env=self.env, capture_output=True, text=True, timeout=5)
