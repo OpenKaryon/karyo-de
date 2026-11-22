@@ -1,0 +1,15 @@
+Description: Require the native library which refreshes unmapped owner hints
+Origin: vendor
+License: follows original native packaging notices
+Forwarded: not-needed
+
+--- a/debian/control
++++ b/debian/control
+@@ -36,6 +36,7 @@
+  xwayland,
+  ${misc:Depends},
+  ${shlibs:Depends},
++ libwlroots-0.18 (= 0.18.2-3+karyo2),
+ Suggests:
+  foot | alacritty | x-terminal-emulator,
+  kanshi,

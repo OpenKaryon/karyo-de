@@ -1,0 +1,36 @@
+Description: Acknowledge same-client FocusIn without another WM_TAKE_FOCUS
+Origin: backport, adapted from wlroots 0.19.2 XWM focus bookkeeping
+License: MIT, follows upstream wlroots
+Forwarded: not-needed
+
+--- a/xwayland/xwm.c
++++ b/xwayland/xwm.c
+@@ -1597,11 +1597,24 @@
+ 	// same application. We must be careful to ignore requests that are too old
+ 	// though, because otherwise it may lead to race conditions:
+ 	// https://github.com/swaywm/wlroots/issues/2324
++	// An old notification is not an unsolicited request that needs denial.
++	if (!validate_focus_serial(xwm->last_focus_seq, ev->sequence)) {
++		return;
++	}
+ 	struct wlr_xwayland_surface *requested_focus = lookup_surface(xwm, ev->event);
+-	if (xwm->focus_surface && requested_focus &&
+-			requested_focus->pid == xwm->focus_surface->pid &&
+-			validate_focus_serial(xwm->last_focus_seq, ev->sequence)) {
+-		xwm_set_focus_window(xwm, requested_focus);
++	if (xwm->focus_surface && requested_focus && requested_focus->pid > 0 &&
++			requested_focus->pid == xwm->focus_surface->pid) {
++		// FocusIn acknowledges a focus change which has already happened.
++		// Sending WM_TAKE_FOCUS again can make globally active clients
++		// answer forever. Update bookkeeping without another focus request.
++		if (requested_focus == xwm->focus_surface) {
++			return;
++		}
++		struct wlr_xwayland_surface *previous = xwm->focus_surface;
++		xwm->focus_surface = requested_focus;
++		xsurface_set_net_wm_state(previous);
++		xsurface_set_net_wm_state(requested_focus);
++		xwm_set_net_active_window(xwm, requested_focus->window_id);
+ 	} else {
+ 		xwm_set_focus_window(xwm, xwm->focus_surface);
+ 	}

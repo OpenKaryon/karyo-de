@@ -1,0 +1,14 @@
+Description: Avoid repeated focus-generating group restacks
+License: GPL-2.0-only
+
+--- a/src/view-impl-common.c
++++ b/src/view-impl-common.c
+@@ -28,6 +28,8 @@
+ void
+ view_impl_map(struct view *view)
+ {
++	/* A newly mapped sibling invalidates the previous group ordering. */
++	view->server->last_raised_view = NULL;
+ 	desktop_focus_view(view, /*raise*/ true);
+ 	view_update_title(view);
+ 	view_update_app_id(view);

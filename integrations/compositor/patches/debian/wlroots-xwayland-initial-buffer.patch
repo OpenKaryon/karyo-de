@@ -1,0 +1,21 @@
+Description: Map an existing Xwayland buffer after late X11 association
+Origin: vendor
+License: MIT, follows upstream wlroots
+Forwarded: not-needed
+
+--- a/xwayland/xwm.c
++++ b/xwayland/xwm.c
+@@ -971,6 +971,13 @@
+ 	}
+ 
+ 	wl_signal_emit_mutable(&xsurface->events.associate, NULL);
++
++	// The X11 serial and the Wayland commits arrive on separate connections.
++	// A buffer may already be current before this association installed the
++	// commit listener. Apply the same role-owned mapping rule now, after the
++	// compositor has connected its map listener, instead of waiting forever
++	// for a client that has no reason to commit another frame.
++	xwayland_surface_handle_commit(&xsurface->surface_commit, NULL);
+ }
+ 
+ static void xwm_handle_create_notify(struct wlr_xwm *xwm,

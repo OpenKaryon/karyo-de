@@ -13,7 +13,7 @@ Forwarded: not-needed
  #include <wlr/xwayland.h>
  #include "common/array.h"
  #include "common/macros.h"
-@@ -136,13 +138,68 @@
+@@ -136,13 +138,74 @@
  }
  
  static struct wlr_xwayland_surface *
@@ -46,17 +46,23 @@ Forwarded: not-needed
 -	return s;
 +	struct wlr_xwayland_surface *surface = xwayland_surface_from_view(view);
 +	struct wlr_xwayland_surface *owner = native_top_parent(surface);
++	const char *application_class = owner->class;
++	/* An unmapped X11 owner may have no WM_CLASS yet. Borrow only from
++	 * its same-process visible sibling; keep every other group guard. */
++	if (!application_class && !owner->surface) {
++		application_class = surface->class;
++	}
 +	/* Legacy Win32 frameworks put their main frame and fixed palettes
 +	 * under one invisible application owner. Preserve the client's real
 +	 * ownership hints and select only an unambiguous stacking frame. */
 +	if (surface == owner || owner->width > 1 || owner->height > 1
 +			|| owner->decorations == WLR_XWAYLAND_SURFACE_DECORATIONS_ALL
-+			|| !owner->class || owner->pid <= 0 || surface->pid != owner->pid
-+			|| !surface->class || strcasecmp(surface->class, owner->class)) {
++			|| !application_class || owner->pid <= 0 || surface->pid != owner->pid
++			|| !surface->class || strcasecmp(surface->class, application_class)) {
 +		return owner;
 +	}
-+	size_t length = strlen(owner->class);
-+	if (length < 5 || strcasecmp(owner->class + length - 4, ".exe")) {
++	size_t length = strlen(application_class);
++	if (length < 5 || strcasecmp(application_class + length - 4, ".exe")) {
 +		return owner;
 +	}
 +	struct wlr_xwayland_surface *frame = NULL;
@@ -69,7 +75,7 @@ Forwarded: not-needed
 +		struct wlr_xwayland_surface *child = xwayland_surface_from_view(candidate);
 +		if (child == owner || native_top_parent(child) != owner
 +				|| child->pid != owner->pid || !child->class
-+				|| strcasecmp(child->class, owner->class)) {
++				|| strcasecmp(child->class, application_class)) {
 +			continue;
 +		}
 +		bool normal = xwayland_surface_contains_window_type(child,
@@ -87,7 +93,7 @@ Forwarded: not-needed
  }
  
  static struct xwayland_view *
-@@ -815,8 +872,14 @@
+@@ -815,8 +878,14 @@
  static void
  xwayland_view_minimize(struct view *view, bool minimized)
  {
@@ -104,28 +110,3 @@ Forwarded: not-needed
  }
  
  static void
---- a/src/view.c
-+++ b/src/view.c
-@@ -2276,12 +2276,18 @@
- 	 * attempting to raise a root view above its own sub-view.
- 	 */
- 	struct view *last = view->server->last_raised_view;
--	if (view == last || (last && view == view_get_root(last))) {
--		return;
--	}
--
- 	struct view *root = view_get_root(view);
- 	assert(root);
-+	bool application_root = false;
-+#if HAVE_XWAYLAND
-+	/* A recognized application root may gain palettes after its last raise. */
-+	application_root = view->type == LAB_XWAYLAND_VIEW && view == root
-+		&& xwayland_surface_from_view(view)->parent;
-+#endif
-+	if (!application_root
-+			&& (view == last || (last && view == view_get_root(last)))) {
-+		return;
-+	}
- 
- 	move_to_front(root);
- 	for_each_subview(root, move_to_front);

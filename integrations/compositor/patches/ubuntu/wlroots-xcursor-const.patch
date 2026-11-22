@@ -1,0 +1,16 @@
+Description: Preserve const when finding the next cursor path with C23 strchr
+Origin: vendor
+License: MIT, follows upstream wlroots
+Forwarded: not-needed
+
+--- a/xcursor/xcursor.c
++++ b/xcursor/xcursor.c
+@@ -602,7 +602,7 @@
+ static const char *
+ xcursor_next_path(const char *path)
+ {
+-	char *colon = strchr(path, ':');
++	const char *colon = strchr(path, ':');
+ 
+ 	if (!colon)
+ 		return NULL;

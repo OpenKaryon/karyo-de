@@ -5,5 +5,6 @@
 # Preserve upstream OFL files, including their original line-end spaces.
 resources/fonts/*-OFL.txt whitespace=-blank-at-eol
 
-# Unified-diff context has a leading space before upstream tabs/blank lines.
-integrations/compositor/patches/**/*.patch whitespace=-blank-at-eol,-space-before-tab
+# Unified-diff context has a leading space before upstream tabs/blank lines,
+# including a final blank context line which must keep its hunk count.
+integrations/compositor/patches/**/*.patch whitespace=-blank-at-eol,-space-before-tab,-blank-at-eof

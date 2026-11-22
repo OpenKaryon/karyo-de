@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "source": {
+    "name": "wlroots",
+    "version": "0.18.2-3",
+    "dsc": {
+      "path": "../../../out/compositor/debian/wlroots-inputs/wlroots_0.18.2-3.dsc",
+      "sha256": "bb43d0c5eb62570d4d65f66dafe2d78b38ab23b781793e256d2dc365a6fa7637"
+    },
+    "archives": [
+      {
+        "path": "../../../out/compositor/debian/wlroots-inputs/wlroots_0.18.2.orig.tar.bz2",
+        "sha256": "a28061f7778f28f7be377fd4d6f0ebd58cb2a63b52460e9fde28e2ab43e80cab"
+      },
+      {
+        "path": "../../../out/compositor/debian/wlroots-inputs/wlroots_0.18.2-3.debian.tar.xz",
+        "sha256": "4f8f1dc33b20e98ecb39667138faf31b700d72f3e327b54c869ed4db5d245056"
+      }
+    ]
+  },
+  "patches": [
+    {
+      "path": "../patches/debian/wlroots-xwayland-initial-buffer.patch",
+      "sha256": "21b50a39bf6a7082ba5f17bff20f9951d3e28ccd36922d07ed6a99cea20a2cf4"
+    },
+    {
+      "path": "../patches/debian/wlroots-focus-acknowledgement.patch",
+      "sha256": "1867f638e6fe24d2f7c6949426013a11d1b2b3f65ade6e450ca536c45a98d866"
+    },
+    {
+      "path": "../patches/debian/wlroots-unmapped-parent-hints.patch",
+      "sha256": "e593e0cc99a03541ae87262b8a01e906089f3a924addbdda6e6f4251b8953e8b"
+    }
+  ],
+  "build": {
+    "revision": "karyo2",
+    "distribution": "trixie",
+    "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
+    "message": "Read identity and decoration hints of unassociated transient parents.",
+    "binaries": [
+      "libwlroots-0.18",
+      "libwlroots-0.18-dev",
+      "libwlroots-0.18-examples"
+    ],
+    "source_date_epoch": 1795215210
+  }
+}

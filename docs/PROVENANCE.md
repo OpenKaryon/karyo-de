@@ -559,3 +559,33 @@ compare shared paths without extracting into a live system, and add no runtime
 service or privilege mechanism. Wine32 reuses the exact reviewed source/patch and
 changelog epoch of the Wine64 recipe. SDK/dependency preparation remains isolated
 from product and host package configuration.
+
+
+### Native wlroots lifecycle integration
+
+The optional compositor integration rebuilds native Debian wlroots 0.18.2-3 and
+Ubuntu wlroots 0.19.2-1 from their distribution source archives, with exact dsc
+and archive SHA256 values in integrations/compositor/recipes/*-wlroots.json.
+The fetcher uses signed native APT metadata and verifies every captured part.
+The shared association correction was derived after comparing actual Xwayland
+protocol traces with each release's xwayland/xwm.c: a buffer could commit before
+the association installed its commit listener.
+
+Debian's FocusIn acknowledgement adjustment adapts the focus-state bookkeeping
+in Ubuntu's exact wlroots 0.19.2 source (original archive SHA256
+804bd3eab10f03556628c4e977351b0b1b17bc34084342dfaff5086c54ce1fa0).
+No public struct or exported ABI is changed. Ubuntu-only libinput-switch and
+xcursor const compatibility changes preserve strict native compilation. These
+are derivatives of MIT wlroots, with its full notices retained separately in
+integrations/compositor/patches/WLROOTS-LICENSE and in native package copyright.
+They are not relicensed under the surrounding repository's GPL-3.0-or-later.
+Own acceptance tooling and Win32 fixtures remain GPL-3.0-or-later.
+
+
+The later unmapped-owner slice adds native MIT XWM parent-hint refresh patches.
+They are derived from each distribution's already checksummed xwm.c and reuse
+its parsers when a transient references an unassociated parent. No public ABI
+is extended. Explicit owner classes remain authoritative; only verified missing
+classes may use labwc's same-PID visible-sibling fallback. Native packaging
+requires the matching karyo2 library; original packaging notices remain intact.
+The independent real-X11/Wine acceptance code stays GPL-3.0-or-later.

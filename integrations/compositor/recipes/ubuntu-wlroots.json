@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "source": {
+    "name": "wlroots",
+    "version": "0.19.2-1",
+    "dsc": {
+      "path": "../../../out/compositor/ubuntu/wlroots-inputs/wlroots_0.19.2-1.dsc",
+      "sha256": "5ecb5f88216a2e96e4f891db85cdab6dd013e869f1db7d8a0dbf763780752bf7"
+    },
+    "archives": [
+      {
+        "path": "../../../out/compositor/ubuntu/wlroots-inputs/wlroots_0.19.2.orig.tar.bz2",
+        "sha256": "804bd3eab10f03556628c4e977351b0b1b17bc34084342dfaff5086c54ce1fa0"
+      },
+      {
+        "path": "../../../out/compositor/ubuntu/wlroots-inputs/wlroots_0.19.2-1.debian.tar.xz",
+        "sha256": "dc443eff4b5a6cfd109c226774191036b20c4485bbb582afc69b76ef0024b000"
+      }
+    ]
+  },
+  "patches": [
+    {
+      "path": "../patches/ubuntu/wlroots-xwayland-initial-buffer.patch",
+      "sha256": "4701371d5f67b64a5cc22ae623e48d0eb1f43951eb7fff75224586a2d2420632"
+    },
+    {
+      "path": "../patches/ubuntu/wlroots-libinput-unknown-switch.patch",
+      "sha256": "c2e2d15ce58162ce8acd6ce6c1d3b5ed0109f0954d358838b5aeb0cc7e9309fe"
+    },
+    {
+      "path": "../patches/ubuntu/wlroots-xcursor-const.patch",
+      "sha256": "17ce3541eefb5ca4ccd060830dc4d1de2b057fcb7e9b6be709d2ee8d9d1035b3"
+    },
+    {
+      "path": "../patches/ubuntu/wlroots-unmapped-parent-hints.patch",
+      "sha256": "e6ea341857320028b78697cae3aa0f7eb1384c6d2846415a2af3c19a58e9af5a"
+    }
+  ],
+  "build": {
+    "revision": "karyo2",
+    "distribution": "resolute",
+    "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
+    "message": "Read identity and decoration hints of unassociated transient parents.",
+    "binaries": [
+      "libwlroots-0.19",
+      "libwlroots-0.19-dev",
+      "libwlroots-0.19-examples"
+    ],
+    "source_date_epoch": 1795215210
+  }
+}

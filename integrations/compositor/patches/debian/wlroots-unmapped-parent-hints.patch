@@ -1,0 +1,55 @@
+Description: Refresh identity and decorations of an unassociated transient parent
+Origin: vendor
+License: MIT, follows upstream wlroots
+Forwarded: not-needed
+
+--- a/xwayland/xwm.c
++++ b/xwayland/xwm.c
+@@ -629,6 +629,9 @@
+ 	return false;
+ }
+ 
++static void read_unmapped_parent_hints(struct wlr_xwm *xwm,
++	struct wlr_xwayland_surface *parent);
++
+ static void read_surface_parent(struct wlr_xwm *xwm,
+ 		struct wlr_xwayland_surface *xsurface,
+ 		xcb_get_property_reply_t *reply) {
+@@ -641,6 +644,9 @@
+ 	if (xid != NULL) {
+ 		found_parent = lookup_surface(xwm, *xid);
+ 		if (!has_parent(found_parent, xsurface)) {
++			if (found_parent && !found_parent->surface) {
++				read_unmapped_parent_hints(xwm, found_parent);
++			}
+ 			xsurface->parent = found_parent;
+ 		} else {
+ 			wlr_log(WLR_INFO, "%p with %p would create a loop", xsurface,
+@@ -887,6 +893,27 @@
+ 		wlr_log(WLR_DEBUG, "unhandled X11 property %" PRIu32 " (%s) for window %" PRIu32,
+ 			property, prop_name ? prop_name : "(null)", xsurface->window_id);
+ 		free(prop_name);
++	}
++}
++
++// Properties can be set before CreateNotify enabled PropertyChange events.
++// An owner that never maps has no association-time property refresh, so read
++// its identity and decorations when a real transient first refers to it.
++static void read_unmapped_parent_hints(struct wlr_xwm *xwm,
++		struct wlr_xwayland_surface *parent) {
++	const xcb_atom_t props[] = { XCB_ATOM_WM_CLASS, xwm->atoms[MOTIF_WM_HINTS] };
++	xcb_get_property_cookie_t cookies[2];
++	for (size_t i = 0; i < 2; i++) {
++		cookies[i] = xcb_get_property(xwm->xcb_conn, 0, parent->window_id,
++			props[i], XCB_ATOM_ANY, 0, 2048);
++	}
++	for (size_t i = 0; i < 2; i++) {
++		xcb_get_property_reply_t *reply =
++			xcb_get_property_reply(xwm->xcb_conn, cookies[i], NULL);
++		if (reply != NULL) {
++			read_surface_property(xwm, parent, props[i], reply);
++			free(reply);
++		}
+ 	}
+ }
+ 

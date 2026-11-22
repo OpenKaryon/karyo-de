@@ -146,3 +146,48 @@ and keyboard/persistent-pointer menus pass with this matching Debian pair.
 Existing-user deployment and legacy-prefix import remain separate from this
 clean-image installation gate. Actual owned palettes and Windows-style frames
 also retain their own acceptance; these launch tests do not establish them.
+
+
+## Real owned-palette acceptance
+
+The separate palette-probe.c fixture is a real Win32 program compiled as PE32
+and PE64. It creates one main frame, four colored owned tool palettes (including
+two created later), a tiny no-activate framework owner and an unrelated frame.
+No proprietary executable, application-specific Wine option or registry setting
+is used. The `--mapped-owner` variant keeps the helper at 1x1, as in the reviewed
+legacy framework model. Leaving that helper fully unmapped exercises the same
+real ownership hints after native parent-metadata refresh. WM_TRANSIENT_FOR
+is preserved in both variants.
+
+palette-acceptance.py runs as a disposable ordinary user in a private headless
+labwc/Xwayland session and fresh Wine prefix. It waits for actual compositor
+client publication and main-window paint before testing pixels. The scenario
+checks all four palette colors above the main frame, unrelated-frame occlusion
+and return, scene minimize/restore without X11 IconicState or process exit,
+stable focus and normal WM_DELETE_WINDOW close. A real private Wayland pointer
+click establishes input focus before testing an unsolicited focus change by a
+separate X11 process. That process must not retain Wine input focus. Programmatic
+focus offers alone are not assumed to be accepted by a globally active client.
+
+Builder tests/acceptance/check-win32-palettes.py captures successful native
+runtime evidence, freezes both fixtures, validates and installs matching native
+compositor/wlroots DEBs, then runs repeated cases without network, capabilities,
+a writable system root or an existing user display/bus/home. It preserves every
+failed attempt separately. Both native bases pass PE32/PE64 with the corrected
+role lifecycle; see Builder docs/VALIDATION-WIN32-PALETTES.md for exact records.
+The current pair is Debian labwc karyo5 / native wlroots 0.18 karyo2, or Ubuntu
+labwc karyo4 / native wlroots 0.19 karyo2. Both executable bitnesses pass with
+mapped and fully unmapped owners. Earlier checkpoints retain their own exact
+artifact identities separately.
+
+The unmapped variant requires the matching native library: a missing cached
+class can otherwise hide an explicitly different WM_CLASS set before XWM event
+subscription. Library karyo2 refreshes identity and decorations when that parent
+is referenced; the compositor's exact dependency enforces the verified pair.
+Use --verify-library-dependency to exercise refusal of a compositor-only upgrade
+before the successful paired installation in a disposable image. Ten X11 models
+keep explicit foreign classes, foreign processes and ambiguous frames separate.
+Legacy-prefix import, existing-user upgrade, full taskbar association,
+Windows-like frame/child styling and actual third-party applications remain
+separate gates. These are headless software-rendered checks, not physical GPU,
+VMware host integration or full DE migration completion.

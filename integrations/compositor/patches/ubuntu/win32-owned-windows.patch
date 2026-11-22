@@ -13,7 +13,7 @@ Forwarded: not-needed
  #include <wlr/types/wlr_compositor.h>
  #include <wlr/types/wlr_output_layout.h>
  #include <wlr/types/wlr_scene.h>
-@@ -201,13 +203,68 @@
+@@ -201,13 +203,74 @@
  }
  
  static struct wlr_xwayland_surface *
@@ -46,17 +46,23 @@ Forwarded: not-needed
 -	return s;
 +	struct wlr_xwayland_surface *surface = xwayland_surface_from_view(view);
 +	struct wlr_xwayland_surface *owner = native_top_parent(surface);
++	const char *application_class = owner->class;
++	/* An unmapped X11 owner may have no WM_CLASS yet. Borrow only from
++	 * its same-process visible sibling; keep every other group guard. */
++	if (!application_class && !owner->surface) {
++		application_class = surface->class;
++	}
 +	/* Legacy Win32 frameworks put their main frame and fixed palettes
 +	 * under one invisible application owner. Preserve the client's real
 +	 * ownership hints and select only an unambiguous stacking frame. */
 +	if (surface == owner || owner->width > 1 || owner->height > 1
 +			|| owner->decorations == WLR_XWAYLAND_SURFACE_DECORATIONS_ALL
-+			|| !owner->class || owner->pid <= 0 || surface->pid != owner->pid
-+			|| !surface->class || strcasecmp(surface->class, owner->class)) {
++			|| !application_class || owner->pid <= 0 || surface->pid != owner->pid
++			|| !surface->class || strcasecmp(surface->class, application_class)) {
 +		return owner;
 +	}
-+	size_t length = strlen(owner->class);
-+	if (length < 5 || strcasecmp(owner->class + length - 4, ".exe")) {
++	size_t length = strlen(application_class);
++	if (length < 5 || strcasecmp(application_class + length - 4, ".exe")) {
 +		return owner;
 +	}
 +	struct wlr_xwayland_surface *frame = NULL;
@@ -69,7 +75,7 @@ Forwarded: not-needed
 +		struct wlr_xwayland_surface *child = xwayland_surface_from_view(candidate);
 +		if (child == owner || native_top_parent(child) != owner
 +				|| child->pid != owner->pid || !child->class
-+				|| strcasecmp(child->class, owner->class)) {
++				|| strcasecmp(child->class, application_class)) {
 +			continue;
 +		}
 +		bool normal = wlr_xwayland_surface_has_window_type(child,
@@ -87,7 +93,7 @@ Forwarded: not-needed
  }
  
  static void
-@@ -880,8 +937,14 @@
+@@ -880,8 +943,14 @@
  static void
  xwayland_view_minimize(struct view *view, bool minimized)
  {

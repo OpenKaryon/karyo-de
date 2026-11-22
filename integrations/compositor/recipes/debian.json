@@ -37,14 +37,22 @@
     },
     {
       "path": "../patches/debian/win32-owned-windows.patch",
-      "sha256": "e8a007eecbebc1a8e47b10e951acef464ba76a104f28dc14bc2f199d074b635c"
+      "sha256": "521fa4569d1dc776126682d0f2984d820d852a5beab66f2b32c366159f5dd87f"
+    },
+    {
+      "path": "../patches/debian/win32-group-map-cache.patch",
+      "sha256": "03c1aa3f04be7aeab7cf28f14145cad5892636405d27a3384ad4aa8355ad208a"
+    },
+    {
+      "path": "../patches/debian/win32-owner-hints-dependency.patch",
+      "sha256": "1975311e5f1531ad6dbcba8abfa67a91aa61b340e1ec3a22f25c89e5afb7ad10"
     }
   ],
   "build": {
-    "revision": "karyo3",
+    "revision": "karyo5",
     "distribution": "trixie",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Preserve generic Win32 owned-window groups and taskbar restoration.",
+    "message": "Preserve groups with an unmapped same-process Win32 owner.",
     "binaries": [
       "labwc"
     ],

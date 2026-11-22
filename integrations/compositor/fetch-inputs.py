@@ -18,13 +18,14 @@ def digest(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", choices=("debian", "ubuntu"), required=True)
+    parser.add_argument("--component", choices=("labwc", "wlroots"), default="labwc")
     parser.add_argument("--image", required=True, help="Prepared compositor build image for that base")
     args = parser.parse_args()
     integration = Path(__file__).resolve().parent
     root = integration.parents[1]
-    recipe_path = integration / "recipes" / (args.base + ".json")
+    recipe_path = integration / "recipes" / (args.base + ("-wlroots" if args.component == "wlroots" else "") + ".json")
     spec = json.loads(recipe_path.read_text())
-    folder = root / "out/compositor" / args.base / "inputs"
+    folder = root / "out/compositor" / args.base / ("wlroots-inputs" if args.component == "wlroots" else "inputs")
     # Downloads never overwrite an in-use input: verify fresh bytes, then publish only absent files.
     folder.mkdir(parents=True, exist_ok=True)
     records = [spec["source"]["dsc"], *spec["source"]["archives"]]

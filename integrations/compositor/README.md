@@ -184,3 +184,89 @@ three Ubuntu suites). This proves the generic XWayland layout model, not actual
 Wine application compatibility, focus-loop/menu fixes, caption themes or a live
 package upgrade. Those remain distinct migration gates. The running QA desktop
 compositors and user virtual machines were not replaced for these tests.
+
+
+### Debian group raise cache correction
+
+The Debian karyo4 recipe restores the native last-raised-view cache instead of
+unconditionally bypassing it for an effective Win32 main frame. A newly mapped
+view invalidates the cache before its first normal raise, so late palettes still
+join the group. Repeated activation of an already raised main frame does not
+restack all its siblings again or create extra X11 focus traffic. No application
+name, Wine registry option, client ownership rewrite or new public ABI is used.
+The independent GPL-2.0-only patch follows labwc's existing source license.
+
+The final native source package passes the five-layout X11 model (including four
+late palettes), ordinary protocol acceptance and fail-closed startup-lock checks.
+Actual Wine also exposed separate late-buffer association and FocusIn feedback
+bugs in native wlroots; fixing the raise cache alone is not full Wine acceptance.
+
+
+## Native wlroots Xwayland lifecycle corrections
+
+The optional native wlroots recipes keep Debian's 0.18.2-3 and Ubuntu's
+0.19.2-1 source/SONAME boundaries. They do not move Ubuntu libraries to Debian,
+replace an existing user's compositor or automatically activate system packages.
+Use the matching `environments/debian-wlroots` or `environments/ubuntu-wlroots`
+SDK, fetch with `--base debian|ubuntu --component wlroots`, and build the matching
+`recipes/debian-wlroots.json` or `recipes/ubuntu-wlroots.json` with Builder's
+`source-package` command. Actual package builds have no network.
+
+X11 serials and Wayland buffer commits arrive over different connections. The
+native role previously connected its commit listener at association but ignored
+a buffer already committed before that point. Both source recipes apply the
+existing role-owned commit handler after `associate`, once the compositor's map
+listener is connected. A null-buffer surface stays unmapped; an existing buffer
+uses exactly the normal map rule. No role operation is forced from labwc.
+
+Debian additionally separates acknowledging a legitimate same-process FocusIn
+from requesting focus again. Stale notifications are ignored; accepted positive
+PID handoffs update X11 focus bookkeeping without another WM_TAKE_FOCUS. A real
+foreign-process focus request still takes the existing denial path. This adapts
+the native 0.19 focus-state approach without new functions, fields or symbols in
+0.18's public API. It is independent of executable names or Wine settings.
+
+Ubuntu's strict native rebuild also ignores new libinput switch types which its
+0.19 ABI cannot represent, instead of treating them as a laptop lid, and keeps
+the cursor path's strchr result const-correct with C23 headers. Compiler Werror,
+native packaging options and dependency checks remain enabled. All derivative
+wlroots patches retain the original MIT license in patches/WLROOTS-LICENSE;
+original source-package copyright data is preserved.
+
+The native recipes execute dh_auto_test, but these upstream wlroots releases
+report `No tests defined`. Validation therefore uses actual installed Wine
+fixtures and separate compositor protocol/model gates. Exported dynamic symbols
+and SONAME match stock native libraries exactly: 769 defined symbols on Debian
+0.18 and 823 on Ubuntu 0.19. The combined native runtime passes all five X11
+layout cases, four late palettes and ordinary/startup-lock protocol acceptance
+on both bases. Physical input-switch behavior and GPU/hardware output are not
+claimed by these headless checks.
+
+
+## Fully unmapped Win32 framework owners
+
+A raw X11 owner may never create an associated Wayland surface. Its properties
+can also predate the XWM's PropertyChange subscription. A missing in-memory
+WM_CLASS therefore did not prove that the client had no class: an explicitly
+different owner class could have been missed. The native wlroots karyo2 recipes
+refresh WM_CLASS and Motif decoration hints when a transient references an
+unassociated parent. The XWM batches two bounded property reads at that point,
+not during rendering or repeated stacking. Client hints themselves are unchanged.
+The change uses the existing parsers and private functions; public structures,
+exported symbols and SONAME stay unchanged on each native ABI.
+
+The corresponding labwc patch may borrow the visible sibling's class only for
+a tiny, undecorated, unassociated owner with no class and a matching positive
+PID. The unique main-frame and fixed-palette guards remain. The runtime package
+requires the exact native wlroots karyo2 version that performs this metadata
+refresh; a stock library must not be silently treated as having read the hints.
+Updating that library requires rebuilding and validating the matching pair.
+The ordinary mapped-owner path remains covered separately.
+
+Both mapped and fully unmapped owners pass actual PE32/PE64 palette, minimize,
+restore and focus cases on Debian and Ubuntu. The expanded ten-layout X11 model
+also rejects a truly different owner class, a foreign-process owner, native
+classes, an untyped mapped owner and ambiguous documents. Normal and startup-lock
+protocol gates pass against both installed pairs. This extends the previous
+mapped-owner checkpoint; it does not establish arbitrary toolkit compatibility,
+Windows-like decoration or existing-user deployment.

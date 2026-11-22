@@ -11,6 +11,8 @@ import json
 import os
 from pathlib import Path
 import signal
+import selectors
+import sys
 import subprocess
 import tempfile
 import time
@@ -26,12 +28,14 @@ def checks(env, output, baseline):
     atom = connection.intern_atom
     created = []
 
-    def window(name, group=None, primary=False, dimensions=(320, 160), kind='fixture.exe', fixed=True, color=0x112233):
+    def window(name, group=None, primary=False, dimensions=(320, 160), kind='fixture.exe', fixed=True, color=0x112233, mapped=True):
         color = 0x808080 if primary else color
         w = root.create_window(200, 150, *dimensions, 0, connection.screen().root_depth,
                                X.InputOutput, X.CopyFromParent, background_pixel=color)
         created.append(w)
-        w.set_wm_name(name); w.set_wm_class(kind, kind)
+        w.set_wm_name(name)
+        if kind is not None:
+            w.set_wm_class(kind, kind)
         w.change_property(atom('_NET_WM_PID'), Xatom.CARDINAL, 32, [os.getpid()])
         w.change_property(atom('_NET_WM_WINDOW_TYPE'), Xatom.ATOM, 32, [atom('_NET_WM_WINDOW_TYPE_NORMAL')])
         w.change_property(atom('_MOTIF_WM_HINTS'), atom('_MOTIF_WM_HINTS'), 32,
@@ -44,7 +48,9 @@ def checks(env, output, baseline):
             w.set_wm_transient_for(group)
         else:
             w.set_wm_hints(flags=1 | 64, input=1, window_group=w)
-        w.map(); connection.sync(); time.sleep(.12)
+        if mapped:
+            w.map()
+        connection.sync(); time.sleep(.12)
         return w
 
     def activate(w):
@@ -60,10 +66,38 @@ def checks(env, output, baseline):
             pixel=image.convert('RGB').getpixel(point)
         return '#%02x%02x%02x' % pixel
 
-    for case, expected in (('wine', not baseline), ('native', False), ('visible-owner', False),
+    for case, expected in (('wine', not baseline), ('unmapped-owner', not baseline),
+                           ('unmapped-native', False), ('mapped-untyped-owner', False),
+                           ('owner-class-mismatch', False), ('foreign-owner', False),
+                           ('native', False), ('visible-owner', False),
                            ('multiple-frames', False), ('custom-frame', False)):
-        kind = 'native-fixture' if case == 'native' else 'fixture.EXE'
-        owner = window('application owner', dimensions=(32, 32) if case == 'visible-owner' else (1, 1), kind=kind)
+        kind = 'native-fixture' if case in {'native', 'unmapped-native'} else 'fixture.EXE'
+        external = None
+        if case == 'foreign-owner':
+            helper_code = '''import json,os,sys
+from Xlib import X,Xatom,display
+d=display.Display(sys.argv[1]);root=d.screen().root
+w=root.create_window(0,0,1,1,0,d.screen().root_depth,X.InputOutput,X.CopyFromParent,background_pixel=0)
+w.set_wm_name('separate process owner')
+w.change_property(d.intern_atom('_NET_WM_PID'),Xatom.CARDINAL,32,[os.getpid()])
+w.change_property(d.intern_atom('_MOTIF_WM_HINTS'),d.intern_atom('_MOTIF_WM_HINTS'),32,[3,36,0,0,0])
+d.sync();print(json.dumps({'window':w.id,'pid':os.getpid()}),flush=True)
+sys.stdin.readline();d.close()
+'''
+            external = subprocess.Popen([sys.executable, '-I', '-B', '-c', helper_code, env['DISPLAY']],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, env=env)
+            with selectors.DefaultSelector() as selector:
+                selector.register(external.stdout, selectors.EVENT_READ)
+                assert selector.select(5), 'Foreign owner helper did not start'
+                identity = json.loads(external.stdout.readline())
+            assert identity['pid'] > 0 and identity['pid'] != os.getpid()
+            owner = connection.create_resource_object('window', identity['window'])
+        else:
+            unmapped = case in {'unmapped-owner', 'unmapped-native', 'owner-class-mismatch'}
+            owner_kind = None if case in {'unmapped-owner', 'unmapped-native', 'mapped-untyped-owner'} else 'different.exe' if case == 'owner-class-mismatch' else kind
+            owner = window('application owner', dimensions=(32, 32) if case == 'visible-owner' else (1, 1),
+                           kind=owner_kind, mapped=not unmapped)
+            assert owner.get_attributes().map_state == (X.IsUnmapped if unmapped else X.IsViewable)
         main = window('main frame', owner, primary=True, dimensions=(800, 580), kind=kind, fixed=False)
         panel = window('palette', owner, kind=kind)
         if case == 'multiple-frames':
@@ -133,6 +167,9 @@ def checks(env, output, baseline):
             if not retired & live:break
             if time.monotonic()>=deadline:raise RuntimeError('Compositor did not retire captured X11 windows')
             connection.sync();time.sleep(.05)
+        if external is not None:
+            external.stdin.write('quit\n');external.stdin.flush()
+            assert external.wait(timeout=5) == 0, 'Foreign owner helper failed'
         time.sleep(.15)
     connection.close()
 

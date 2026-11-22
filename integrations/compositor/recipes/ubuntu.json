@@ -37,14 +37,18 @@
     },
     {
       "path": "../patches/ubuntu/win32-owned-windows.patch",
-      "sha256": "f773eaf1293391079b9ab07cbaa396fa7a3744bee7dbe6b32aeccbc06833994b"
+      "sha256": "70704f90a8ca28ac8fcb3af31f675a373f14dd5177f4af08dbaba0dd69488bcd"
+    },
+    {
+      "path": "../patches/ubuntu/win32-owner-hints-dependency.patch",
+      "sha256": "9a9bdb3555fe5616af1f83c1dba5a329258a50a2647323fef97910ab60785f7e"
     }
   ],
   "build": {
-    "revision": "karyo3",
+    "revision": "karyo4",
     "distribution": "resolute",
     "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
-    "message": "Preserve generic Win32 owned-window groups and taskbar restoration.",
+    "message": "Preserve groups with an unmapped same-process Win32 owner.",
     "binaries": [
       "labwc"
     ],
