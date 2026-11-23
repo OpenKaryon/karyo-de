@@ -166,6 +166,10 @@
     {
       "file": "0041-coregraphics-active-online-displays.patch",
       "sha256": "cfff340ca490ae32991acc06980b88fa3ef04919426dacaa13e2e62f3f0f9b8b"
+    },
+    {
+      "file": "0042-imageio-type-capability-lists.patch",
+      "sha256": "782abc68f229eb2eea8558ce42e258e1a1263a2248803428afc3664be183f924"
     }
   ]
 }

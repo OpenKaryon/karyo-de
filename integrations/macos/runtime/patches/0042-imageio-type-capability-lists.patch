@@ -1,0 +1,57 @@
+Subject: Export ImageIO decoder and encoder capability lists
+
+Report the decoder classes actually present and only implemented encoders,
+with retained arrays under the Copy ownership contract.
+
+--- a/src/frameworks/ImageIO/src/CGImageSource.m
++++ b/src/frameworks/ImageIO/src/CGImageSource.m
+@@ -1,2 +1,3 @@
+ #import <ImageIO/CGImageSource.h>
++#import <Foundation/Foundation.h>
+ #import <Onyx2D/O2ImageSource.h>
+@@ -12,2 +13,17 @@
+ @end
++
++CFArrayRef CGImageSourceCopyTypeIdentifiers(void) {
++    NSMutableArray *types = [NSMutableArray array];
++    NSString *classes[] = {@"O2ImageSource_PNG", @"O2ImageSource_TIFF",
++                          @"O2ImageSource_JPEG", @"O2ImageSource_BMP",
++                          @"O2ImageSource_GIF", @"O2ImageSource_ICNS"};
++    NSString *utis[] = {@"public.png", @"public.tiff", @"public.jpeg",
++                       @"com.microsoft.bmp", @"com.compuserve.gif",
++                       @"com.apple.icns"};
++    for (NSUInteger i = 0; i < sizeof(classes) / sizeof(classes[0]); i++) {
++        if (NSClassFromString(classes[i]) != Nil)
++            [types addObject: utis[i]];
++    }
++    return (CFArrayRef) [types copy];
++}
+ 
+--- a/src/frameworks/ImageIO/include/ImageIO/CGImageSource.h
++++ b/src/frameworks/ImageIO/include/ImageIO/CGImageSource.h
+@@ -10,2 +10,3 @@
+ #import <CoreFoundation/CFDictionary.h>
++#import <CoreFoundation/CFArray.h>
+ #import <CoreFoundation/CFURL.h>
+@@ -18,2 +19,4 @@
+ IMAGEIO_EXTERN const CFStringRef kCGImageSourceShouldAllowFloat;
++
++IMAGEIO_EXTERN CFArrayRef CGImageSourceCopyTypeIdentifiers(void);
+ 
+--- a/src/external/cocotron/Onyx2D/O2ImageDestination.m
++++ b/src/external/cocotron/Onyx2D/O2ImageDestination.m
+@@ -1,2 +1,3 @@
+ #import <Onyx2D/O2Encoder_JPG.h>
++#import <Foundation/Foundation.h>
+ #import <Onyx2D/O2Encoder_PNG.h>
+@@ -59,4 +60,8 @@
+ CFArrayRef O2ImageDestinationCopyTypeIdentifiers(void) {
+-    O2UnimplementedFunction();
+-    return NULL;
++    NSMutableArray *types = [NSMutableArray arrayWithObjects:
++            @"public.tiff", @"public.png", nil];
++#ifdef LIBJPEG_PRESENT
++    [types addObject: @"public.jpeg"];
++#endif
++    return (CFArrayRef) [types copy];
+ }

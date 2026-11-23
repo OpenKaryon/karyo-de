@@ -209,3 +209,25 @@ screen instead of0x0 alongside its positive backing scale. This is a normal
 display-enumeration scenario, not an invalid-input or security test. The pinned
 CoreGraphics implementation is already within the reviewed footprint. Native
 installed acceptance and broader multi-output/hotplug behavior remain separate.
+
+
+## ImageIO type capability lists
+
+After fixing screen metadata and flipped backing sizes, the real Qt prototype
+allocates an image and reaches a missing CGImageSourceCopyTypeIdentifiers symbol
+during its original PNG save operation. Patch0042 exports that shared ImageIO
+function and reports only decoder classes present in the running Onyx2D build.
+The existing destination wrapper already forwards its query; implement the
+Onyx2D list for TIFF/PNG and JPEG only when LIBJPEG_PRESENT is enabled. Do not
+advertise the unimplemented BMP/GIF/JPEG2000 destination branches.
+
+Both Copy functions return owned arrays. A separate real Qt diagnostic containing
+these proposed API bodies plus the common screen/backing fixes produces a nonnull
+460x194 image, saves PNG, emits passed:true and exits normally on both QA kernels.
+This is a diagnostic prototype, not acceptance of the unchanged application with
+the installed shared engine. Exact complete-source application, full compilation,
+symbol export and normal installed application checks remain required.
+
+The explicit root footprint adds only the pinned ImageIO source and public
+header; the Onyx2D implementation is already permitted. No SDK file, Qt source,
+application configuration or global library injection is changed.
