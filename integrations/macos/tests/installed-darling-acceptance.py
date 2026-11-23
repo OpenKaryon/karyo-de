@@ -166,6 +166,9 @@ def check(args, output, result):
     if not prefix.is_absolute() or not prefix.is_relative_to(home / ".karyo-macos") or preview["ownerUid"] != uid:
         raise ValueError("The runtime prefix is not scoped to the current account")
     arguments = ["Привет, literal spaces", "quotes '\" and backslash \\", "one\ntwo", "ordinary startup argument"]
+    if args.ordinary_arguments_only:
+        arguments = ["Привет", "ordinary document.txt", "project", "startup"]
+    result["argument_profile"] = "ordinary" if args.ordinary_arguments_only else "literal-transport"
     result["runtime_attempted"] = True
     loader_run = run("loader", [launcher, str(loader), "--", *arguments])
     report = json_line(loader_run["output"], "macho-loader")
@@ -227,6 +230,8 @@ def main():
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--timeout", type=int, default=180, choices=range(10, 301))
+    parser.add_argument("--ordinary-arguments-only", action="store_true",
+                        help="Use ordinary words, UTF-8 and a spaced filename for the startup check")
     args = parser.parse_args()
     output = Path(args.output).resolve()
     output.mkdir(parents=True, exist_ok=False)
