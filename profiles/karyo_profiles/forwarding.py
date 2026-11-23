@@ -144,7 +144,7 @@ class ProfileForwarding:
         self._verify_owned()
         if len(self.rule_snapshots) != 2 or self.firewall_snapshot is None or len(self.route_records) != 4:
             raise NetworkError("The profile forwarding graph is incomplete")
-        if discover_underlay(self.command) != self.physical:
+        if discover_underlay(self.command).routing_identity != self.physical.routing_identity:
             raise NetworkError("The physical network changed; profile forwarding requires reconciliation")
 
     def _add_route(self, args, fields):

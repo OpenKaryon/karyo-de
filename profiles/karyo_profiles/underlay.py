@@ -61,6 +61,12 @@ class PhysicalUnderlay:
             raise NetworkError("The physical gateway is not in its connected subnet")
 
     @property
+    def routing_identity(self):
+        # Metric selects the best physical path; it does not appear in the
+        # already pinned private routes or interface-specific firewall.
+        return (self.interface, self.index, self.address, self.prefix, self.gateway)
+
+    @property
     def subnet(self):
         return str(ipaddress.IPv4Network((self.address, self.prefix), strict=False))
 

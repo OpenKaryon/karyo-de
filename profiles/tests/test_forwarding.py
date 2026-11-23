@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 import copy
+from dataclasses import replace
 import json
 from pathlib import Path
 import sys
@@ -119,6 +120,26 @@ class ForwardingTest(unittest.TestCase):
         self.assertFalse(self.kernel.routes)
         self.assertIsNone(self.kernel.firewall)
         self.assertEqual(len(self.deletes()), 7)
+
+    def test_metric_change_on_the_same_selected_path_keeps_owned_forwarding(self):
+        self.gateway.create()
+        before = copy.deepcopy((self.kernel.routes, self.kernel.rules, self.kernel.firewall))
+        with patch("karyo_profiles.forwarding.discover_underlay", return_value=replace(PHYSICAL, metric=99)):
+            self.gateway.verify()
+        self.assertEqual((self.kernel.routes, self.kernel.rules, self.kernel.firewall), before)
+        self.assertFalse(self.deletes())
+        self.gateway.close()
+
+    def test_changed_selected_path_still_requires_reconciliation(self):
+        self.gateway.create()
+        for change in (dict(interface="eth1"), dict(index=3), dict(address="192.0.2.3"),
+                       dict(prefix=25), dict(gateway="192.0.2.10")):
+            with self.subTest(change=change), patch("karyo_profiles.forwarding.discover_underlay",
+                    return_value=replace(PHYSICAL, **change)):
+                with self.assertRaisesRegex(NetworkError, "physical network changed"):
+                    self.gateway.verify()
+        self.assertFalse(self.deletes())
+        self.gateway.close()
 
     def test_no_implicit_global_forwarding_and_no_active_consumers(self):
         with patch("karyo_profiles.forwarding.Path.read_text", return_value="0\n"):
