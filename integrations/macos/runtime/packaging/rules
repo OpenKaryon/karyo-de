@@ -22,5 +22,10 @@ override_dh_fixperms:
 	dh_fixperms
 	chmod 4755 debian/karyo-darling-runtime/usr/bin/darling
 
+# Preserve native Clang DWARF5 sections unsupported by the base dwz.
+# Standard dh_strip still creates separate debug-symbol packages.
+override_dh_dwz:
+	:
+
 override_dh_shlibdeps:
 	python3 debian/karyo/native_audit.py --source . --stage debian/karyo-darling-runtime --build obj-karyo

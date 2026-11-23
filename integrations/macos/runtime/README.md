@@ -290,3 +290,28 @@ Git and zero-fuzz quilt on both bases, restoring71 pristine source files.
 These checks cover source effects and compiler controls, not a completed dyld
 link or engine package; the next complete native build must establish those.
 Actual Mac application execution remains a separate required gate.
+
+
+## Preserve native DWARF5 without optional dwz compaction
+
+The eighth complete Debian build successfully compiled the full target graph,
+linked dyld and installed its staged tree. Packaging then failed in dwz because
+it did not understand Clang's .debug_addr section. The full native dependency
+audit had not yet run; compilation alone did not produce an accepted package.
+
+The common packaging override bypasses only the optional DWZ debug-information
+compaction. Standard dh_strip still separates debug symbols; native hardening,
+optimized compilation, runtime stripping and the staged ELF/dependency audit
+remain enabled. This follows the distinct responsibilities documented by
+[dh_dwz](https://manpages.debian.org/trixie/debhelper/dh_dwz.1.en.html) and
+[dh_strip](https://manpages.debian.org/trixie/debhelper/dh_strip.1.en.html).
+
+A native regression compiles actual Clang DWARF5 and runs a complete small
+Debian-format package through the real override and ordinary debhelper chain.
+It requires a runnable stripped ELF with a debug link and a separate symbol
+package whose ELF still contains .debug_addr. Both Debian .deb and Ubuntu .ddeb
+automatic symbol-package formats are accepted. This tiny packaging control is
+separate from the next complete Darling build and real Mac runtime acceptance.
+
+Both native source/packaging suites now pass29 cases, including this complete
+small-package control. The next full engine package still needs its own audit.
