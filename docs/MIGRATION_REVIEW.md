@@ -7,7 +7,47 @@ work are DE 8ef17c0 and Builder a343953. The donor is read-only during extractio
 The long-running task remains active until its remaining scope is implemented
 and verified; this checklist must not be read as a completion claim.
 
-## Current system integration checkpoint
+## Current review map
+
+The detailed notes below are chronological checkpoints. Their earlier pending
+labels describe the state at that checkpoint; later installed acceptance can
+supersede them. Builder docs/MIGRATION.md and its linked validation reports
+record exact native inputs and executed boundaries. A component milestone is
+not a joined current-HEAD installation or a completion claim.
+
+Shared UI/session/lock, fourteen application families, profile account/password
+and isolated network infrastructure, family clipboard, tested native Wine
+runtime/styling/application operations, VMware coordinator/lock and activation-
+time display following have their separate native/installed milestones. The
+optional system HGFS gate now also passes real host file exchange and captured
+mount/service/package lifecycle on both native kernels. Live Work NetBird now
+passes two actual Home WireGuard disconnect/reconnect cycles on each base,
+with ordinary DNS/HTTPS, private peer payloads and complete restoration.
+
+Still required for the complete remaining migration:
+
+- Finish native Darling engine build/audit/package work and real Mac CLI,
+  Cocoa/Qt, privileged bootstrap, prefix/upgrade, multi-account and visible GUI
+  acceptance on both native bases. Source/patch/compiler controls alone do not
+  establish a working runtime.
+- Establish enabled VMware host clipboard payloads, file drag/drop, other-DE
+  ownership interaction, real host-driven resize and monitor layout, and their
+  complete Home/Work integration. HGFS private-mount inheritance does not prove
+  the whole graphical channel matrix.
+- Resolve the external ExternalProvider broker/firewall contract and test simultaneous
+  Work exit-node routing with a Home tunnel, physical DHCP/DNS/networkd lifecycle
+  and onward NetBird GUI/tray behavior. The accepted kernel WireGuard fixture
+  does not substitute for the external client.
+- Deploy and test a joined current-HEAD package set on Debian and Ubuntu,
+  including applicable session/component lifecycle and preserved existing users,
+  data, display-manager and other-desktop behavior.
+
+External portals remain intentional dependencies. Unavailable physical camera,
+audio/GPU and hardware-specific scenarios must retain explicit limits; VM
+fixture passes are not evidence for absent physical devices. Distribution image,
+boot/installer/browser defaults and Forge stay with their separate products.
+
+## Historical system integration checkpoint
 
 Account provisioning, isolated privileged add/sync helpers, global PAM password
 synchronization and trusted Qt policy readers have native installed acceptance
