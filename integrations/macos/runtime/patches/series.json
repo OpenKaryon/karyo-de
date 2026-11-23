@@ -210,6 +210,10 @@
     {
       "file": "0052-quartzcore-iosurface-layer-presentation.patch",
       "sha256": "8e302dd56e888219fef2cdd198260cefe3cf17e9376fc59d0e755f757df48d6b"
+    },
+    {
+      "file": "0053-iokit-single-service-matching.patch",
+      "sha256": "19b59d167ab89b9d718797f4942bba3be5d5ed0f2389706e9b7a993aaeba50b4"
     }
   ]
 }

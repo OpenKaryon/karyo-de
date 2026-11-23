@@ -11,6 +11,12 @@ does not imply execution; retain the separate runtime report and exit status.
 A successful buffer round trip would still not prove layer compositing, IPC,
 GPU interoperability or a visible UGENE window.
 
+`karyo-macos-iosurface-matching` compares two valid public queries for the same
+registered IOSurfaceRoot: iteration and a direct single-service query. Each call
+receives its own matching dictionary, which IOKit consumes. Both returned objects
+must expose the expected class, and all acquired ports are released. This localizes
+a missing service lookup separately from the later buffer allocation contract.
+
 
 The suite also builds `karyo-macos-iosurface-lifecycle`. Launch `--owner` with
 absolute ready/stop file paths, then run the same executable and desktop scope

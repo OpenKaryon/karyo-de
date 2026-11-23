@@ -3,6 +3,9 @@
 set -eu
 umask 022
 mkdir -p /tmp/karyo-iosurface/payload
+o64-clang -arch x86_64 -mmacosx-version-min=10.13 -O2 /input/matching.c \
+    -framework CoreFoundation -framework IOKit \
+    -o /tmp/karyo-iosurface/payload/karyo-macos-iosurface-matching
 o64-clang -arch x86_64 -mmacosx-version-min=10.13 -O2 /input/buffer.m \
     -framework Foundation -framework IOSurface \
     -o /tmp/karyo-iosurface/payload/karyo-macos-iosurface-probe
