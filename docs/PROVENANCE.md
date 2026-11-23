@@ -795,3 +795,11 @@ The follow-up dyld bootstrap patch reviews darling-dyld
 The upstream Apple notice and runtime license index are retained. The patch
 changes only the entry function's initialization annotation; the functional
 callback harness is new Karyo code and executes that actual entry body.
+
+
+The libm follow-up reviews the root Darling revision
+60ba801decee7a00782f74f6be4c8ffb013f79ff at src/libm/CMakeLists.txt,
+Source/sincos.c, Source/exp10.c and the ABI declarations in Source/math.h.
+The only upstream source change is a libm-local compiler option; original source
+and notices remain intact. The numerical/code-generation checker is new Karyo
+code and uses the exact selected scalar-call source files.

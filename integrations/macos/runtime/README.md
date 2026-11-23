@@ -390,3 +390,35 @@ This positive functional check does not represent a whole engine or real Mac
 application pass. Real installed CLI/Cocoa/Qt launches remain required after
 rebuilding the 31-patch runtime. Subsequent preparation uses Builder's explicit
 source-only mode; the shared unit suite is not part of that run.
+
+
+## Actual native CLI startup and the first graphical math failure
+
+The full Debian31 engine now executes the real Intel Mach-O loader sample in an
+ordinary desktop account. Literal arguments, UTF-8 file I/O, repeat launch and
+exit17 propagation work. The first full functional actor stopped at a stale QA
+marker reference; after correcting that actor, these CLI cases pass again. This
+is actual application execution, not an installed-engine inference.
+
+Cocoa reaches its graphical libraries but exits before producing its report;
+the separate Qt attempt does not complete. A captured Cocoa core resolves to
+repeated __sincos_stret frames at the bottom of its eight-megabyte virtual stack.
+The exact installed libsystem_m instructions call that same helper recursively.
+Its float counterpart does the same, and __exp10 jumps to itself while __exp10f
+calls that entry. The plain source implements scalar sin/cos and pow calls.
+Modern Darwin optimization has folded these library implementations into the
+ABI helpers that they implement, rather than preserving the scalar operations.
+
+Patch0032 adds -fno-builtin only to the libm subdirectory's C flags. Release
+optimization and flags outside that library stay intact. This preserves the
+actual scalar math implementations without an application-specific setting.
+The source functions and their public float/double structures remain unchanged.
+
+`tests/check_libm_calls.py` compiles the actual sincos.c and exp10.c with the
+patched math-library option. Both native SDKs return the expected values from
+all six helpers across30 ordinary calls; actual Darwin LLVM output retains sin,
+cos, sinf, cosf and pow calls. The check executes no deliberately broken or
+privilege-related case. Early harness attempts exposed quoted-CMake-token and
+aggregate-IR parsing errors; corrected v4 logs retain the actual output and pass
+on both bases. This is a functional compiler/numerical result. Complete32-patch
+native engines and real Cocoa/Qt startup on both kernels are still required.

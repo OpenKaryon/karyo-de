@@ -126,6 +126,10 @@
     {
       "file": "0031-dyld-bootstrap-initialize-guard-before-protection.patch",
       "sha256": "717a0964ed96aa6aa907e08b73f74c2fff0c3ae4f4e0df1fd3a825bd1cca8ca6"
+    },
+    {
+      "file": "0032-libm-keep-scalar-calls-out-of-abi-helper-recursion.patch",
+      "sha256": "dcdebca5a3d46c954ead998074cb45d3617072266320ac229357ab6ccee027d2"
     }
   ]
 }
