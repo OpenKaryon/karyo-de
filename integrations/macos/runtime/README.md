@@ -497,3 +497,18 @@ restoration or claim that subsystem works. There is no Qt-specific override or
 per-application configuration. Both files are within the existing pinned Cocotron
 footprint. Source-only application/reversal and complete native build plus real
 Qt/Cocoa/editor windows remain required before installed API acceptance.
+
+
+## UTF-8 X11 window titles
+
+Patch0036 publishes _NET_WM_NAME as UTF8_STRING from NSString UTF8String and
+maintains WM_NAME through Xutf8TextListToTextProperty, releasing its allocation.
+The existing NSWindow creation path already forwards its title. An actual Mac
+Foundation diagnostic on Debian34 and Ubuntu32 returns the correct Cyrillic
+title through UTF8String but an empty legacy cString. The real Debian Cocoa
+window is visible with a blank caption, independently captured and reviewed.
+
+This changes the common X11 backend, with no title replacement or application
+rule. Source application/reversal, complete compilation and actual installed
+window properties on both bases remain required. It does not claim the separate
+TextEditor startup or the wider graphical compatibility matrix is complete.

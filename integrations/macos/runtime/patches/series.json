@@ -142,6 +142,10 @@
     {
       "file": "0035-appkit-nswindow-restorable-property.patch",
       "sha256": "a489bff22ff269a3f25acbf1bd220ef336fb630665ec2f5dee6cd2195803cd06"
+    },
+    {
+      "file": "0036-x11-utf8-window-title.patch",
+      "sha256": "f7974190351599ce0337a3ed545045217e2c4048ce8da918ef529e764b48d3ca"
     }
   ]
 }

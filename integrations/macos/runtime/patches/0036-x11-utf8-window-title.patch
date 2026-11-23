@@ -1,0 +1,39 @@
+Subject: Publish shared X11 window titles as UTF-8
+
+Use explicit UTF-8 for EWMH titles and release the legacy ICCCM conversion.
+The installed Foundation cString path loses the Cyrillic title on both bases.
+
+--- a/src/external/cocotron/AppKit/X11.backend/X11Window.m
++++ b/src/external/cocotron/AppKit/X11.backend/X11Window.m
+@@ -40,2 +40,3 @@
+ #import <X11/Xutil.h>
++#include <string.h>
+ 
+@@ -468,6 +469,23 @@
+ - (void) setTitle: (NSString *) title {
+-    XTextProperty prop;
+-    const char *text = [title cString];
+-    XStringListToTextProperty((char **) &text, 1, &prop);
+-    XSetWMName(_display, _window, &prop);
++    const char *text = [title UTF8String];
++    if (text == NULL)
++        text = "";
++
++    XChangeProperty(_display, _window,
++                    XInternAtom(_display, "_NET_WM_NAME", False),
++                    XInternAtom(_display, "UTF8_STRING", False),
++                    8, PropModeReplace, (const unsigned char *) text,
++                    strlen(text));
++
++    XTextProperty prop = {0};
++    if (Xutf8TextListToTextProperty(_display, (char **) &text, 1,
++                                  XStdICCTextStyle, &prop) >= Success
++        && prop.value != NULL) {
++        XSetWMName(_display, _window, &prop);
++        XFree(prop.value);
++    } else {
++        if (prop.value != NULL)
++            XFree(prop.value);
++        XStoreName(_display, _window, text);
++    }
+ }
