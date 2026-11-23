@@ -116,3 +116,20 @@ This changes the common X11 backend, with no title replacement or application
 rule. Source application/reversal, complete compilation and actual installed
 window properties on both bases remain required. It does not claim the separate
 TextEditor startup or the wider graphical compatibility matrix is complete.
+
+
+## Declared legacy document extensions
+
+Patch0037 retains preferred UTI matches in NSDocumentController and falls back
+to the existing typeFromFileExtension: lookup of CFBundleTypeExtensions. A failed
+UTI lookup error is propagated only when no declared legacy type is found. This
+supports applications that declare the older valid document-type keys without
+requiring a LaunchServices database or a per-application type rule.
+
+An instrumented upstream editor prototype on Debian34 and Ubuntu35 observes the
+installed method return nil for its ordinary .txt fixture and the existing
+extension lookup return txt file. With that fallback the Debian frame displays
+the actual fixture contents and filename. This prototype is not the unchanged
+application and does not accept the installed shared correction. Complete source
+and native builds plus unchanged application document runs remain required.
+The reviewed pinned footprint gains only AppKit/NSDocumentController.m.

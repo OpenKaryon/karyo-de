@@ -1,0 +1,39 @@
+Subject: Resolve declared legacy document extensions after UTI lookup
+
+Keep UTI matches preferred and use the existing CFBundleTypeExtensions lookup
+when no declared content type matches. Do not retain a failed UTI error on success.
+
+--- a/src/external/cocotron/AppKit/NSDocumentController.m
++++ b/src/external/cocotron/AppKit/NSDocumentController.m
+@@ -302,16 +302,21 @@
+ 
+-    NSString *UTI;
+-
++    NSString *UTI = nil;
++    NSError *typeError = nil;
+     BOOL success = [url getResourceValue: &UTI
+                                   forKey: NSURLTypeIdentifierKey
+-                                   error: error];
+-    if (!success) {
+-        return nil;
+-    }
+-
+-    for(NSDictionary *fileType in _fileTypes) {
+-        if ([[fileType objectForKey: @"LSItemContentTypes"] containsObject: UTI]) {
+-            return [fileType objectForKey: @"CFBundleTypeName"];
++                                   error: &typeError];
++    if (success && UTI != nil) {
++        for (NSDictionary *fileType in _fileTypes) {
++            if ([[fileType objectForKey: @"LSItemContentTypes"] containsObject: UTI]) {
++                return [fileType objectForKey: @"CFBundleTypeName"];
++            }
+         }
+     }
++
++    NSString *legacyType = [self typeFromFileExtension: extension];
++    if (legacyType != nil)
++        return legacyType;
++
++    if (error != NULL)
++        *error = typeError;
+     return nil;

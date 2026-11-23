@@ -146,6 +146,10 @@
     {
       "file": "0036-x11-utf8-window-title.patch",
       "sha256": "f7974190351599ce0337a3ed545045217e2c4048ce8da918ef529e764b48d3ca"
+    },
+    {
+      "file": "0037-appkit-legacy-document-extension-types.patch",
+      "sha256": "46f77e0ed5d749fe29e941842e0427ee329c2fb01b3e760597db37c9a834c460"
     }
   ]
 }
