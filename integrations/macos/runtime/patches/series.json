@@ -186,6 +186,10 @@
     {
       "file": "0046-appkit-shared-system-color-lifetime.patch",
       "sha256": "278438fa2bdbb905c7700acace7955b07bdfbe16dcaa9972bd9a0bea75756229"
+    },
+    {
+      "file": "0047-appkit-window-preference-properties.patch",
+      "sha256": "be75596c2edb2c4e3e7d9b23b278a52ebf081295d925460b266499c12dc6ab7a"
     }
   ]
 }

@@ -731,3 +731,27 @@ Shared policy/security suites are not executed as part of this work.
 Primary client implementation consulted; no Qt code is copied into this patch:
 https://raw.githubusercontent.com/qt/qtbase/5.15/src/plugins/platforms/cocoa/qcocoatheme.mm
 https://raw.githubusercontent.com/qt/qtbase/5.15/src/gui/painting/qcoregraphics.mm
+
+
+## Optional per-window preferences
+
+After the proposed system-color fix, the original dynamic Qt5.15.10 client asks
+NSWindow to disallow automatic tabbing and retain the ordinary opaque titlebar.
+The backend already has the class-wide automatic-tabbing flag, defaulting off,
+but lacks the instance selectors. Patch0047 adds the public tabbing-mode enum
+and independent per-window tabbingMode/titlebarAppearsTransparent accessors.
+Zero-initialized windows default to Automatic and an opaque titlebar.
+
+These fields record requested preferences. They do not implement native tab
+groups or transparent compositor-owned frames. The observed opaque request
+matches current backend presentation; nondefault visual effects remain open.
+A temporary associated-object prototype passes defaults, two-window independence
+and reset on both native45 systems. This is not installed shared-library proof.
+The unchanged UGENE proceeds past these selectors and next asks NSMenuItem to
+clear its optional custom view. No application name or policy exception is used.
+The exact previous stack plus this two-file patch applies and reverses locally;
+complete native source-stack and installed checks remain required.
+
+API contract consulted:
+https://developer.apple.com/documentation/appkit/nswindow/tabbingmode-swift.property
+https://raw.githubusercontent.com/qt/qtbase/5.15/src/plugins/platforms/cocoa/qcocoawindow.mm

@@ -1,0 +1,60 @@
+Subject: Record common per-window tabbing and titlebar preferences
+
+Retain independent window policy values instead of raising missing-selector
+exceptions during normal client initialization. Native tab groups and transparent
+compositor frames remain backend capabilities, not provided by these accessors.
+
+--- a/src/external/cocotron/AppKit/NSWindow.m
++++ b/src/external/cocotron/AppKit/NSWindow.m
+@@ -3480,6 +3480,22 @@
+     return [_platformWindow createSubWindowWithFrame: frame];
+ }
+ 
++- (NSWindowTabbingMode) tabbingMode {
++    return _darlingTabbingMode;
++}
++
++- (void) setTabbingMode: (NSWindowTabbingMode) mode {
++    _darlingTabbingMode = mode;
++}
++
++- (BOOL) titlebarAppearsTransparent {
++    return _darlingTitlebarAppearsTransparent;
++}
++
++- (void) setTitlebarAppearsTransparent: (BOOL) transparent {
++    _darlingTitlebarAppearsTransparent = transparent ? YES : NO;
++}
++
+ + (BOOL) allowsAutomaticWindowTabbing {
+     return _allowsAutomaticWindowTabbing;
+ }
+--- a/src/external/cocotron/AppKit/include/AppKit/NSWindow.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSWindow.h
+@@ -75,6 +75,12 @@
+     NSWindowZoomButton,
+     NSWindowToolbarButton,
+     NSWindowDocumentIconButton,
++};
++
++typedef NS_ENUM(NSInteger, NSWindowTabbingMode) {
++    NSWindowTabbingModeAutomatic = 0,
++    NSWindowTabbingModePreferred = 1,
++    NSWindowTabbingModeDisallowed = 2,
+ };
+ 
+ typedef NS_OPTIONS(NSUInteger, NSWindowNumberListOptions) {
+@@ -250,9 +256,13 @@
+ 
+     BOOL _isAccessible;
+     signed char _restorableState; // Zero selects the default derived from styleMask.
++    NSWindowTabbingMode _darlingTabbingMode;
++    BOOL _darlingTitlebarAppearsTransparent;
+ }
+ 
+ @property(class) BOOL allowsAutomaticWindowTabbing;
++@property NSWindowTabbingMode tabbingMode;
++@property BOOL titlebarAppearsTransparent;
+ @property(getter=isRestorable) BOOL restorable;
+ 
+ + (NSWindowDepth) defaultDepthLimit;
