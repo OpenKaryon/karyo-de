@@ -28,7 +28,7 @@ qt_add_executable(karyo-snip src/main.cpp)
 target_link_libraries(karyo-snip PRIVATE karyo-snip-window)
 karyo_add_translation(karyo-snip "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-snip_ru.ts")
 install(TARGETS karyo-snip RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT snip-runtime)
-install(FILES data/karyo-snip.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT snip-runtime)
+karyo_install_desktop_entry(data/karyo-snip.desktop snip-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-snip COMPONENT snip-runtime)
 install(FILES protocols/openkaryon-window-snapshot-v1.xml protocols/LICENSE.mit

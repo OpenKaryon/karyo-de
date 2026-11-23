@@ -21,7 +21,7 @@ qt_add_executable(karyo-archive src/main.cpp)
 target_link_libraries(karyo-archive PRIVATE karyo-archive-window)
 karyo_add_translation(karyo-archive "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-archive_ru.ts")
 install(TARGETS karyo-archive RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT archive-runtime)
-install(FILES data/karyo-archive.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT archive-runtime)
+karyo_install_desktop_entry(data/karyo-archive.desktop archive-runtime)
 install(FILES data/karyo-archive.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps COMPONENT archive-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-archive COMPONENT archive-runtime)

@@ -10,7 +10,7 @@ if ! karyo-lock --on-start; then
 fi
 # Optional application visibility is ordinary user state, prepared after PAM.
 # The helper reads administrator metadata and emits one private runtime path.
-catalog_environment=
+catalog_environment=XDG_DATA_DIRS
 if command -v karyo-application-catalog >/dev/null 2>&1; then
     if ! catalog=$(karyo-application-catalog); then
         echo "karyo-session: profile application catalog did not finish" >&2

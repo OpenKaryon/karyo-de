@@ -18,7 +18,7 @@ qt_add_executable(karyo-clock
 target_link_libraries(karyo-clock PRIVATE Karyo::Style Qt6::DBus)
 karyo_add_translation(karyo-clock "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-clock_ru.ts")
 install(TARGETS karyo-clock RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT clock-runtime)
-install(FILES data/karyo-clock.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT clock-runtime)
+karyo_install_desktop_entry(data/karyo-clock.desktop clock-runtime)
 
 if(BUILD_TESTING)
     qt_add_executable(karyo-clock-timertest tests/timertest.cpp src/timers.cpp src/timers.h)

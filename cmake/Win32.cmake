@@ -1,9 +1,11 @@
 get_filename_component(win32_source "${CMAKE_CURRENT_LIST_DIR}/../integrations/win32" ABSOLUTE)
+include("${CMAKE_CURRENT_LIST_DIR}/DesktopAssociations.cmake")
 configure_file("${win32_source}/entrypoint.in" "${CMAKE_CURRENT_BINARY_DIR}/karyo-win32" @ONLY)
 install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-win32" DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT win32-runtime)
 install(DIRECTORY "${win32_source}/karyo_win32" DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo/win32
     COMPONENT win32-runtime FILES_MATCHING PATTERN "*.py" PATTERN "__pycache__" EXCLUDE)
-install(FILES "${win32_source}/karyo-win32.desktop" "${win32_source}/karyo-mimeapps.list"
+karyo_install_desktop_entry("${win32_source}/karyo-win32.desktop" win32-runtime)
+install(FILES "${win32_source}/karyo-mimeapps.list"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT win32-runtime)
 install(FILES "${win32_source}/karyo-win32.xml" DESTINATION ${CMAKE_INSTALL_DATADIR}/mime/packages COMPONENT win32-runtime)
 install(FILES "${win32_source}/../../LICENSE" "${win32_source}/README.md"

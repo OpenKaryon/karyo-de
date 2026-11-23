@@ -7,7 +7,7 @@ qt_add_executable(karyo-player src/main.cpp)
 target_link_libraries(karyo-player PRIVATE karyo-player-window)
 karyo_add_translation(karyo-player "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-player_ru.ts")
 install(TARGETS karyo-player RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT player-runtime)
-install(FILES data/karyo-player.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT player-runtime)
+karyo_install_desktop_entry(data/karyo-player.desktop player-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-player COMPONENT player-runtime)
 configure_file(data/player.in "${CMAKE_CURRENT_BINARY_DIR}/player" @ONLY)

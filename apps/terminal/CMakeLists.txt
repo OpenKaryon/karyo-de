@@ -3,7 +3,7 @@ qt_add_executable(karyo-terminal src/main.cpp src/terminalwindow.cpp src/termina
 target_link_libraries(karyo-terminal PRIVATE Karyo::Style qtermwidget6)
 karyo_add_translation(karyo-terminal "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-terminal_ru.ts")
 install(TARGETS karyo-terminal RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT terminal-runtime)
-install(FILES data/karyo-terminal.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT terminal-runtime)
+karyo_install_desktop_entry(data/karyo-terminal.desktop terminal-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-terminal COMPONENT terminal-runtime)
 if(BUILD_TESTING)

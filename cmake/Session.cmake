@@ -1,4 +1,6 @@
 get_filename_component(session_root "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+include("${CMAKE_CURRENT_LIST_DIR}/DesktopAssociations.cmake")
+karyo_install_session_associations("${session_root}")
 configure_file("${session_root}/session/karyo-session.in" "${CMAKE_CURRENT_BINARY_DIR}/karyo-session" @ONLY)
 install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-session"
     DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT session-runtime)

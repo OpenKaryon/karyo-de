@@ -46,7 +46,7 @@ qt_add_executable(karyo-appcenter src/main.cpp)
 target_link_libraries(karyo-appcenter PRIVATE karyo-appcenter-window)
 karyo_add_translation(karyo-appcenter "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-appcenter_ru.ts")
 install(TARGETS karyo-appcenter RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT appcenter-runtime)
-install(FILES data/karyo-appcenter.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT appcenter-runtime)
+karyo_install_desktop_entry(data/karyo-appcenter.desktop appcenter-runtime)
 configure_file(data/appcenter.in "${CMAKE_CURRENT_BINARY_DIR}/appcenter" @ONLY)
 install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/appcenter" DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT appcenter-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md

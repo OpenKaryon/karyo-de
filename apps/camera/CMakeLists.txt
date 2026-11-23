@@ -3,7 +3,7 @@ qt_add_executable(karyo-camera src/main.cpp src/camerawindow.cpp src/camerawindo
 target_link_libraries(karyo-camera PRIVATE Karyo::Style Qt6::Multimedia Qt6::MultimediaWidgets)
 karyo_add_translation(karyo-camera "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-camera_ru.ts")
 install(TARGETS karyo-camera RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT camera-runtime)
-install(FILES data/karyo-camera.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT camera-runtime)
+karyo_install_desktop_entry(data/karyo-camera.desktop camera-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-camera COMPONENT camera-runtime)
 configure_file(data/camera.in "${CMAKE_CURRENT_BINARY_DIR}/camera" @ONLY)

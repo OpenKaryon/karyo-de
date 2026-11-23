@@ -17,7 +17,7 @@ qt_add_executable(karyo-monitor src/main.cpp)
 target_link_libraries(karyo-monitor PRIVATE karyo-monitor-pages)
 karyo_add_translation(karyo-monitor "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-monitor_ru.ts")
 install(TARGETS karyo-monitor RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT monitor-runtime)
-install(FILES data/karyo-monitor.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT monitor-runtime)
+karyo_install_desktop_entry(data/karyo-monitor.desktop monitor-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-monitor COMPONENT monitor-runtime)
 configure_file(data/monitor.in "${CMAKE_CURRENT_BINARY_DIR}/monitor" @ONLY)

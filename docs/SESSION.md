@@ -370,3 +370,18 @@ profile application visibility is prepared after initial PAM and before
 session clients; without the optional helper/policy, existing startup behavior
 is preserved. The shared implementation remains cmake/Session.cmake for both
 standalone and full-project builds.
+# MIME associations alongside other desktops
+
+Karyo's launchers remain visible in the system application menu, but their MIME
+recommendations are scoped to Karyo. The session prepends
+`/usr/share/karyo/associations` to `XDG_DATA_DIRS` (using the configured installation
+prefix). That directory contains the full desktop entries and an unprefixed
+`applications/mimeapps.list` with defaults and Added Associations. Global launchers omit their
+MimeType line, so merely installing Karyo does not change another desktop's
+implicit choice of file manager or editor. Explicit user defaults still win,
+including choosing Karyo Files while using another desktop.
+
+Application visibility catalogs can prepend their own data directories after
+the startup lock; their filtered entries keep priority over these recommendations.
+The activation environment receives the same data-directory view as the session.
+This does not edit the user's mimeapps.list or system-wide Xfce preferences.

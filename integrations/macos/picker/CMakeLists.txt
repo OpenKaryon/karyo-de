@@ -11,8 +11,8 @@ if(NOT COMMAND karyo_add_translation)
 endif()
 karyo_add_translation(karyo-macos-picker "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-macos-picker_ru.ts")
 install(TARGETS karyo-macos-picker RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT macos-picker-runtime)
-install(FILES data/karyo-macos.desktop
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT macos-picker-runtime)
+include("${macos_source}/../../cmake/DesktopAssociations.cmake")
+karyo_install_desktop_entry(data/karyo-macos.desktop macos-picker-runtime)
 install(FILES data/karyo-macos.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/mime/packages COMPONENT macos-picker-runtime)
 install(FILES data/karyo-macos.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps COMPONENT macos-picker-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE "${macos_source}/README.md"

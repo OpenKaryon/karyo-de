@@ -4,7 +4,7 @@ qt_add_executable(karyo-photos src/main.cpp src/photoswindow.cpp src/photoswindo
 target_link_libraries(karyo-photos PRIVATE Karyo::Style karyo-app-filemanager Qt6::DBus)
 karyo_add_translation(karyo-photos "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-photos_ru.ts")
 install(TARGETS karyo-photos RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT photos-runtime)
-install(FILES data/karyo-photos.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT photos-runtime)
+karyo_install_desktop_entry(data/karyo-photos.desktop photos-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-photos COMPONENT photos-runtime)
 configure_file(data/viewer.in "${CMAKE_CURRENT_BINARY_DIR}/viewer" @ONLY)

@@ -7,7 +7,7 @@ qt_add_executable(karyo-reader src/main.cpp)
 target_link_libraries(karyo-reader PRIVATE karyo-reader-window)
 karyo_add_translation(karyo-reader "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-reader_ru.ts")
 install(TARGETS karyo-reader RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT reader-runtime)
-install(FILES data/karyo-reader.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT reader-runtime)
+karyo_install_desktop_entry(data/karyo-reader.desktop reader-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-reader COMPONENT reader-runtime)
 configure_file(data/pdf.in "${CMAKE_CURRENT_BINARY_DIR}/pdf" @ONLY)

@@ -26,7 +26,7 @@ qt_add_executable(karyo-editor src/main.cpp)
 target_link_libraries(karyo-editor PRIVATE karyo-editor-window)
 karyo_add_translation(karyo-editor "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-editor_ru.ts")
 install(TARGETS karyo-editor RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT editor-runtime)
-install(FILES data/karyo-editor.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT editor-runtime)
+karyo_install_desktop_entry(data/karyo-editor.desktop editor-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-editor COMPONENT editor-runtime)
 configure_file(data/notepad.in "${CMAKE_CURRENT_BINARY_DIR}/notepad" @ONLY)

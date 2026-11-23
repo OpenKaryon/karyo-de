@@ -110,7 +110,7 @@ qt_add_executable(karyo-settings src/main.cpp)
 target_link_libraries(karyo-settings PRIVATE karyo-settings-window)
 karyo_add_translation(karyo-settings "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-settings_ru.ts")
 install(TARGETS karyo-settings RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT settings-runtime)
-install(FILES data/karyo-settings.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT settings-runtime)
+karyo_install_desktop_entry(data/karyo-settings.desktop settings-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-settings COMPONENT settings-runtime)
 configure_file(data/settings.in "${CMAKE_CURRENT_BINARY_DIR}/settings" @ONLY)

@@ -58,6 +58,13 @@ export XDG_SESSION_DESKTOP=karyo
 export XDG_CURRENT_DESKTOP=Karyo
 export QT_QPA_PLATFORM='wayland;xcb'
 export QT_STYLE_OVERRIDE=Karyo
+# Scope Karyo's MIME recommendations to this session. Explicit user defaults
+# remain higher priority, and application visibility catalogs can prepend theirs.
+associations='@CMAKE_INSTALL_FULL_DATADIR@/karyo/associations'
+case ":${XDG_DATA_DIRS:-/usr/local/share:/usr/share}:" in
+    *":$associations:"*) : ;;
+    *) export XDG_DATA_DIRS="$associations:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" ;;
+esac
 # Root-owned protection policy, resolved for the real process UID. This happens
 # after user session preferences so they cannot replace the decision by setting
 # a password environment variable. A protected compositor must start locked,

@@ -14,7 +14,7 @@ qt_add_executable(karyo-calculator src/main.cpp)
 target_link_libraries(karyo-calculator PRIVATE karyo-calculator-ui)
 karyo_add_translation(karyo-calculator "${CMAKE_CURRENT_SOURCE_DIR}/translations/karyo-calculator_ru.ts")
 install(TARGETS karyo-calculator RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT calculator-runtime)
-install(FILES data/karyo-calculator.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications COMPONENT calculator-runtime)
+karyo_install_desktop_entry(data/karyo-calculator.desktop calculator-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_SOURCE_DIR}/docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-calculator COMPONENT calculator-runtime)
 configure_file(data/calculator.in "${CMAKE_CURRENT_BINARY_DIR}/calculator" @ONLY)
