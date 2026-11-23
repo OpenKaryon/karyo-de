@@ -1,0 +1,27 @@
+Subject: Add shared view size conversions for the X11 backing store
+
+Use the existing view-to-window transforms for the current one-to-one X11
+backing store, preserving scaled bounds and the inverse conversion.
+
+--- a/src/external/cocotron/AppKit/NSView.m
++++ b/src/external/cocotron/AppKit/NSView.m
+@@ -975,2 +975,12 @@
+             CGSizeApplyAffineTransform(size, toWindow), fromWindow);
++}
++
++// The X11 backing store currently uses one pixel per window coordinate unit.
++// Retain the view/bounds transform rather than treating every view as unscaled.
++- (NSSize) convertSizeToBacking: (NSSize) size {
++    return [self convertSize: size toView: nil];
++}
++
++- (NSSize) convertSizeFromBacking: (NSSize) size {
++    return [self convertSize: size fromView: nil];
+ }
+--- a/src/external/cocotron/AppKit/include/AppKit/NSView.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSView.h
+@@ -217,2 +217,4 @@
+ - (NSSize) convertSize: (NSSize) size toView: (NSView *) viewOrNil;
++- (NSSize) convertSizeToBacking: (NSSize) size;
++- (NSSize) convertSizeFromBacking: (NSSize) size;
+ - (NSRect) convertRect: (NSRect) rect fromView: (NSView *) viewOrNil;

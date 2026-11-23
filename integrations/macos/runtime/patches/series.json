@@ -150,6 +150,14 @@
     {
       "file": "0037-appkit-legacy-document-extension-types.patch",
       "sha256": "46f77e0ed5d749fe29e941842e0427ee329c2fb01b3e760597db37c9a834c460"
+    },
+    {
+      "file": "0038-appkit-view-backing-size-conversions.patch",
+      "sha256": "486b436e2979a5d3933c89130f474f754056ab455c634a5fdd26938132299164"
+    },
+    {
+      "file": "0039-appkit-backing-size-axis-orientation.patch",
+      "sha256": "41f4967db222d4d7488f50db9320d7e2f149ffe76f2d8d68e4db44b4074adafb"
     }
   ]
 }

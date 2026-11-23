@@ -529,3 +529,45 @@ the actual fixture contents and filename. This prototype is not the unchanged
 application and does not accept the installed shared correction. Complete source
 and native builds plus unchanged application document runs remain required.
 The reviewed pinned footprint gains only AppKit/NSDocumentController.m.
+
+
+## View backing-store size conversion
+
+After the35 engine resolves the previous NSWindow selector, the actual Ubuntu Qt
+application reaches a missing NSView convertSizeToBacking: selector. Patch0038
+adds that common method and its inverse using existing view/window transforms.
+The current X11 backing store uses one pixel per window coordinate unit, so this
+preserves bounds scaling rather than returning every size unchanged. It does not
+claim independent high-DPI backing stores or unimplemented point/rect APIs.
+
+Apple's API contract describes local-view to backing-store size conversion:
+https://developer.apple.com/documentation/appkit/nsview/converttobacking(_:)-4ra9y?language=objc
+The backing coordinates belong to the object, not an absolute screen position:
+https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/APIs/APIs.html
+Only linear size conversions are added, so parent translation is not included.
+
+The proposed methods run as a separate real Mac NSView subclass on Debian34 and
+Ubuntu35. Ordinary and scaled-bounds fractional sizes produce the expected1x/2x
+sizes and inverse round trips on both kernels. This accepts that prototype only;
+the installed common API and real Qt application still require complete38 builds
+and actual native checks. Both changed files are already in the pinned footprint.
+
+
+## Flipped-view backing-size orientation
+
+Patch0039 corrects the first backing-size implementation: forwarding a signed
+window-space size exposes a negative height for a flipped view. The actual Qt
+prototype reports widget DPR -1 and a null0x0 image. Use lengths of the local
+horizontal/vertical basis vectors for the common backing scale and its inverse,
+retaining bounds scaling without importing the window's axis orientation.
+
+Actual Mac subclass prototypes on Debian34 and Ubuntu35 pass ordinary/flipped
+views at1x/2x bounds scales with fractional sizes and round trips. The attempted
+frame-rotation setter is unimplemented in this backend, so those duplicate cases
+do not establish rotation support. A Qt diagnostic with this correction plus
+screen metadata visibly draws its Cyrillic label and button on Ubuntu, then
+reaches an ImageIO symbol failure during PNG output; full compatibility is open.
+
+Only the existing pinned NSView file changes. Waiting38 controllers were replaced
+before starting a complete38 engine; the current Debian35 build is untouched.
+Complete source preparation and installed engine checks remain required.

@@ -27,7 +27,7 @@ class PatchPolicy(unittest.TestCase):
 
     def test_actual_ordered_file_hashes_and_footprint_are_captured(self):
         patches, files, added = capture_patches(self.recipe)
-        self.assertEqual(len(patches), 37)
+        self.assertEqual(len(patches), 39)
         self.assertIn("src/startup/darling.c", files)
         self.assertIn("src/external/cocotron/CoreText/CTFontDescriptorInternal.h", added)
         self.assertEqual(added, {"src/external/cocotron/CoreText/CTFontDescriptorInternal.h"})

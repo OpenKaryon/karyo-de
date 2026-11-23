@@ -1,0 +1,36 @@
+Subject: Keep backing-size scales positive for flipped views
+
+Use local-axis lengths rather than a signed window-space vector. A flipped
+NSView must not expose a negative device-pixel scale to ordinary applications.
+
+--- a/src/external/cocotron/AppKit/NSView.m
++++ b/src/external/cocotron/AppKit/NSView.m
+@@ -48,2 +48,3 @@
+ #import <AppKit/NSLayoutConstraint.h>
++#include <math.h>
+ 
+@@ -977,6 +978,14 @@
+ 
+-// The X11 backing store currently uses one pixel per window coordinate unit.
+-// Retain the view/bounds transform rather than treating every view as unscaled.
++// Backing sizes use the lengths of the local axes, independent of a flip.
++// The current X11 backing store has one pixel per window coordinate unit.
++static NSSize karyoBackingAxisScale(NSView *view) {
++    NSSize horizontal = [view convertSize: NSMakeSize(1.0, 0.0) toView: nil];
++    NSSize vertical = [view convertSize: NSMakeSize(0.0, 1.0) toView: nil];
++    return NSMakeSize(hypot(horizontal.width, horizontal.height),
++                      hypot(vertical.width, vertical.height));
++}
++
+ - (NSSize) convertSizeToBacking: (NSSize) size {
+-    return [self convertSize: size toView: nil];
++    NSSize scale = karyoBackingAxisScale(self);
++    return NSMakeSize(size.width * scale.width, size.height * scale.height);
+ }
+@@ -984,3 +993,5 @@
+ - (NSSize) convertSizeFromBacking: (NSSize) size {
+-    return [self convertSize: size fromView: nil];
++    NSSize scale = karyoBackingAxisScale(self);
++    return NSMakeSize(scale.width > 0.0 ? size.width / scale.width : 0.0,
++                      scale.height > 0.0 ? size.height / scale.height : 0.0);
+ }
