@@ -339,3 +339,30 @@ unmodified defaults are the paired negative compiler control; the fixed flags
 retain stack protection and format-security checks. All30 source/packaging cases
 pass on both SDKs. A new complete Ubuntu build must still validate the corrected
 package flags against the full target graph and native audit.
+
+
+## Keep guard seeding outside its own stack-protected frame
+
+Offline symbolication of the actual first Debian bootstrap core identifies
+`libSystem_initializer -> __stack_chk_fail`. Its saved stack cookie is zero,
+whereas the global guard has been initialized while the same frame is alive.
+The initializer invokes libc setup, which seeds that guard; the compiler's
+ordinary stack-protector instrumentation therefore compares different epochs.
+This is before vchroot main and before the requested Mac application.
+
+Patch0030 marks only libSystem_initializer no_stack_protector, preserving the
+constructor and all other function, library and native ELF protection. The
+Libsystem module is pinned independently to08df454b6eb0df9400aa4c39839a7efd6efd2c3c.
+No program-specific profile, environment workaround or global protection switch
+is introduced.
+
+The compiler regression uses the original and patched attributes from the actual
+patch. A bootstrap that seeds a global guard fails before main with the original
+instrumentation and returns normally with the narrow annotation. In that same
+corrected binary an ordinary protected frame still detects a guard change.
+Actual Darwin LLVM IR independently confirms protection remains on that ordinary
+function and is omitted only from the initializer. All31 native source/packaging
+tests pass on Debian and Ubuntu; all30 patches apply and reverse through Git and
+zero-fuzz quilt, restoring72 pristine files. This is diagnosis and source/compiler
+acceptance. A new full engine package and real Mac runtime must still establish
+that this fixes bootstrap on both supported native bases.

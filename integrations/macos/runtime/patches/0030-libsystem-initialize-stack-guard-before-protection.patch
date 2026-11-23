@@ -1,0 +1,17 @@
+Subject: Avoid checking an uninitialized guard in the Libsystem bootstrap frame
+
+Only the initializer that seeds the guard is exempt; other protection remains.
+
+--- a/src/external/libsystem/init.c
++++ b/src/external/libsystem/init.c
+@@ -179,7 +179,9 @@
+ 
+ // libsyscall_initializer() initializes all of libSystem.dylib
+ // <rdar://problem/4892197>
+-__attribute__((constructor))
++// _libc_initializer seeds the stack guard while this bootstrap frame is alive.
++// Keep protection on other functions; this initializer cannot check an old guard.
++__attribute__((constructor, no_stack_protector))
+ static void
+ libSystem_initializer(int argc,
+ 		      const char* argv[],

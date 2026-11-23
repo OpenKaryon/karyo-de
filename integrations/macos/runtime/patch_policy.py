@@ -10,10 +10,11 @@ OBJC_REVISION = '1a12df76d12bfc9fdfffadb290f7742763568765'
 FOUNDATION_REVISION = '55a4341b470c2a56fea667c1d2167fb074226f04'
 RUBY_REVISION = '423f2439478d2e24d7c19b2e0ea4a67ee3e80c3d'
 UNWIND_REVISION = 'a91da1a0e262e04eb601152a84228ff733e48422'
+LIBSYSTEM_REVISION = '08df454b6eb0df9400aa4c39839a7efd6efd2c3c'
 SCREEN_REVISION = '4bed52587563ede850bf9ff834567478ac1e616b'
 COCOTRON_PREFIX = 'src/external/cocotron/'
-EXPECTED_PATCH_COUNT = 29
-EXACT_ROOT_FILES = {'src/external/libunwind/CMakeLists.txt', 'src/external/screen/screen/attacher.c', 'src/external/screen/screen/display.c', 'src/external/screen/screen/fileio.c', 'src/external/screen/screen/misc.c', 'src/external/screen/screen/process.c', 'src/external/screen/screen/resize.c', 'src/external/screen/screen/screen.c', 'src/external/screen/screen/socket.c', 'src/external/screen/screen/termcap.c', 'src/external/screen/screen/window.c', 'src/external/screen/screen/ansi.c', 'src/external/ruby/ruby/debug_counter.h', 'src/external/foundation/src/NSConcreteMapTable.m',
+EXPECTED_PATCH_COUNT = 30
+EXACT_ROOT_FILES = {'src/external/libsystem/init.c', 'src/external/libunwind/CMakeLists.txt', 'src/external/screen/screen/attacher.c', 'src/external/screen/screen/display.c', 'src/external/screen/screen/fileio.c', 'src/external/screen/screen/misc.c', 'src/external/screen/screen/process.c', 'src/external/screen/screen/resize.c', 'src/external/screen/screen/screen.c', 'src/external/screen/screen/socket.c', 'src/external/screen/screen/termcap.c', 'src/external/screen/screen/window.c', 'src/external/screen/screen/ansi.c', 'src/external/ruby/ruby/debug_counter.h', 'src/external/foundation/src/NSConcreteMapTable.m',
                     'src/external/foundation/src/NSConcreteHashTable.m', 'src/startup/darling.c', 'src/CMakeLists.txt', 'CMakeLists.txt', 'cmake/use_ld64.cmake', 'src/external/objc4/runtime/CMakeLists.txt',
                     'src/frameworks/CoreServices/src/FSEvents/CMakeLists.txt',
                     'src/external/cocotron/AppKit/NSApplication.m',

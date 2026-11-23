@@ -118,6 +118,10 @@
     {
       "file": "0029-bootstrap-unwind-without-switch-tables.patch",
       "sha256": "7183fd96e97200fb44ced707db893e7547cef2ea80c1c7be851902a86e301663"
+    },
+    {
+      "file": "0030-libsystem-initialize-stack-guard-before-protection.patch",
+      "sha256": "fee092903e358e88923c218e90bd798e19549eb3c3942b9063f11a8243333073"
     }
   ]
 }
