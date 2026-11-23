@@ -175,3 +175,37 @@ reaches an ImageIO symbol failure during PNG output; full compatibility is open.
 Only the existing pinned NSView file changes. Waiting38 controllers were replaced
 before starting a complete38 engine; the current Debian35 build is untouched.
 Complete source preparation and installed engine checks remain required.
+
+
+## Common screen identity and backing metadata
+
+Actual unmodified Cocoa screen diagnostics on Debian34 and Ubuntu35 show real
+1280x800 frames and backend ID1, but empty deviceDescription, depth0 and no
+backingScaleFactor selector. Patch0040 exposes the existing direct display ID
+through NSScreenNumber, declares the backing-scale getter and describes the
+current8-bit RGB, one-pixel-per-window-unit backing store. The no-RandR screen
+also receives ID1, matching the existing CoreGraphics index convention.
+
+The NSNumber screen-ID contract is documented by Apple:
+https://developer.apple.com/documentation/appkit/nsscreen/devicedescription
+The Qt Cocoa backend relies on this metadata to initialize its screen format;
+there is no Qt rule or forced Qt platform setting. Depth and scale describe the
+current X11 renderer, not independent high-DPI or HDR capability. Resolution DPI
+is not invented. The pinned footprint gains only NSScreen.m and NSScreen.h;
+X11Display.m is already included. Source and installed native checks remain open.
+
+
+## Online screens with real geometry
+
+The actual Ubuntu35 Mac diagnostic enumerates ID1 at1280x800 and ID2 at0x0;
+both are incorrectly reported online. Debian35 has only its1280x800 screen.
+Patch0041 keeps inactive backend entries out of CGGetOnlineDisplayList and
+CGDisplayIsOnline, preserving backend IDs and primary-first order. A bounded
+list reports entries actually written; the ordinary zero-capacity count query
+still reports the full online count. The backend's complete array is not compacted.
+
+The explicit common-function Qt prototype on Ubuntu now reports the real1280x800
+screen instead of0x0 alongside its positive backing scale. This is a normal
+display-enumeration scenario, not an invalid-input or security test. The pinned
+CoreGraphics implementation is already within the reviewed footprint. Native
+installed acceptance and broader multi-output/hotplug behavior remain separate.

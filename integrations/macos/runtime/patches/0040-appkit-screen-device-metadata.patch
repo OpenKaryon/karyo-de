@@ -1,0 +1,48 @@
+Subject: Publish common screen identity and current backing metadata
+
+Expose the backend display ID through NSScreenNumber and describe the existing
+8-bit RGB, one-pixel-per-unit backing store. Keep the no-RandR ID consistent.
+
+--- a/src/external/cocotron/AppKit/NSScreen.m
++++ b/src/external/cocotron/AppKit/NSScreen.m
+@@ -30,2 +30,3 @@
+ - initWithFrame: (NSRect) frame visibleFrame: (NSRect) visibleFrame {
++    _depth = NSWindowDepthTwentyfourBitRGB;
+     _frame = frame;
+@@ -66,2 +67,6 @@
+ 
++- (CGFloat) backingScaleFactor {
++    return 1.0; // Current X11 backing store: one pixel per window unit.
++}
++
+ - (CGFloat) userSpaceScaleFactor {
+@@ -78,3 +83,9 @@
+ - (NSDictionary<NSDeviceDescriptionKey, id> *) deviceDescription {
+-    return @{};
++    return @{
++        @"NSScreenNumber": @(_directDisplayID),
++        NSDeviceIsScreen: @YES,
++        NSDeviceSize: [NSValue valueWithSize: _frame.size],
++        NSDeviceBitsPerSample: @8,
++        NSDeviceColorSpaceName: NSCalibratedRGBColorSpace
++    };
+ }
+--- a/src/external/cocotron/AppKit/include/AppKit/NSScreen.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSScreen.h
+@@ -35,2 +35,3 @@
+ @property(readonly) NSWindowDepth depth;
++@property(readonly) CGFloat backingScaleFactor;
+ @property(readonly, copy) NSDictionary<NSDeviceDescriptionKey, id> *deviceDescription;
+--- a/src/external/cocotron/AppKit/X11.backend/X11Display.m
++++ b/src/external/cocotron/AppKit/X11.backend/X11Display.m
+@@ -263,6 +263,6 @@
+                 DisplayHeight(_display, DefaultScreen(_display)));
+-        return [NSArray
+-                arrayWithObject: [[[NSScreen alloc] initWithFrame: frame
+-                                                     visibleFrame: frame]
+-                                         autorelease]];
++        NSScreen *screen = [[[NSScreen alloc] initWithFrame: frame
++                                               visibleFrame: frame] autorelease];
++        [screen setCgDirectDisplayID: 1];
++        return [NSArray arrayWithObject: screen];
+     }

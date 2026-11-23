@@ -1,0 +1,61 @@
+Subject: Keep inactive outputs out of the online display list
+
+Match existing backend IDs to nonempty screen geometry and report the number
+of entries actually written for bounded lists, keeping the main display first.
+
+--- a/src/external/cocotron/CoreGraphics/CGDirectDisplay.m
++++ b/src/external/cocotron/CoreGraphics/CGDirectDisplay.m
+@@ -76,2 +76,5 @@
+ {
++    if (displayCount == NULL || (maxDisplays > 0 && onlineDisplays == NULL))
++        return kCGErrorIllegalArgument;
++
+     NSDisplay *display = currentDisplay();
+@@ -82,20 +85,23 @@
+     const CGDirectDisplayID mainDisplay = CGMainDisplayID();
+-
+-    *displayCount = 0;
+-
+-    // Main display should be the first returned
+-    if (mainDisplay != kCGNullDirectDisplay) {
+-        (*displayCount)++;
+-        if (maxDisplays > 0)
+-            onlineDisplays[0] = mainDisplay;
+-    }
+-
+-    for (int i = 0; i < [screens count]; i++) {
+-        if ((i + 1) != mainDisplay) {
+-            if (*displayCount < maxDisplays)
+-                onlineDisplays[*displayCount] = i + 1;
+-            (*displayCount)++;
+-        }
+-    }
+-
++    uint32_t count = 0;
++
++    // Preserve backend IDs and put the main screen first without publishing
++    // inactive RandR outputs as zero-sized online screens.
++    for (int pass = 0; pass < 2; pass++) {
++        for (NSUInteger i = 0; i < [screens count]; i++) {
++            if (NSIsEmptyRect([[screens objectAtIndex: i] frame]))
++                continue;
++            CGDirectDisplayID displayID = (CGDirectDisplayID) i + 1;
++            if ((pass == 0) != (displayID == mainDisplay))
++                continue;
++            if (maxDisplays > 0 && count >= maxDisplays) {
++                *displayCount = count;
++                return kCGErrorSuccess;
++            }
++            if (maxDisplays > 0)
++                onlineDisplays[count] = displayID;
++            count++;
++        }
++    }
++    *displayCount = count;
+     return kCGErrorSuccess;
+@@ -265,3 +271,4 @@
+     NSArray<NSScreen *> *screens = [display screens];
+-    return displayIndex <= [screens count];
++    return displayIndex <= [screens count]
++        && !NSIsEmptyRect([[screens objectAtIndex: displayIndex - 1] frame]);
+ }

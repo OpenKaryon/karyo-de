@@ -158,6 +158,14 @@
     {
       "file": "0039-appkit-backing-size-axis-orientation.patch",
       "sha256": "41f4967db222d4d7488f50db9320d7e2f149ffe76f2d8d68e4db44b4074adafb"
+    },
+    {
+      "file": "0040-appkit-screen-device-metadata.patch",
+      "sha256": "8d0329e26fd7e636d43e751bb3dc48384d87d8e8260c6bfd60d00cd5288b041d"
+    },
+    {
+      "file": "0041-coregraphics-active-online-displays.patch",
+      "sha256": "cfff340ca490ae32991acc06980b88fa3ef04919426dacaa13e2e62f3f0f9b8b"
     }
   ]
 }
