@@ -32,7 +32,7 @@ if sys.argv[1:2]==['--peer-server']:
     assert len(sys.argv)==3 and socket.gethostname() in {'karyo-de-acceptance','karyo-de-ubuntu-acceptance'}
     asyncio.run(peer_server(sys.argv[2]));raise SystemExit(0)
 if (os.getuid()!=0 or os.geteuid()!=0 or socket.gethostname() not in
-        {'karyo-de-acceptance','karyo-de-ubuntu-acceptance'} or sys.argv[1:] not in ([],['--missing'],['--connected'],['--pkce'],['--home-vpn'],['--home-vpn-reconnect'])):
+        {'karyo-de-acceptance','karyo-de-ubuntu-acceptance'} or sys.argv[1:] not in ([],['--missing'],['--connected'],['--pkce'],['--home-vpn'],['--home-vpn-reconnect'],['--home-vpn-exit'])):
     raise SystemExit('Use only the fixed disposable hosts as root')
 sys.dont_write_bytecode=True;sys.path.insert(0,'/usr/libexec/karyo/profiles')
 from karyo_profiles.credentials import LocalAccounts
@@ -98,8 +98,9 @@ def status():
 
 
 reconnect=sys.argv[1:]==['--home-vpn-reconnect']
-homevpn=sys.argv[1:] in (['--home-vpn'],['--home-vpn-reconnect'])
-missing=sys.argv[1:]==['--missing'];pkce=sys.argv[1:]==['--pkce'];connected=sys.argv[1:] in (['--connected'],['--pkce'],['--home-vpn'],['--home-vpn-reconnect'])
+exitnode=sys.argv[1:]==['--home-vpn-exit']
+homevpn=sys.argv[1:] in (['--home-vpn'],['--home-vpn-reconnect'],['--home-vpn-exit'])
+missing=sys.argv[1:]==['--missing'];pkce=sys.argv[1:]==['--pkce'];connected=sys.argv[1:] in (['--connected'],['--pkce'],['--home-vpn'],['--home-vpn-reconnect'],['--home-vpn-exit'])
 helper=Path('/usr/local/libexec/karyo-qa-public-runtime');info=helper.lstat()
 require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and not info.st_mode&0o022 and
         hashlib.sha256(helper.read_bytes()).hexdigest()=='3be27e4ef96458f2400d7ea68058db6cdfe40916c4299ecdb68d152cedea1d83','Fixed context helper changed')
@@ -202,7 +203,12 @@ try:
                 counterpart='karyo-de-ubuntu-acceptance' if socket.gethostname()=='karyo-de-acceptance' else 'karyo-de-acceptance'
                 deadline=time.monotonic()+70;peer_result=None;last_keys=[]
                 while peer_result is None:
-                    peers=status().get('peers',{}).get('details',[])
+                    peer_state=status().get('peers')
+                    if peer_state is None:peer_state={}
+                    require(isinstance(peer_state,dict),'Malformed ordinary peer status')
+                    peers=peer_state.get('details')
+                    if peers is None:peers=[]  # NetBird reports null until the first peer arrives.
+                    require(isinstance(peers,list) and all(isinstance(p,dict) for p in peers),'Malformed ordinary peer details')
                     req=urllib.request.Request(control['url']+'/api/peers',headers={'Authorization':'Token '+control['token']})
                     with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req,timeout=10) as response:live=json.loads(response.read())
                     candidates=[p for p in live if p.get('connected') is True and p.get('hostname')==counterpart]
@@ -234,6 +240,13 @@ try:
                                      '/usr/bin/python3','-I','-c',code))
                 require(json.loads(value_work)['home_private_name_hidden'],'Work inherited Home DNS')
                 print(value_work,flush=True)
+            if exitnode:
+                control_actor=Path('/usr/local/libexec/karyo-qa-public-exit-control')
+                info=control_actor.lstat()
+                require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and not info.st_mode&0o022
+                        and hashlib.sha256(control_actor.read_bytes()).hexdigest()=='94aa66c1a87ae240bc483f3513241be2e3a007db1309d99284c4a17cade3a056','Exit QA controller changed')
+                import runpy
+                runpy.run_path(str(control_actor))['hold'](user,cli,status,run,journal,record)
             if mode=='locked-crash':
                 wait_for(lambda:sessions.get(graph['login']['id']).locked,'Protected public Work did not lock')
             else:
@@ -254,7 +267,7 @@ try:
             require(sessions.get(source.id)==source and snapshot()==original,'Original Home/network changed')
             with KernelConsoles() as consoles:require(consoles.state().active==source.vt,'Public provider did not return Home')
             print(json.dumps({'mode':mode,'cold_public_provider':True,'ordinary_status':value.get('daemonStatus'),
-                              'connected':connected,'browser_pkce':pkce,'real_home_wireguard':homevpn,'home_wireguard_reconnect':reconnect,'state_reused':identity==state_identity,'existing_switch_unchanged':True,
+                              'connected':connected,'browser_pkce':pkce,'real_home_wireguard':homevpn,'home_wireguard_reconnect':reconnect,'home_with_work_exit_node':exitnode,'state_reused':identity==state_identity,'existing_switch_unchanged':True,
                               'home_return':True,'cleanup':'complete'}),flush=True)
             with store.locked():store.save_settings(child.name,policy)
 finally:

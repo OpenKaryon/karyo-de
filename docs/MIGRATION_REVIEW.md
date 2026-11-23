@@ -23,10 +23,15 @@ optional system HGFS gate now also passes real host file exchange and captured
 mount/service/package lifecycle on both native kernels. Live Work NetBird now
 passes two actual Home WireGuard disconnect/reconnect cycles on each base,
 with ordinary DNS/HTTPS, private peer payloads and complete restoration.
+The public Work exit-node packet gate now passes both routing roles alongside
+Home WireGuard on both native guests, with encrypted counters and restoration.
+Complete logind inventory also survives a real disappearing SSH/PAM login.
+The first Debian Darling native build/audit/package gate now succeeds; actual
+Mac execution and the Ubuntu engine build remain separate ongoing gates.
 
 Still required for the complete remaining migration:
 
-- Finish native Darling engine build/audit/package work and real Mac CLI,
+- Finish Ubuntu Darling engine build/audit/package work and real Mac CLI,
   Cocoa/Qt, privileged bootstrap, prefix/upgrade, multi-account and visible GUI
   acceptance on both native bases. Source/patch/compiler controls alone do not
   establish a working runtime.
@@ -35,8 +40,8 @@ Still required for the complete remaining migration:
   complete Home/Work integration. HGFS private-mount inheritance does not prove
   the whole graphical channel matrix.
 - Resolve the external ExternalProvider broker/firewall contract and test simultaneous
-  Work exit-node routing with a Home tunnel, physical DHCP/DNS/networkd lifecycle
-  and onward NetBird GUI/tray behavior. The accepted kernel WireGuard fixture
+  Work exit-node DNS/HTTPS with a Home tunnel, physical DHCP/DNS/networkd
+  lifecycle and onward NetBird GUI/tray behavior. The accepted kernel WireGuard fixture
   does not substitute for the external client.
 - Deploy and test a joined current-HEAD package set on Debian and Ubuntu,
   including applicable session/component lifecycle and preserved existing users,

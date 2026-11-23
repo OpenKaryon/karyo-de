@@ -1454,3 +1454,30 @@ are restored; current postchecks reject leftover laboratory/provider resources.
 This uses an own temporary NetBird realm and kernel WireGuard fixture, with no
 user VPN profiles. External ExternalProvider, simultaneous Work exit nodes, physical
 DHCP changes and onward provider GUI/tray need separate acceptance.
+
+
+### Public Work exit node alongside a live Home VPN
+
+The fixed-host `--home-vpn-exit` installed gate starts Work through the ordinary
+public switcher and temporarily enrolls each QA guest into its own NetBird
+realm. A root-only bounded local QA controller captures the session/provider
+graph and lets the external driver publish one exact temporary exit route.
+The ordinary Work CLI selects it; ordinary Work processes exchange nonce-bound
+TCP and UDP with an endpoint on the other native guest. Both routing roles pass.
+The remote hostname and masqueraded source identify the chosen remote guest,
+while the actual wt0 route and increased encrypted counters rule out a local
+endpoint shortcut. Both Home tunnels retain private DNS, digest-checked TCP
+and real kernel handshakes while each Work exit route is selected.
+
+Existing Home/Work switching reuses the captured graph. Logout removes the exact
+profile, provider, runtime activation, temporary credentials, exit route and
+fixture interfaces; both host-network snapshots and original Home sessions are
+restored. The first attempt exposed disappearing-logind-session churn (now fixed
+generally) and a legitimate nullable peer-details field (now awaited by QA).
+Their failed logs and explicit identity-based restoration are retained.
+
+This accepts public Work exit-node packet routing with the real Home kernel
+tunnel fixture. External ExternalProvider broker/firewall compatibility, Work external
+DNS/HTTPS while the exit route is selected, physical network lifecycle and GUI/
+tray behavior still require their own evidence. See Builder
+`docs/VALIDATION-HOME-VPN-EXIT.md` for the executed boundaries and local log index.
