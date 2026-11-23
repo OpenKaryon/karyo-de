@@ -627,3 +627,20 @@ symbol export and normal installed application checks remain required.
 The explicit root footprint adds only the pinned ImageIO source and public
 header; the Onyx2D implementation is already permitted. No SDK file, Qt source,
 application configuration or global library injection is changed.
+
+
+## Installed CoreText font families
+
+The actual Qt startup calls CTFontManagerCopyAvailableFontFamilyNames, which is
+still a stub although the existing font-collection and descriptor backend is
+implemented. Patch0043 returns unique, nonempty actual family names from that
+backend in an owned CFArray, without a new AppKit or native-library dependency.
+
+The explicit Qt diagnostic prototype reports200 available families on Debian35
+and198 on Ubuntu35, resolves Noto Sans and retains passing raster/PNG output on
+both. It does not force an application font. Its Ubuntu widget PNG is byte-for-
+byte identical to the previous prototype, so enumeration does not fix the
+observed glyph/spacing defects. Visual font quality remains a separate open
+issue; neither the family count nor a passing raster report proves that quality.
+Source and installed API checks are still required. Only the already permitted
+CoreText directory gains the touched CTFontManager file in the pinned stack.

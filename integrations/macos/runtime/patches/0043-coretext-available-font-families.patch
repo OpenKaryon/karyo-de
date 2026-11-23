@@ -1,0 +1,52 @@
+Subject: Enumerate installed CoreText font families
+
+Use the existing real font collection and descriptor backend, deduplicating
+nonempty family names and retaining Copy ownership without an AppKit dependency.
+
+--- a/src/external/cocotron/CoreText/CTFontManager.m
++++ b/src/external/cocotron/CoreText/CTFontManager.m
+@@ -1,2 +1,5 @@
+ #import <CoreText/CTFontManager.h>
++#import <CoreText/CTFontCollection.h>
++#import <CoreText/CTFontDescriptor.h>
++#import <CoreFoundation/CFSet.h>
+ 
+@@ -18,4 +21,36 @@
+ {
+-    printf("STUB %s\n", __PRETTY_FUNCTION__);
+-    return nil;
++    CTFontCollectionRef collection = CTFontCollectionCreateFromAvailableFonts(NULL);
++    if (!collection)
++        return NULL;
++    CFArrayRef descriptors = CTFontCollectionCreateMatchingFontDescriptors(collection);
++    CFRelease(collection);
++
++    CFMutableArrayRef names = CFArrayCreateMutable(kCFAllocatorDefault, 0,
++                                                   &kCFTypeArrayCallBacks);
++    CFMutableSetRef seen = CFSetCreateMutable(kCFAllocatorDefault, 0,
++                                              &kCFTypeSetCallBacks);
++    if (!names || !seen) {
++        if (names) CFRelease(names);
++        if (seen) CFRelease(seen);
++        if (descriptors) CFRelease(descriptors);
++        return NULL;
++    }
++    for (CFIndex i = 0; descriptors && i < CFArrayGetCount(descriptors); i++) {
++        CTFontDescriptorRef descriptor = (CTFontDescriptorRef)
++                CFArrayGetValueAtIndex(descriptors, i);
++        CFTypeRef family = CTFontDescriptorCopyAttribute(descriptor,
++                                                         kCTFontFamilyNameAttribute);
++        if (family && CFGetTypeID(family) == CFStringGetTypeID()
++            && CFStringGetLength((CFStringRef) family) > 0
++            && !CFSetContainsValue(seen, family)) {
++            CFSetAddValue(seen, family);
++            CFArrayAppendValue(names, family);
++        }
++        if (family) CFRelease(family);
++    }
++    CFArrayRef result = CFArrayCreateCopy(kCFAllocatorDefault, names);
++    CFRelease(names);
++    CFRelease(seen);
++    if (descriptors) CFRelease(descriptors);
++    return result;
+ }
