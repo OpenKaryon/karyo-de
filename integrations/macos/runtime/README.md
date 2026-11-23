@@ -315,3 +315,27 @@ separate from the next complete Darling build and real Mac runtime acceptance.
 
 Both native source/packaging suites now pass29 cases, including this complete
 small-package control. The next full engine package still needs its own audit.
+
+
+## Separate mixed-format compilation from distribution LTO defaults
+
+The first complete Debian native build now passes compilation, dyld linking,
+installation, the4-ELF/21-bridge dependency and hardening audit, and binary/debug
+packaging. Its package is installed on the native Debian QA guest. The first
+ordinary Mach-O launch still aborts during bootstrap before the probe's main;
+neither the source controls nor successful packaging establishes Mac runtime
+compatibility. That failure is being diagnosed separately.
+
+The first Ubuntu26.04 full build exposes a different packaging issue: native
+dpkg defaults add GCC/ELF LTO flags, including -ffat-lto-objects, to Mach-O
+compilation. Clang21 rejects that flag for x86_64-apple-darwin20. The shared
+rules now select `hardening=+all optimize=-lto` through DEB_BUILD_MAINT_OPTIONS.
+This removes mixed-format LTO without disabling optimization, compiler checks,
+native ELF hardening, stripping, symbol separation or the staged audit.
+
+The regression runs the actual rules' make exports through native dpkg-buildflags
+and compiles both a genuine Mach-O object and a runnable native ELF. Ubuntu's
+unmodified defaults are the paired negative compiler control; the fixed flags
+retain stack protection and format-security checks. All30 source/packaging cases
+pass on both SDKs. A new complete Ubuntu build must still validate the corrected
+package flags against the full target graph and native audit.

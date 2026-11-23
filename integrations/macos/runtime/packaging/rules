@@ -1,5 +1,7 @@
 #!/usr/bin/make -f
 export DH_VERBOSE = 1
+# Stock targets mix native ELF and Mach-O; distro GCC LTO flags are not portable.
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all optimize=-lto
 %:
 	dh $@ --buildsystem=cmake+ninja --builddirectory=obj-karyo
 
