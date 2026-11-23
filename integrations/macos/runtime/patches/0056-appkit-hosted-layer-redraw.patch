@@ -1,0 +1,308 @@
+Subject: Preserve developer-hosted layers and schedule their redraws
+
+Distinguish supplied layers from AppKit backing stores, retire replaced root
+contexts and present coalesced main-thread updates. Preserve the public float
+opacity ABI while keeping the internal CGFloat storage unchanged.
+
+--- a/src/external/cocotron/AppKit/NSView.m
++++ b/src/external/cocotron/AppKit/NSView.m
+@@ -1862,7 +1862,7 @@
+ }
+ 
+ - (void) _createLayerContextIfNeeded {
+-    if ([_superview layer] == nil) {
++    if ([_superview layer] == nil && _layerContext == nil) {
+         _layerContext = [[CALayerContext alloc] initWithFrame: [self frame]];
+         [_layerContext setLayer: _layer];
+         if (_window) {
+@@ -1886,10 +1886,9 @@
+     else {
+         [self _removeLayerFromSuperlayer];
+ 
+-        // A backing layer is removed regardless of whether it was set
+-        // implicitly or explicitly The distinction appears to be based on the
+-        // layers class, not how it was set (host vs. backing)
+-        if ([_layer isKindOfClass: [NSViewBackingLayer class]]) {
++        // Release implicit backing layers, including custom makeBackingLayer
++        // subclasses. A supplied hosting layer remains the developer's choice.
++        if (!_darlingHostsLayer) {
+             [_layer release];
+             _layer = nil;
+         }
+@@ -1927,33 +1926,20 @@
+ }
+ 
+ - (void) setLayer: (CALayer *) value {
+-    if (!NSViewLayersEnabled)
++    if (!NSViewLayersEnabled || value == _layer)
+         return;
+ 
+-    if (value != _layer) {
+-        [_subviews makeObjectsPerformSelector: @selector
+-                   (_removeLayerFromSuperlayer)];
+-
+-        value = [value retain];
+-
+-        if (_layer == nil) {
+-            if (value != nil) {
+-                _layer = value;
+-                [self _addLayerToSuperlayer];
+-            }
+-        } else if (value == nil) {
+-            [self _removeLayerFromSuperlayer];
+-            [_layer release];
+-            _layer = nil;
+-        } else {
+-            [[_superview layer] replaceSublayer: _layer with: value];
+-            [_layer release];
+-            _layer = value;
+-        }
+-
+-        [_subviews
+-                makeObjectsPerformSelector: @selector(_addLayerToSuperlayer)];
+-    }
++    // A supplied layer is owned by the application, unlike makeBackingLayer.
++    // Retire the old root context as well when replacing an attached root.
++    value = [value retain];
++    [_subviews makeObjectsPerformSelector: @selector(_removeLayerFromSuperlayer)];
++    [self _removeLayerFromSuperlayer];
++    [_layer release];
++    _layer = value;
++    _darlingHostsLayer = value != nil;
++    if (_layer != nil)
++        [self _addLayerToSuperlayer];
++    [_subviews makeObjectsPerformSelector: @selector(_addLayerToSuperlayer)];
+ }
+ 
+ - (NSViewLayerContentsPlacement) layerContentsPlacement {
+@@ -2246,7 +2232,7 @@
+     NSGraphicsContext *graphicsContext = [NSGraphicsContext currentContext];
+     CGContextRef context = [graphicsContext graphicsPort];
+ 
+-    if (viewBeingPrinted == nil && _layer != nil) {
++    if (viewBeingPrinted == nil && _layer != nil && !_darlingHostsLayer) {
+         CGImageRef image = CGBitmapContextCreateImage(context);
+         [_layer setContents:(id)image];
+         CGImageRelease(image);
+@@ -2470,9 +2456,10 @@
+     if (NSIsEmptyRect(rect))
+         return;
+ 
+-    BOOL shouldFlush = NO;
+-
+-    if ([self canDraw]) {
++    const BOOL hostedLayer = _darlingHostsLayer && _wantsLayer && _layer != nil;
++    BOOL shouldFlush = hostedLayer && [self canDraw];
++
++    if ([self canDraw] && !hostedLayer) {
+         // This view must be locked/unlocked prior to drawing subviews otherwise
+         // gState changes may affect subviews.
+         [self lockFocus];
+--- a/src/external/cocotron/AppKit/include/AppKit/NSView.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSView.h
+@@ -140,6 +140,7 @@
+ 
+     NSAppearance *_appearance;
+     NSTextInputContext *_darlingInputContext;
++    BOOL _darlingHostsLayer;
+ }
+ 
+ @property(class, readonly) BOOL requiresConstraintBasedLayout;
+--- a/src/external/cocotron/QuartzCore/CALayer.m
++++ b/src/external/cocotron/QuartzCore/CALayer.m
+@@ -69,6 +69,7 @@
+                                 withObject: self];
+     [_sublayers makeObjectsPerformSelector: @selector(_setContext:)
+                                 withObject: _context];
++    [_context setNeedsDisplay];
+ }
+ 
+ - (id<CALayerDelegate>) delegate {
+@@ -102,6 +103,7 @@
+     }
+ 
+     _position = value;
++    [_context setNeedsDisplay];
+ }
+ 
+ - (CGRect) bounds {
+@@ -119,6 +121,7 @@
+     }
+ 
+     _bounds = value;
++    [_context setNeedsDisplay];
+ }
+ 
+ - (CGRect) frame {
+@@ -147,11 +150,11 @@
+     [self setBounds: bounds];
+ }
+ 
+-- (CGFloat) opacity {
++- (float) opacity {
+     return _opacity;
+ }
+ 
+-- (void) setOpacity: (CGFloat) value {
++- (void) setOpacity: (float) value {
+     CAAnimation *animation = [self animationForKey: @"opacity"];
+ 
+     if (animation == nil && ![CATransaction disableActions]) {
+@@ -162,6 +165,7 @@
+     }
+ 
+     _opacity = value;
++    [_context setNeedsDisplay];
+ }
+ 
+ - (BOOL) opaque {
+@@ -181,6 +185,7 @@
+     [_contents release];
+     _contents = value;
+     _contentsUploaded = NO;
++    [_context setNeedsDisplay];
+ }
+ 
+ - (CGFloat) contentsScale { return _contentsScale; }
+@@ -317,10 +322,11 @@
+ 
+ - (void) setNeedsDisplay {
+     _needsDisplay = YES;
++    [_context setNeedsDisplay];
+ }
+ 
+ - (void) setNeedsDisplayInRect: (CGRect) rect {
+-    _needsDisplay = YES;
++    [self setNeedsDisplay];
+ }
+ 
+ - (void) addAnimation: (CAAnimation *) animation forKey: (NSString *) key {
+--- a/src/external/cocotron/QuartzCore/CALayerContext.m
++++ b/src/external/cocotron/QuartzCore/CALayerContext.m
+@@ -1,4 +1,5 @@
+ #import <Foundation/NSString.h>
++#import <Foundation/NSThread.h>
+ #import <QuartzCore/CALayer.h>
+ #import <QuartzCore/CALayerContext.h>
+ #import <QuartzCore/CARenderer.h>
+@@ -36,8 +37,7 @@
+ }
+ 
+ - (void) dealloc {
+-    [_timer invalidate];
+-    [_timer release];
++    [self invalidate];
+     [_layer _setContext: nil];
+     [_renderer release];
+     CGLReleaseContext(_glContext);
+@@ -51,6 +51,7 @@
+ - (void) setFrame: (CGRect) rect {
+     _frame = rect;
+     [_subwindow setFrame: _frame];
++    [self setNeedsDisplay];
+ }
+ 
+ - (void) setLayer: (CALayer *) layer {
+@@ -62,6 +63,7 @@
+ 
+     [_layer _setContext: self];
+     [_renderer setLayer: layer];
++    [self setNeedsDisplay];
+ }
+ 
+ - (void) setSubwindow: (CGSubWindow*) subwindow
+@@ -80,9 +82,45 @@
+     [oldSubwindow release];
+ 
+     [_subwindow setFrame: _frame];
++    [self setNeedsDisplay];
+ }
+ 
+ - (void) invalidate {
++    _invalidated = YES;
++    NSTimer *display = _displayTimer;
++    NSTimer *animation = _timer;
++    _displayTimer = nil;
++    _timer = nil;
++    [display invalidate];
++    [animation invalidate];
++    [display release];
++    [animation release];
++}
++
++- (void) _scheduleDisplay: (id) unused {
++    [self setNeedsDisplay];
++}
++
++- (void) setNeedsDisplay {
++    if (![NSThread isMainThread]) {
++        [self performSelectorOnMainThread: @selector(_scheduleDisplay:)
++                              withObject: nil waitUntilDone: NO];
++        return;
++    }
++    if (_invalidated || _displayTimer || !_layer || !_cglWindow)
++        return;
++    // One coalesced frame also presents non-animated hosting-layer updates.
++    _displayTimer = [[NSTimer scheduledTimerWithTimeInterval: 0
++                target: self selector: @selector(_displayTimerFired:)
++                userInfo: nil repeats: NO] retain];
++}
++
++- (void) _displayTimerFired: (NSTimer *) timer {
++    if (timer != _displayTimer)
++        return;
++    _displayTimer = nil;
++    [timer release];
++    [self timer: nil];
+ }
+ 
+ - (void) assignTextureIdsToLayerTree: (CALayer *) layer {
+@@ -139,15 +177,17 @@
+ }
+ 
+ - (void) timer: (NSTimer *) timer {
++    if (_invalidated || !_layer || !_cglWindow) return;
+     [_renderer beginFrameAtTime: CACurrentMediaTime() timeStamp: NULL];
+ 
+     [self render];
+ 
+     [_renderer endFrame];
++    [self flush];
+ }
+ 
+ - (void) startTimerIfNeeded {
+-    if (_timer == nil)
++    if (!_invalidated && _timer == nil)
+         _timer = [[NSTimer scheduledTimerWithTimeInterval: 1.0 / 60.0
+                                                    target: self
+                                                  selector: @selector(timer:)
+--- a/src/external/cocotron/QuartzCore/include/QuartzCore/CALayer.h
++++ b/src/external/cocotron/QuartzCore/include/QuartzCore/CALayer.h
+@@ -92,7 +92,7 @@
+ @property CGPoint position;
+ @property CGRect bounds;
+ @property CGRect frame;
+-@property CGFloat opacity;
++@property float opacity;
+ @property BOOL opaque;
+ @property(retain) id contents;
+ @property CGFloat contentsScale;
+--- a/src/external/cocotron/QuartzCore/include/QuartzCore/CALayerContext.h
++++ b/src/external/cocotron/QuartzCore/include/QuartzCore/CALayerContext.h
+@@ -15,6 +15,8 @@
+     NSMutableArray *_deleteTextureIds;
+ 
+     NSTimer *_timer;
++    NSTimer *_displayTimer;
++    BOOL _invalidated;
+     CGSubWindow* _subwindow;
+     void* _cglWindow;
+ }
+@@ -28,6 +30,7 @@
+ - (void) setSubwindow: (CGSubWindow*) subwindow;
+ 
+ - (void) invalidate;
++- (void) setNeedsDisplay;
+ 
+ - (void) render;
+ 

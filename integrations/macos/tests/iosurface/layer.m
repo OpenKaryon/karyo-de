@@ -49,10 +49,25 @@ int main(int argc, char **argv)
     [window makeKeyAndOrderFront:nil];
     [NSApp finishLaunching];
     NSView *view = [window contentView];
+    // Layer hosting requires assigning the developer's layer before wantsLayer.
+    // AppKit owns the contents of an automatically created backing layer.
+    CALayer *host = [CALayer layer];
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    [host setFrame:[view bounds]];
+    BOOL opacityDefault = [host opacity] == 1.0f;
+    [host setOpacity:0.75f];
+    BOOL opacityRoundTrip = [host opacity] == 0.75f;
+    [host setOpacity:1.0f];
+    [host setContents:(id)surface];
+    [view setLayer:host];
     [view setWantsLayer:YES];
-    [view layer].contents = (id)surface;
-    BOOL valid = [view layer] != nil && [view layer].contentsScale == 1.0;
-    [view display];
+    [view setNeedsDisplay:NO];
+    [CATransaction commit];
+    BOOL valid = [view layer] == host && [host contentsScale] == 1.0
+        && opacityDefault && opacityRoundTrip;
+    [host setNeedsDisplay];
+    [CATransaction flush];
     valid = phaseReport(argv[1], 1, firstSeed) && valid;
     CFAbsoluteTime begin = CFAbsoluteTimeGetCurrent();
     unsigned phase = 1, iterations = 0;
@@ -65,7 +80,8 @@ int main(int argc, char **argv)
         if (phase == 1 && CFAbsoluteTimeGetCurrent() - begin > 3) {
             valid = fill(surface, 2) && valid;
             // The same retained contents object is updated without reassigning it.
-            [view display];
+            [host setNeedsDisplay];
+            [CATransaction flush];
             phase = 2;
             seedChanged = IOSurfaceGetSeed(surface) != firstSeed;
             valid = seedChanged && phaseReport(argv[1], 2, IOSurfaceGetSeed(surface)) && valid;
@@ -73,9 +89,11 @@ int main(int argc, char **argv)
         [NSApp updateWindows];
         ++iterations;
     }
-    valid = valid && [window isVisible] && phase == 2 && iterations > 0;
+    BOOL preserved = [view layer] == host && [host contents] == (id)surface;
+    valid = valid && [window isVisible] && phase == 2 && iterations > 0 && preserved;
     CFRelease(surface);
     [view setWantsLayer:NO];
+    [view setLayer:nil];
     [window orderOut:nil];
     [window release];
     [objects drain];
@@ -84,8 +102,10 @@ int main(int argc, char **argv)
     if (remaining) CFRelease(remaining);
     valid = valid && released;
     printf("{\"probe\":\"iosurface-layer\",\"passed\":%s,\"phases\":%u,"
-           "\"seedChanged\":%s,\"surfaceReleasedAfterDetach\":%s,\"visualReviewRequired\":true}\n",
-           valid ? "true" : "false", phase, seedChanged ? "true" : "false", released ? "true" : "false");
+           "\"seedChanged\":%s,\"surfaceReleasedAfterDetach\":%s,\"opacityDefault\":%s,"
+           "\"opacityRoundTrip\":%s,\"hostContentsPreserved\":%s,\"visualReviewRequired\":true}\n",
+           valid ? "true" : "false", phase, seedChanged ? "true" : "false", released ? "true" : "false",
+           opacityDefault ? "true" : "false", opacityRoundTrip ? "true" : "false", preserved ? "true" : "false");
     [pool drain];
     return valid ? 0 : 1;
 }

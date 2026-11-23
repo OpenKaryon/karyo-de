@@ -38,25 +38,35 @@ int main(int argc, char **argv)
             if (!bytes) { CFRelease(surface); return 1; }
             for (size_t row = 0; row < 9; ++row) memset(bytes + row * stride, 0x5a, 68);
             uint32_t seed = 0;
-            BOOL valid = IOSurfaceUnlock(surface, 0, &seed) == 0 && seed != 0;
+            BOOL unlocked = IOSurfaceUnlock(surface, 0, &seed) == 0;
+            BOOL valid = unlocked && seed != 0;
             IOSurfaceIncrementUseCount(surface);
             IOSurfaceIncrementUseCount(surface);
             IOSurfaceID identity = IOSurfaceGetID(surface);
-            valid = valid && identity != 0 && IOSurfaceGetUseCount(surface) == 2;
+            int32_t initialCount = IOSurfaceGetUseCount(surface);
+            valid = valid && identity != 0 && initialCount == 2;
             FILE *ready = fopen(argv[2], "w");
             if (!ready) { CFRelease(surface); return 1; }
             fprintf(ready, "{\"id\":%u,\"seed\":%u,\"pid\":%d}\n", identity, seed, getpid());
             fclose(ready);
             CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 25;
             while (access(argv[3], F_OK) != 0 && CFAbsoluteTimeGetCurrent() < deadline) usleep(50000);
-            valid = valid && access(argv[3], F_OK) == 0 && pixelsMatch(surface)
-                && IOSurfaceGetUseCount(surface) == 2;
+            BOOL signaled = access(argv[3], F_OK) == 0;
+            BOOL pixels = pixelsMatch(surface);
+            int32_t afterReaderCount = IOSurfaceGetUseCount(surface);
+            valid = valid && signaled && pixels && afterReaderCount == 2;
             IOSurfaceDecrementUseCount(surface);
             IOSurfaceDecrementUseCount(surface);
-            valid = valid && IOSurfaceGetUseCount(surface) == 0 && !IOSurfaceIsInUse(surface);
+            int32_t finalCount = IOSurfaceGetUseCount(surface);
+            BOOL inUse = IOSurfaceIsInUse(surface);
+            valid = valid && finalCount == 0 && !inUse;
             CFRelease(surface);
-            printf("{\"probe\":\"iosurface-lifecycle\",\"role\":\"owner\",\"passed\":%s,\"id\":%u,\"pid\":%d}\n",
-                   valid ? "true" : "false", identity, getpid());
+            printf("{\"probe\":\"iosurface-lifecycle\",\"role\":\"owner\",\"passed\":%s,\"id\":%u,\"pid\":%d,"
+                   "\"unlocked\":%s,\"seed\":%u,\"initialCount\":%d,\"signaled\":%s,\"pixels\":%s,"
+                   "\"afterReaderCount\":%d,\"finalCount\":%d,\"inUse\":%s}\n",
+                   valid ? "true" : "false", identity, getpid(), unlocked ? "true" : "false", seed,
+                   initialCount, signaled ? "true" : "false", pixels ? "true" : "false",
+                   afterReaderCount, finalCount, inUse ? "true" : "false");
             return valid ? 0 : 1;
         }
         IOSurfaceID identity = (IOSurfaceID)strtoul(argv[2], NULL, 10);

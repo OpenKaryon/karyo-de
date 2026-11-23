@@ -1,0 +1,48 @@
+Subject: Refresh the IOKit caller for object-port messages
+
+Master-port dispatch already captures the current request PID, but object ports
+bypass that wrapper. Route both through the same handler on the main queue so
+cooperating IOSurface clients retain their own per-process mappings and counts.
+
+--- a/src/external/iokitd/src/IOObject.cpp
++++ b/src/external/iokitd/src/IOObject.cpp
+@@ -50,7 +50,8 @@
+ 		throw std::runtime_error("Failed to create dispatch source");
+ 
+ 	dispatch_source_set_event_handler(m_dispatchSource, ^{
+-		dispatch_mig_server(m_dispatchSource, is_iokit_subsystem.maxsize, iokit_server);
++		// Object-port calls must refresh the caller just like master-port calls.
++		dispatch_mig_server(m_dispatchSource, is_iokit_subsystem.maxsize, iokitSaveAuditTrail);
+ 	});
+ 	dispatch_resume(m_dispatchSource);
+ 
+--- a/src/external/iokitd/src/main.mm
++++ b/src/external/iokitd/src/main.mm
+@@ -42,7 +42,6 @@
+ mach_port_t g_masterPort, g_deathPort, g_powerManagementPort;
+ 
+ static void discoverAllDevices();
+-static boolean_t iokitSaveAuditTrail(mach_msg_header_t *message, mach_msg_header_t *reply);
+ 
+ int main(int argc, const char** argv)
+ {
+@@ -133,7 +132,7 @@
+ 	return 0;
+ }
+ 
+-static boolean_t iokitSaveAuditTrail(mach_msg_header_t *message, mach_msg_header_t *reply)
++boolean_t iokitSaveAuditTrail(mach_msg_header_t *message, mach_msg_header_t *reply)
+ {
+ 	const mach_msg_context_trailer_t* trailer = reinterpret_cast<mach_msg_context_trailer_t*>(reinterpret_cast<char*>(message) + message->msgh_size);
+ 	audit_token_to_au32(trailer->msgh_audit, nullptr, nullptr, nullptr, nullptr, nullptr, &g_iokitCurrentCallerPID, nullptr, nullptr);
+--- a/src/external/iokitd/src/iokitd.h
++++ b/src/external/iokitd/src/iokitd.h
+@@ -31,5 +31,8 @@
+ // iokitd calls only - not valid for powerd!
+ extern pid_t g_iokitCurrentCallerPID;
+ 
++// Shared by master and object receive ports on the main dispatch queue.
++boolean_t iokitSaveAuditTrail(mach_msg_header_t *message, mach_msg_header_t *reply);
++
+ #endif
+ 

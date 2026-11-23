@@ -543,3 +543,53 @@ application/framework replacement, security test or shared unit suite was used.
 The complete54 stack also passes source-only preparation on Debian and Ubuntu:
 Git and quilt application/reversal are checked against the pinned source files.
 Unit tests were not executed in that gate. Installed54 acceptance remains open.
+
+## IOKit object-message caller (installed55 acceptance pending)
+
+Installed Ubuntu54 now creates, maps, locks and updates ordinary CPU IOSurfaces.
+In the cooperating owner/reader scenario the reader passes, but after it exits
+the owner's service requests fail: its saved pixels still exist while its
+per-process usage query returns zero. A diagnostic client records initial count2,
+reader completion, failed owner lock and count0, with the shared in-use flag still
+true. This is an ordinary positive lifecycle scenario, not a policy test.
+
+The source routes master-port messages through iokitSaveAuditTrail but dispatches
+object-port messages directly to iokit_server. Therefore an object request can
+reuse the PID left by another client's master-port request. Patch0055 uses the
+same existing caller-capturing handler for both receive paths on the main queue.
+It does not change message formats, surface permissions or process cleanup.
+IOObject.cpp and main.mm compile with Clang19 and21 against their exact678-file
+dependency closure. The complete55 stack also applies and reverses with Git and
+quilt on both native bases in source-only mode. Full installed55 lifecycle
+acceptance is still pending.
+
+The original layer-client black frames are retained as failures. Its diagnostic
+revealed that ordinary view drawing replaced the assigned surface with O2Image
+contents. A valid layer-hosting client and actual pixel review are still needed;
+no UGENE GUI success follows from the CPU buffer result. No security or shared
+unit suites were run.
+
+## Developer-hosted layers and public opacity ABI (installed56 pending)
+
+The valid ordinary hosting diagnostic on installed54 follows Apple's required
+order: assign a developer CALayer before wantsLayer and use Core Animation for
+its contents. Both Debian and Ubuntu initially hold the surface, but subsequent
+NSView drawing replaces it; both expected color frames remain black. Separately,
+the original public SDK declares opacity as float, while Cocotron's CGFloat
+getter/setter use a different Intel64 return/argument ABI. The same diagnostic
+observes zero through that public getter despite the internal default of one.
+
+Patch0056 tracks developer-supplied layers separately from backing layers, keeps
+view rasterization from overwriting them, reuses an existing root context and
+retires it when a supplied root is replaced. Coalesced one-shot main-thread
+frames present non-animated content updates, and invalidation releases both
+pending display and animation timers. The public opacity methods use float;
+internal CGFloat storage and unrelated class layout are retained.
+
+NSView.m, CALayer.m and CALayerContext.m compile with Clang19 and21 using the
+exact828-file dependency closure. The final56-patch stack also applies and
+reverses with Git and quilt on both bases in source-only mode. Five internal AppKit/../AppKit include spellings
+are normalized within that closure; the initial Debian QA extractor refused them
+before compiling, and that failed log remains. This is compiler evidence only:
+actual installed56 colors, redraw, root replacement, release and unchanged UGENE
+GUI acceptance remain pending. No security or shared unit suites were run.

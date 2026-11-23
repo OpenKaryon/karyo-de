@@ -218,6 +218,14 @@
     {
       "file": "0054-iosurface-existing-temporary-directory.patch",
       "sha256": "b1fe192adccc199cd0a66b2dab4f22eee9f4da38f8a41f52f8bd1da601a32756"
+    },
+    {
+      "file": "0055-iokit-object-message-caller.patch",
+      "sha256": "a7355498e1df401519d91b2dd46aba525ca3f12e7b07cbe6b6c3799f686e3a3f"
+    },
+    {
+      "file": "0056-appkit-hosted-layer-redraw.patch",
+      "sha256": "17e3361259bea03b80fb09d548f4f29c2dcbaa3d3c3d7b6813ab05a0098b424c"
     }
   ]
 }
