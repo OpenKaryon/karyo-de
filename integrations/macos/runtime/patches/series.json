@@ -134,6 +134,14 @@
     {
       "file": "0033-mldr-return-to-live-linux-stack.patch",
       "sha256": "6b2a0728caf92663c3decf5aba9c1dc1830ce465f9a14934f9a032547d6c9837"
+    },
+    {
+      "file": "0034-foundation-persist-domain-values.patch",
+      "sha256": "b93ff09dec2a1d89209875a3aa04546c09ad3e644f9c1dac5cdc3da76550b793"
+    },
+    {
+      "file": "0035-appkit-nswindow-restorable-property.patch",
+      "sha256": "a489bff22ff269a3f25acbf1bd220ef336fb630665ec2f5dee6cd2195803cd06"
     }
   ]
 }

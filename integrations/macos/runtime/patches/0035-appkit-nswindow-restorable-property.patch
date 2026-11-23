@@ -1,0 +1,31 @@
+Subject: Expose the shared NSWindow restorable property
+
+Retain explicit overrides and derive the default from the titled style mask,
+matching the NSWindowRestoration SDK contract for this flag.
+
+--- a/src/external/cocotron/AppKit/include/AppKit/NSWindow.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSWindow.h
+@@ -249,2 +249,3 @@
+     BOOL _isAccessible;
++    signed char _restorableState; // Zero selects the default derived from styleMask.
+ }
+@@ -252,2 +253,3 @@
+ @property(class) BOOL allowsAutomaticWindowTabbing;
++@property(getter=isRestorable) BOOL restorable;
+ 
+--- a/src/external/cocotron/AppKit/NSWindow.m
++++ b/src/external/cocotron/AppKit/NSWindow.m
+@@ -1497,2 +1497,13 @@
+ 
++- (BOOL) isRestorable {
++    if (_restorableState != 0) {
++        return _restorableState > 0;
++    }
++    return ([self styleMask] & NSTitledWindowMask) != 0;
++}
++
++- (void) setRestorable: (BOOL) restorable {
++    _restorableState = restorable ? 1 : -1;
++}
++
+ - (BOOL) isVisible {

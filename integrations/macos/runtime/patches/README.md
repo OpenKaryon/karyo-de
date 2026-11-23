@@ -64,3 +64,40 @@ the required Cocoa JSON and visible frame are absent. The ordinary upstream
 uname and echo programs work; defaults writes but its next read fails. That
 separate preference issue remains open. No security or denied-operation tests
 are part of this follow-up.
+
+
+## Persistent Foundation domains across processes
+
+The actual packaged defaults utility writes with status0 but its next process
+cannot read the value, including the supplied OPENSTEP syntax and output format.
+The underlying NSUserDefaults setPersistentDomain implementation clears the suite
+then calls registerDefaults, which creates transient registration values rather
+than persisted application preferences. Patch0034 sets each supplied value on
+that suite before the existing synchronize call. Other domain operations, RPC,
+timers and compiler settings are unchanged; this is a general Foundation fix.
+
+The exact proposed method body was compiled into a standalone Mac subclass for
+a positive functional check without changing the installed framework. Separate
+ordinary Mach-O processes write and read the same UTF-8 preference successfully
+on both real kernels (Debian32, Ubuntu31 runtime). Both reports identify macos/
+x86_64. This validates the proposed body and persistence path; it does not claim
+the installed framework or whole34 runtime passes. The full updated defaults
+utility and graphical applications still require installed-package acceptance.
+No app-specific policy, security suite or deliberately denied case is included.
+
+
+## Shared NSWindow restorable property
+
+The actual Ubuntu32 Qt application independently stops with unrecognized selector
+-[QNSWindow setRestorable:]. Patch0035 adds the public NSWindow restorable property
+and its isRestorable/setRestorable: methods to the shared AppKit class. A zeroed
+private state selects the SDK default (titled windows yes, untitled windows no),
+while explicit assignments retain their chosen boolean value. The declaration
+and default are verified in the existing immutable Mac SDK's
+AppKit/NSWindowRestoration.h through the cross compiler, not inferred from Qt.
+
+This exposes the window flag; it does not implement automatic window/session
+restoration or claim that subsystem works. There is no Qt-specific override or
+per-application configuration. Both files are within the existing pinned Cocotron
+footprint. Source-only application/reversal and complete native build plus real
+Qt/Cocoa/editor windows remain required before installed API acceptance.

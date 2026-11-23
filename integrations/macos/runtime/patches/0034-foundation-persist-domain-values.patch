@@ -1,0 +1,18 @@
+Subject: Store persistent domain values rather than transient registration defaults
+
+Use the suite setter before its existing synchronization so a later process can
+read the values from persistent preferences.
+
+--- a/src/external/foundation/src/NSUserDefaults.m
++++ b/src/external/foundation/src/NSUserDefaults.m
+@@ -476,7 +476,9 @@
+         [defaults removeObjectForKey: key];
+     }
+ 
+-    [defaults registerDefaults: domain];
++    for (id key in domain) {
++        [defaults setObject: [domain objectForKey:key] forKey:key];
++    }
+     [defaults synchronize];
+ 
+     // Post a notification on self.
