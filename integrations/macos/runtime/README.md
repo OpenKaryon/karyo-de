@@ -802,3 +802,91 @@ remain separate. Shared/security policy suites are not executed.
 
 API contract: https://developer.apple.com/documentation/coregraphics/cgcolorspace/copypropertylist()
 Original caller: https://github.com/qt/qtbase/blob/5.15/src/plugins/platforms/cocoa/qiosurfacegraphicsbuffer.mm
+
+
+## Selecting each ordinary IOKit request
+
+Patch0050 corrects the IOSurfaceRoot external-method dispatcher. Its upstream
+function initialized a static method from `methods[index]` once, so a normal
+sequence such as create, lock, lookup and release could keep the first selector.
+The method record is now refreshed on every request, with storage local to the
+current dispatch thread. The returned object is set for the current call.
+
+The pinned IOKit daemon revision is
+`5549ac4cd2db923c256f016a1381b3bfb716730a`. Only its
+`src/IOSurfaceRoot.mm` extends the source footprint. The verifier also checks
+that exact module identity; existing patch identities remain unchanged.
+
+`tests/check_iokit_dispatch.py` compiles the actual dispatcher body and actual
+selector enumeration with stand-in ordinary request handlers, then invokes five
+different requests across two service objects. Both native compilers pass; the same request sequence fails on the original
+dispatcher. The changed component also passes syntax checking with Clang19 and
+Clang21 using the exact generated Debian engine header closure and compiler
+arguments, in separate temporary copies. Each compiler uses its native resource
+headers; the running49 build source is unchanged. This is not full IOKit IPC or
+IOSurface allocation acceptance. The installed49 engine does not contain0050.
+
+Allocation storage, mapping, layout, lock/unlock and layer presentation still
+need their own implementations and actual public-API evidence. A correctly
+selected method alone does not make the existing incomplete handlers work.
+
+
+## Coherent CPU IOSurface buffers (runtime acceptance pending)
+
+Patch0051 replaces the packed-buffer allocation stubs with real IOKit-owned
+CPU storage. The service creates and maps a temporary backing file; each
+framework handle maps the same file at its own process address. The private
+versioned response carries layout, storage identity and allocation size, not a
+foreign pointer to dereference. Caller references and normal process exit keep
+the storage alive until the last handle is released. No display or EGL context
+is required to allocate these CPU pixels.
+
+The common layout functions supply cache-line row alignment and page-aligned
+allocation sizes. Create, ID lookup, map/unmap, lock/unlock seeds and public
+sizes/IDs now have concrete implementations. Per-process usage counts remain
+distinct from the total shared in-use state. Every caller increment/decrement is
+balanced, including normal release and caller exit. Lock/unlock provide CPU
+visibility and modification seeds; they do not claim an exclusive mutex or GPU
+synchronization. The protocol requires a matching service and framework; old
+prefix daemon upgrade behavior is not yet accepted.
+
+Five actual compilation units pass Clang19 and Clang21 syntax checks against
+the exact generated engine header closure. That proof is compilation only.
+The unchanged public pixel-buffer client has not run against an installed51
+engine, so pixel allocation, cross-process lookup and lifecycle are not yet
+accepted. No successful UGENE window or document workflow is claimed.
+
+This implements packed CPU storage, not planar buffers, GPU import, Mach-port
+transfer or cross-process attachments. Attachments currently belong to each
+framework handle; unsupported purgeability returns an error. Device-limit
+queries and layer presentation still need implementation and ordinary runtime
+evidence. In particular, the existing renderer must recognize IOSurface pixels
+rather than treating every layer content object as a CGImage.
+
+Primary contracts: Apple documents [process usage counts](https://developer.apple.com/documentation/iosurface/iosurfacegetusecount(_:))
+and [CPU access boundaries and modification seeds](https://developer.apple.com/documentation/iosurface/iosurfacelock(_:_:_:)).
+
+
+## Presenting packed IOSurface layer contents (runtime acceptance pending)
+
+Patch0052 gives the ordinary QuartzCore renderer distinct CGImage and IOSurface
+upload paths. Packed BGRA/RGBA pixels use their actual row stride and a read-only
+CPU lock. The renderer restores unpack row/alignment/skip state, reads the
+modification seed, and caches an upload only after a successful transfer. It
+reuses unchanged textures and refreshes changed contents or seeds. Actual GL
+texture limits are queried from the current context rather than invented.
+
+CALayer retains and releases contents, supplies the normal contentsScale default,
+and invalidates its upload cache on content/context changes. Layer contexts own
+the deferred texture deletion queue and detach the old layer tree before release.
+The renderer balances its retained root layer; replacing or closing a view can
+therefore release its CPU buffers instead of leaving them retained indefinitely.
+QuartzCore links its IOSurface dependency explicitly. No application/profile or
+original Qt plugin is selected or rewritten.
+
+The three actual changed compilation units pass Clang19 and Clang21 against the
+recorded engine header closure. These are compiler checks, not a visible frame
+or GPU/layer acceptance. The six-file source footprint is explicit; common52
+source application and actual installed buffer/layer tests are still pending.
+Planar formats, other packed formats, GPU import, arbitrary layer transforms and
+cross-process attachments are not established by this CPU upload path.

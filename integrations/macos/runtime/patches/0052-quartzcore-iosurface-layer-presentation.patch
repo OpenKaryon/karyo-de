@@ -1,0 +1,291 @@
+Subject: Present coherent IOSurface pixels through ordinary layers
+
+Upload packed CPU surfaces by their real row stride and modification seed, keeping
+CGImage contents distinct. Invalidate content caches and balance retained layer
+objects and context texture queues. No application names or plugin changes.
+
+--- a/src/external/cocotron/QuartzCore/CALayer.m
++++ b/src/external/cocotron/QuartzCore/CALayer.m
+@@ -45,6 +45,7 @@
+         [_context deleteTextureId: _textureId];
+         [_textureId release];
+         _textureId = nil;
++        _contentsUploaded = NO;
+     }
+ 
+     _context = context;
+@@ -179,6 +180,12 @@
+     value = [value retain];
+     [_contents release];
+     _contents = value;
++    _contentsUploaded = NO;
++}
++
++- (CGFloat) contentsScale { return _contentsScale; }
++- (void) setContentsScale: (CGFloat) scale {
++    if (scale > 0) _contentsScale = scale;
+ }
+ 
+ - (CATransform3D) transform {
+@@ -227,6 +234,9 @@
+     _opacity = 1.0;
+     _opaque = YES;
+     _contents = nil;
++    _contentsScale = 1.0;
++    _contentsUploaded = NO;
++    _contentsSeed = 0;
+     _transform = CATransform3DIdentity;
+     _sublayerTransform = CATransform3DIdentity;
+     _minificationFilter = kCAFilterLinear;
+@@ -236,6 +246,8 @@
+ }
+ 
+ - (void) dealloc {
++    [_contents release];
++    [_textureId release];
+     [_sublayers release];
+     [_animations release];
+     [_minificationFilter release];
+@@ -362,6 +374,14 @@
+     value = [value copy];
+     [_textureId release];
+     _textureId = value;
++    _contentsUploaded = NO;
++}
++
++- (BOOL) _contentsUploaded { return _contentsUploaded; }
++- (uint32_t) _contentsSeed { return _contentsSeed; }
++- (void) _markContentsUploaded: (uint32_t) seed {
++    _contentsSeed = seed;
++    _contentsUploaded = YES;
+ }
+ 
+ @end
+--- a/src/external/cocotron/QuartzCore/CALayerContext.m
++++ b/src/external/cocotron/QuartzCore/CALayerContext.m
+@@ -27,6 +27,7 @@
+               __LINE__);
+ 
+     _frame = rect;
++    _deleteTextureIds = [NSMutableArray new];
+ 
+     _renderer = [[CARenderer rendererWithCGLContext: _glContext
+                                             options: nil] retain];
+@@ -37,11 +38,13 @@
+ - (void) dealloc {
+     [_timer invalidate];
+     [_timer release];
++    [_layer _setContext: nil];
+     [_renderer release];
+     CGLReleaseContext(_glContext);
+     CGLDestroyWindow(_cglWindow);
+     [_subwindow release];
+     [_layer release];
++    [_deleteTextureIds release];
+     [super dealloc];
+ }
+ 
+@@ -51,7 +54,9 @@
+ }
+ 
+ - (void) setLayer: (CALayer *) layer {
++    if (layer == _layer) return;
+     layer = [layer retain];
++    [_layer _setContext: nil];
+     [_layer release];
+     _layer = layer;
+ 
+@@ -151,7 +156,7 @@
+ }
+ 
+ - (void) deleteTextureId: (NSNumber *) textureId {
+-    [_deleteTextureIds addObject: textureId];
++    if (textureId) [_deleteTextureIds addObject: textureId];
+ }
+ 
+ - (void) flush {
+--- a/src/external/cocotron/QuartzCore/CALayerInternal.h
++++ b/src/external/cocotron/QuartzCore/CALayerInternal.h
+@@ -23,4 +23,7 @@
+ - (void) _setContext: (CALayerContext *) context;
+ - (NSNumber *) _textureId;
+ - (void) _setTextureId: (NSNumber *) value;
++- (BOOL) _contentsUploaded;
++- (uint32_t) _contentsSeed;
++- (void) _markContentsUploaded: (uint32_t) seed;
+ @end
+--- a/src/external/cocotron/QuartzCore/CARenderer.m
++++ b/src/external/cocotron/QuartzCore/CARenderer.m
+@@ -1,4 +1,7 @@
+ #import <CoreVideo/CoreVideo.h>
++#import <IOSurface/IOSurface.h>
++#import <IOSurface/IOSurfaceObjC.h>
++#include <limits.h>
+ #import <Onyx2D/O2Surface.h>
+ #import <OpenGL/OpenGL.h>
+ #import <QuartzCore/CAAnimation.h>
+@@ -19,6 +22,11 @@
+ }
+ 
+ @synthesize layer = _rootLayer;
++
++- (void) dealloc {
++    [_rootLayer release];
++    [super dealloc];
++}
+ 
+ - initWithCGLContext: (void *) cglContext options: (NSDictionary *) options {
+     _cglContext = cglContext;
+@@ -220,13 +228,20 @@
+         return GL_LINEAR;
+ }
+ 
+-void CATexImage2DCGImage(CGImageRef image) {
++static BOOL CAUploadCGImage(CGImageRef image) {
++    if (!image) {
++        const unsigned char transparent[4] = {0, 0, 0, 0};
++        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0,
++                     GL_RGBA, GL_UNSIGNED_BYTE, transparent);
++        return glGetError() == GL_NO_ERROR;
++    }
+     size_t imageWidth = CGImageGetWidth(image);
+     size_t imageHeight = CGImageGetHeight(image);
+     CGBitmapInfo bitmapInfo = CGImageGetBitmapInfo(image);
+ 
+     CGDataProviderRef provider = CGImageGetDataProvider(image);
+     CFDataRef data = CGDataProviderCopyData(provider);
++    if (!data) return NO;
+     const uint8_t *pixelBytes = CFDataGetBytePtr(data);
+ 
+     GLenum glFormat = GL_BGRA;
+@@ -272,39 +287,74 @@
+ 
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, imageWidth, imageHeight, 0,
+                  glFormat, glType, pixelBytes);
++    CFRelease(data);
++    return glGetError() == GL_NO_ERROR;
++}
++
++static BOOL CAUploadIOSurface(IOSurfaceRef surface, uint32_t *uploadedSeed) {
++    size_t width = IOSurfaceGetWidth(surface), height = IOSurfaceGetHeight(surface);
++    size_t stride = IOSurfaceGetBytesPerRow(surface);
++    OSType format = IOSurfaceGetPixelFormat(surface);
++    if (!width || !height || width > INT_MAX || height > INT_MAX
++        || IOSurfaceGetBytesPerElement(surface) != 4 || stride % 4
++        || stride / 4 > INT_MAX || (format != 'BGRA' && format != 'RGBA'))
++        return NO;
++    GLint maximum = 0;
++    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maximum);
++    if (width > (size_t)maximum || height > (size_t)maximum) return NO;
++    uint32_t seed = 0;
++    if (IOSurfaceLock(surface, kIOSurfaceLockReadOnly, &seed) != 0) return NO;
++    const void *pixels = IOSurfaceGetBaseAddress(surface);
++    if (!pixels) { IOSurfaceUnlock(surface, kIOSurfaceLockReadOnly, NULL); return NO; }
++    GLint alignment, rowLength, skipRows, skipPixels;
++    glGetIntegerv(GL_UNPACK_ALIGNMENT, &alignment);
++    glGetIntegerv(GL_UNPACK_ROW_LENGTH, &rowLength);
++    glGetIntegerv(GL_UNPACK_SKIP_ROWS, &skipRows);
++    glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &skipPixels);
++    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
++    glPixelStorei(GL_UNPACK_ROW_LENGTH, stride / 4);
++    glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
++    glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
++    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
++                 format == 'BGRA' ? GL_BGRA : GL_RGBA, GL_UNSIGNED_BYTE, pixels);
++    GLenum error = glGetError();
++    glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
++    glPixelStorei(GL_UNPACK_ROW_LENGTH, rowLength);
++    glPixelStorei(GL_UNPACK_SKIP_ROWS, skipRows);
++    glPixelStorei(GL_UNPACK_SKIP_PIXELS, skipPixels);
++    kern_return_t unlocked = IOSurfaceUnlock(surface, kIOSurfaceLockReadOnly, NULL);
++    if (error != GL_NO_ERROR || unlocked != 0) return NO;
++    *uploadedSeed = seed;
++    return YES;
+ }
+ 
+ - (void) _renderLayer: (CALayer *) layer
+                     z: (CGFloat) z
+           currentTime: (CFTimeInterval) currentTime
+ {
+-    NSNumber *textureId = [layer _textureId];
+-    GLuint texture = [textureId unsignedIntValue];
+-    GLboolean loadPixelData = GL_FALSE;
+-
+-    if (texture == 0)
+-        loadPixelData = GL_TRUE;
+-    else {
+-
+-        if (glIsTexture(texture) == GL_FALSE) {
+-            loadPixelData = GL_TRUE;
+-        }
+-        glBindTexture(GL_TEXTURE_2D, texture);
+-    }
+-
++    id contents = layer.contents;
++    BOOL surfaceContents = [contents isKindOfClass: [IOSurface class]];
++    uint32_t seed = surfaceContents ? IOSurfaceGetSeed((IOSurfaceRef)contents) : 0;
++    GLuint texture = [[layer _textureId] unsignedIntValue];
++    BOOL loadPixelData = ![layer _contentsUploaded]
++        || (surfaceContents && seed != [layer _contentsSeed]);
++    if (!texture) {
++        glGenTextures(1, &texture);
++        [layer _setTextureId: [NSNumber numberWithUnsignedInt: texture]];
++        loadPixelData = YES;
++    } else if (!glIsTexture(texture)) {
++        loadPixelData = YES;
++    }
++    glBindTexture(GL_TEXTURE_2D, texture);
+     if (loadPixelData) {
+-        CGImageRef image = (CGImageRef)layer.contents;
+-
+-        CATexImage2DCGImage(image);
+-
+-        GLint minFilter = interpolationFromName(layer.minificationFilter);
+-        GLint magFilter = interpolationFromName(layer.magnificationFilter);
+-
+-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+-
+-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
++        BOOL uploaded = surfaceContents
++            ? CAUploadIOSurface((IOSurfaceRef)contents, &seed)
++            : CAUploadCGImage((CGImageRef)contents);
++        if (uploaded) [layer _markContentsUploaded: seed];
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, interpolationFromName(layer.minificationFilter));
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, interpolationFromName(layer.magnificationFilter));
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+     }
+ 
+     CGPoint anchorPoint =
+--- a/src/external/cocotron/QuartzCore/CMakeLists.txt
++++ b/src/external/cocotron/QuartzCore/CMakeLists.txt
+@@ -100,6 +100,7 @@
+ 		Onyx2D
+ 		OpenGL
+ 		CoreGraphics
++		IOSurface
+ 		Metal_private
+ 		${QUARTZCORE_LINK_INDIUM_PRIVATE}
+ 		cxx
+--- a/src/external/cocotron/QuartzCore/include/QuartzCore/CALayer.h
++++ b/src/external/cocotron/QuartzCore/include/QuartzCore/CALayer.h
+@@ -78,6 +78,9 @@
+     BOOL _needsDisplay;
+     NSMutableDictionary *_animations;
+     NSNumber *_textureId;
++    BOOL _contentsUploaded;
++    uint32_t _contentsSeed;
++    CGFloat _contentsScale;
+ }
+ 
+ + layer;
+@@ -92,6 +95,7 @@
+ @property CGFloat opacity;
+ @property BOOL opaque;
+ @property(retain) id contents;
++@property CGFloat contentsScale;
+ //@property CATransform3D transform;
+ @property CATransform3D sublayerTransform;
+ 

@@ -1,0 +1,18 @@
+Subject: Select the current IOKit external method on every request
+
+Keep returned method storage per dispatch thread, but refresh its selector and
+object for each request. A static initializer captured only the first selector.
+
+--- a/src/external/iokitd/src/IOSurfaceRoot.mm
++++ b/src/external/iokitd/src/IOSurfaceRoot.mm
+@@ -144,7 +144,9 @@
+ 	if (index >= sizeof(methods)/sizeof(IOExternalMethod))
+ 		return nullptr;
+ 
+-	static IOExternalMethod method = methods[index];
++	// Each request selects its own method; the first selector must not be cached.
++	static thread_local IOExternalMethod method;
++	method = methods[index];
+ 	method.object = this;
+ 	return &method;
+ }

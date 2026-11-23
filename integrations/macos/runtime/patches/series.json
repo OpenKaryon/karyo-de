@@ -198,6 +198,18 @@
     {
       "file": "0049-coregraphics-optional-color-space-metadata.patch",
       "sha256": "6f2e5161aa6995c3a35556204c59518be3b67a87669cad89b64e3ae0f32f1a1e"
+    },
+    {
+      "file": "0050-iokit-select-method-for-each-request.patch",
+      "sha256": "6854bf2038c2c673e9beb40c405c51a97b4c266ce17c63aae93cd03ce2bf534c"
+    },
+    {
+      "file": "0051-iosurface-coherent-cpu-buffers.patch",
+      "sha256": "2f426183a4ca40eaae7bee5c93e6db39406020ef793056c4e96c06a124b412cb"
+    },
+    {
+      "file": "0052-quartzcore-iosurface-layer-presentation.patch",
+      "sha256": "8e302dd56e888219fef2cdd198260cefe3cf17e9376fc59d0e755f757df48d6b"
     }
   ]
 }

@@ -1,0 +1,975 @@
+Subject: Allocate coherent packed IOSurface storage through the IOKit service
+
+Use a shared CPU backing file and an explicit private response instead of empty
+allocation stubs. Map each handle in its own process and balance caller references,
+usage counts and seeds. This does not implement GPU imports or layer presentation.
+
+--- a/src/external/iokitd/src/IOSurface.h
++++ b/src/external/iokitd/src/IOSurface.h
+@@ -33,11 +33,19 @@
+ 	void incrementUseCount();
+ 	void decrementUseCount();
+ 	void lock();
+-	void unlock();
++	void unlock(bool readOnly);
++    uint32_t seed() const;
++    void acquireReference();
++    void dropReference();
++    const _IOSurfaceObjectRetval& description() const { return m_description; }
+ private:
+ 	IOSurfaceID m_id;
+ 	bool m_global = false;
+-	int m_useCount = 0;
++	unsigned m_references = 1;
++    _IOSurfaceObjectRetval m_description = {};
++    void* m_mapping = nullptr;
++    size_t m_mappingSize = 0;
++    _IOSurfaceSharedState* m_state = nullptr;
+ };
+ 
+ #endif
+--- a/src/external/iokitd/src/IOSurface.mm
++++ b/src/external/iokitd/src/IOSurface.mm
+@@ -19,116 +19,119 @@
+ #include "IOSurface.h"
+ #include "IOSurfaceRoot.h"
+ #include <IOSurface/IOSurfaceRef.h>
+-#include <Foundation/NSNumber.h>
+-#include <CoreVideo/CVPixelBuffer.h>
++#include <Foundation/Foundation.h>
++#include <sys/mman.h>
++#include <unistd.h>
++#include <stdint.h>
++#include <cstdio>
++#include <cstring>
+ #include <stdexcept>
+ 
+-IOSurface::IOSurface(IOSurfaceID myId, NSDictionary* properties)
+-: m_id(myId)
++static uint64_t property(NSDictionary* values, CFStringRef key)
+ {
+-	// kIOSurfaceWidth
+-	// kIOSurfaceHeight
+-	// kIOSurfaceBytesPerElement
+-	// kIOSurfacePixelFormat
+-	// kIOSurfaceBytesPerRow
+-	// kIOSurfaceIsGlobal
++    id value = values[(NSString*)key];
++    if (!value) return 0;
++    if (![value isKindOfClass:[NSNumber class]] || [value longLongValue] < 0)
++        throw std::runtime_error("IOSurface requires nonnegative numeric dimensions");
++    return [value unsignedLongLongValue];
++}
+ 
+-	int width = -1, height = -1;
+-	if (id numWidth = properties[(NSString*)kIOSurfaceWidth])
+-	{
+-		if ([numWidth isKindOfClass: [NSNumber class]])
+-			width = [numWidth intValue];
+-	}
+-	if (id numHeight = properties[(NSString*)kIOSurfaceHeight])
+-	{
+-		if ([numHeight isKindOfClass: [NSNumber class]])
+-			height = [numHeight intValue];
+-	}
++static uint64_t aligned(uint64_t value, uint64_t alignment)
++{
++    uint64_t remainder = value % alignment;
++    if (!remainder) return value;
++    uint64_t extra = alignment - remainder;
++    if (value > UINT64_MAX - extra)
++        throw std::runtime_error("IOSurface allocation size is not representable");
++    return value + extra;
++}
+ 
+-	if (width <= 0 || height <= 0)
+-		throw std::runtime_error("Missing or invalid kIOSurfaceWidth/kIOSurfaceHeight");
++IOSurface::IOSurface(IOSurfaceID myId, NSDictionary* values) : m_id(myId)
++{
++    uint64_t width = property(values, kIOSurfaceWidth);
++    uint64_t height = property(values, kIOSurfaceHeight);
++    uint64_t element = property(values, kIOSurfaceBytesPerElement);
++    uint64_t format = property(values, kIOSurfacePixelFormat);
++    if (!width || !height || width > UINT32_MAX || height > UINT32_MAX
++        || !element || element > 16 || !format || format > UINT32_MAX)
++        throw std::runtime_error("Unsupported IOSurface packed pixel layout");
++    if (values[(NSString*)kIOSurfacePlaneInfo])
++        throw std::runtime_error("Planar IOSurface storage is not implemented");
++    uint64_t stride = property(values, kIOSurfaceBytesPerRow);
++    if (!stride) stride = aligned(width * element, 64);
++    if (stride < width * element || stride > UINT32_MAX || stride % 64)
++        throw std::runtime_error("IOSurface row stride does not match its layout");
++    uint64_t offset = property(values, kIOSurfaceOffset);
++    uint64_t required = stride * height;
++    if (offset > UINT64_MAX - required)
++        throw std::runtime_error("IOSurface offset exceeds its addressable storage");
++    required += offset;
++    const size_t page = getpagesize();
++    uint64_t allocation = property(values, kIOSurfaceAllocSize);
++    if (!allocation) allocation = aligned(required, page);
++    if (allocation < required || allocation > SIZE_MAX - page
++        || allocation > INT64_MAX - page)
++        throw std::runtime_error("IOSurface allocation cannot hold its pixels");
+ 
+-	uint32_t pixelFormat = 0;
+-	if (id numPixelFormat = properties[(NSString*)kIOSurfacePixelFormat])
+-	{
+-		if ([numPixelFormat isKindOfClass: [NSNumber class]])
+-			pixelFormat = [numPixelFormat unsignedIntegerValue];
+-	}
+-
+-	if (pixelFormat == 0)
+-		throw std::runtime_error("Missing kIOSurfacePixelFormat");
+-
+-#if 0
+-	// Determine a good storage format.
+-	// Note that the storage format doesn't need to precisely match what ends up being stored,
+-	// only the bit count must match.
+-	// TODO: YUV definitely needs additional attention once CoreVideo is implemented.
+-	GLenum internalFormat = GL_RGBA8UI;
+-	switch (pixelFormat)
+-	{
+-		case kCVPixelFormatType_422YpCbCr8FullRange:
+-		case kCVPixelFormatType_422YpCbCr8:
+-		case kCVPixelFormatType_422YpCbCr16:
+-		case kCVPixelFormatType_422YpCbCr10:
+-		case kCVPixelFormatType_422YpCbCr8_yuvs:
+-		case kCVPixelFormatType_422YpCbCr8FullRange:
+-		case kCVPixelFormatType_16BE555:
+-		case kCVPixelFormatType_16LE555:
+-		case kCVPixelFormatType_16LE5551:
+-		case kCVPixelFormatType_16BE565:
+-		case kCVPixelFormatType_16LE565:
+-		case kCVPixelFormatType_16Gray:
+-			internalFormat = GL_RG8; // 16 bits
+-			break;
+-		case kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange:
+-		case kCVPixelFormatType_444YpCbCr10BiPlanarFullRange:
+-		case kCVPixelFormatType_24RGB:
+-		case kCVPixelFormatType_24BGR:
+-			internalFormat = GL_RGB8UI; // 24 bits
+-			break;
+-		case kCVPixelFormatType_32BGRA:
+-		case kCVPixelFormatType_32ABGR:
+-		case kCVPixelFormatType_32RGBA:
+-			internalFormat = GL_RGBA8UI; // 32 bits
+-			break;
+-	}
+-
+-	if (properties[kIOSurfaceIsGlobal] == kCFBooleanTrue)
+-		m_global = true;
+-	
+-	unsigned int texture;
+-	glGenTextures(1, &texture);
+-	glBindTexture(GL_TEXTURE_2D, texture);
+-	glTexStorage2D(GL_TEXTURE_2D, 1, internalFormat, width, height);
+-#endif
++    char path[] = "/private/var/tmp/darling-iosurface-XXXXXX";
++    int fd = mkstemp(path);
++    if (fd < 0) throw std::runtime_error("Cannot create IOSurface backing storage");
++    size_t length = page + allocation;
++    if (ftruncate(fd, length) != 0) {
++        close(fd); unlink(path);
++        throw std::runtime_error("Cannot size IOSurface backing storage");
++    }
++    void* mapping = mmap(nullptr, length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
++    close(fd);
++    if (mapping == MAP_FAILED) {
++        unlink(path);
++        throw std::runtime_error("Cannot map IOSurface backing storage");
++    }
++    m_mapping = mapping;
++    m_mappingSize = length;
++    m_state = static_cast<_IOSurfaceSharedState*>(mapping);
++    m_description.protocolVersion = 1;
++    m_description.sharedHeaderBytes = page;
++    m_description.allocationSize = allocation;
++    std::strcpy(m_description.backingPath, path);
++    m_description.surfaceID = myId;
++    m_description.pixelFormat = format;
++    m_description.planeCount = 1;
++    m_description.planes[0] = {offset, uint32_t(element), uint32_t(width),
++                             uint32_t(height), uint32_t(stride)};
++    m_global = values[(NSString*)kIOSurfaceIsGlobal] == (id)kCFBooleanTrue;
+ }
+ 
+ IOSurface::~IOSurface()
+ {
+-	IOSurfaceRoot::instance()->surfaceDestroyed(m_id);
++    if (m_mapping) munmap(m_mapping, m_mappingSize);
++    if (m_description.backingPath[0]) unlink(m_description.backingPath);
++    IOSurfaceRoot::instance()->surfaceDestroyed(m_id);
+ }
+ 
+-const char* IOSurface::className() const
+-{
+-	return "IOSurface";
+-}
+-
++const char* IOSurface::className() const { return "IOSurface"; }
+ void IOSurface::incrementUseCount()
+ {
+-	m_useCount++;
++    __atomic_add_fetch(&m_state->useCount, 1, __ATOMIC_RELEASE);
+ }
+-
+ void IOSurface::decrementUseCount()
+ {
+-	m_useCount--;
++    __atomic_sub_fetch(&m_state->useCount, 1, __ATOMIC_RELEASE);
+ }
+-
+-void IOSurface::lock()
++void IOSurface::lock() { __atomic_thread_fence(__ATOMIC_ACQUIRE); }
++void IOSurface::unlock(bool readOnly)
+ {
+-
++    __atomic_thread_fence(__ATOMIC_RELEASE);
++    if (!readOnly) __atomic_add_fetch(&m_state->seed, 1, __ATOMIC_RELEASE);
+ }
+-
+-void IOSurface::unlock()
++uint32_t IOSurface::seed() const
+ {
+-
++    return __atomic_load_n(&m_state->seed, __ATOMIC_ACQUIRE);
+ }
++void IOSurface::acquireReference() { ++m_references; retain(); }
++void IOSurface::dropReference()
++{
++    // Stop ID lookup before the asynchronous no-senders destruction arrives.
++    if (--m_references == 0) IOSurfaceRoot::instance()->surfaceDestroyed(m_id);
++    release();
++}
+--- a/src/external/iokitd/src/IOSurfaceRoot.h
++++ b/src/external/iokitd/src/IOSurfaceRoot.h
+@@ -28,20 +28,6 @@
+ #include <stdint.h>
+ #include <dispatch/dispatch.h>
+ 
+-// Try to get the right (generic) type definitions.
+-// In particular, we really want EGLNativeDisplayType to be void *,
+-// not int as it is if __APPLE__ is defined.
+-#undef APPLE
+-#undef __APPLE__
+-
+-#define __unix__
+-#define EGL_NO_X11
+-
+-#include <EGL/egl.h>
+-
+-#define APPLE
+-#define __APPLE__
+-
+ class IOSurface;
+ 
+ class IOSurfaceRoot : public IOUserClient
+@@ -63,6 +49,7 @@
+ 	IOReturn lookupById(IOSurfaceID surfaceID, void* outputData, IOByteCount* outputCount);
+ 	IOReturn incrementSurfaceUseCount(IOSurfaceID surfaceID);
+ 	IOReturn decrementSurfaceUseCount(IOSurfaceID surfaceID);
++    IOReturn processUseCount(IOSurfaceID surfaceID, uint64_t* count);
+ 	IOReturn lookupByMachPort(mach_port_t remoteMachPort, void* outputData, IOByteCount* outputCount);
+ 	IOReturn getSurfaceMachPort(IOSurfaceID surfaceID, mach_port_t* remoteMachPort);
+ 
+@@ -70,14 +57,13 @@
+ 	void callerDied(pid_t pid);
+ protected:
+ 	void surfaceDestroyed(IOSurfaceID myId);
+-	EGLDisplay display() { return m_display; }
+-	bool hasDisplay() const { return m_display != EGL_NO_DISPLAY; }
+ private:
+ 	struct SurfaceMapping
+ 	{
+ 		uint64_t memoryAddress;
+ 		// incrementSurfaceUseCount / decrementSurfaceUseCount
+ 		uint32_t useCount = 0;
++        uint32_t references = 0;
+ 	};
+ 	struct RegisteredProcess
+ 	{
+@@ -90,7 +76,6 @@
+ 	std::unordered_map<IOSurfaceID, IOSurface*> m_surfaces;
+ 	IOSurfaceID m_nextSurfaceID = 1;
+ 
+-	EGLDisplay m_display;
+ 
+ 	friend class IOSurface;
+ };
+--- a/src/external/iokitd/src/IOSurfaceRoot.mm
++++ b/src/external/iokitd/src/IOSurfaceRoot.mm
+@@ -20,38 +20,14 @@
+ #import <Foundation/NSString.h>
+ #include "iokitd.h"
+ #include "IOSurface.h"
+-#include "IODisplayConnectX11.h"
+ #include <IOKit/IOCFUnserialize.h>
+ #include <stdexcept>
+ #include <iostream>
+-
+-IOSurfaceRoot::IOSurfaceRoot()
+-{
+-	m_display = eglGetDisplay(IODisplayConnectX11::getDisplay());
+-
+-    if (m_display == EGL_NO_DISPLAY)
+-        return;
+-
+-	EGLConfig config;
+-	int num_config;
+-
+-	EGLint const attribute_list[] = {
+-		EGL_RED_SIZE, 1,
+-		EGL_GREEN_SIZE, 1,
+-		EGL_BLUE_SIZE, 1,
+-		EGL_NONE
+-	};
+-
+-    eglInitialize(m_display, NULL, NULL);
+-    eglChooseConfig(m_display, attribute_list, &config, 1, &num_config);
+-
+-    eglBindAPI(EGL_OPENGL_API);
+-}
+-
+-IOSurfaceRoot::~IOSurfaceRoot()
+-{
+-	eglTerminate(m_display);
+-}
++#include <cstring>
++#include <memory>
++
++IOSurfaceRoot::IOSurfaceRoot() {}
++IOSurfaceRoot::~IOSurfaceRoot() {}
+ 
+ IOSurfaceRoot* IOSurfaceRoot::instance()
+ {
+@@ -99,13 +75,13 @@
+ 			.func = IOMethod(&IOSurfaceRoot::lockSurface),
+ 			.flags = kIOUCStructIStructO,
+ 			.count0 = 8,
+-			.count1 = 0,
++			.count1 = sizeof(uint32_t),
+ 		},
+ 		[kIOSurfaceMethodUnlock] = {
+ 			.func = IOMethod(&IOSurfaceRoot::unlockSurface),
+ 			.flags = kIOUCStructIStructO,
+ 			.count0 = 8,
+-			.count1 = 0,
++			.count1 = sizeof(uint32_t),
+ 		},
+ 		[kIOSurfaceMethodLookupByID] = {
+ 			.func = IOMethod(&IOSurfaceRoot::lookupById),
+@@ -125,6 +101,12 @@
+ 			.count0 = 1,
+ 			.count1 = 0,
+ 		},
++        [kIOSurfaceMethodGetUseCount] = {
++            .func = IOMethod(&IOSurfaceRoot::processUseCount),
++            .flags = kIOUCScalarIScalarO,
++            .count0 = 1,
++            .count1 = 1,
++        },
+ 		[kIOSurfaceMethodCreateByMachPort] = {
+ 			.func = IOMethod(&IOSurfaceRoot::lookupByMachPort),
+ 			.flags = kIOUCScalarIStructO,
+@@ -153,68 +135,117 @@
+ 
+ IOReturn IOSurfaceRoot::createSurface(const void* inputData, void* outputData, IOByteCount inputCount, IOByteCount* outputCount)
+ {
+-	if (!hasDisplay())
+-		return KERN_FAILURE;
+-		
+-	CFStringRef errorString;
+-	CFTypeRef cf = IOCFUnserializeBinary(static_cast<const char*>(inputData), inputCount, nullptr, 0, &errorString);
+-
+-	if (!cf)
+-	{
+-		CFShow(errorString);
+-		CFRelease(errorString);
+-		return KERN_INVALID_ARGUMENT;
+-	}
+-	if (CFGetTypeID(cf) != CFDictionaryGetTypeID())
+-	{
+-		CFRelease(cf);
+-		return KERN_INVALID_ARGUMENT;
+-	}
+-
+-	IOReturn ret = KERN_SUCCESS;
+-	
+-	try
+-	{
+-		IOSurface* surface = new IOSurface(m_nextSurfaceID++, (NSDictionary*) cf);
+-	}
+-	catch (const std::exception& e)
+-	{
+-		std::cerr << "Error in IOSurfaceRoot::createSurface(): " << e.what() << std::endl;
+-		ret = KERN_INVALID_ARGUMENT;
+-	}
+-
+-	CFRelease(cf);
+-	return ret;
+-}
+-
+-IOReturn IOSurfaceRoot::releaseSurface(IOSurfaceID surfaceID)
+-{
+-	return KERN_NOT_SUPPORTED;
+-}
+-
+-IOReturn IOSurfaceRoot::lockSurface(const _IOSurfaceLockUnlock* inputData, void* outputData, IOByteCount inputCount, IOByteCount* outputCount)
+-{
+-	return KERN_NOT_SUPPORTED;
+-}
+-
+-IOReturn IOSurfaceRoot::unlockSurface(const _IOSurfaceLockUnlock* inputData, void* outputData, IOByteCount inputCount, IOByteCount* outputCount)
+-{
+-	return KERN_NOT_SUPPORTED;
+-}
+-
+-IOReturn IOSurfaceRoot::lookupById(IOSurfaceID surfaceID, void* outputData, IOByteCount* outputCount)
+-{
+-	return KERN_NOT_SUPPORTED;
+-}
+-
+-IOReturn IOSurfaceRoot::incrementSurfaceUseCount(IOSurfaceID surfaceID)
+-{
+-	return KERN_NOT_SUPPORTED;
+-}
+-
+-IOReturn IOSurfaceRoot::decrementSurfaceUseCount(IOSurfaceID surfaceID)
+-{
+-	return KERN_NOT_SUPPORTED;
++    if (*outputCount < sizeof(_IOSurfaceObjectRetval)) return KERN_NO_SPACE;
++    CFStringRef error = nullptr;
++    CFTypeRef values = IOCFUnserializeBinary(static_cast<const char*>(inputData), inputCount, nullptr, 0, &error);
++    if (!values) {
++        if (error) CFRelease(error);
++        return KERN_INVALID_ARGUMENT;
++    }
++    if (CFGetTypeID(values) != CFDictionaryGetTypeID()) {
++        CFRelease(values); return KERN_INVALID_ARGUMENT;
++    }
++    IOReturn result = KERN_SUCCESS;
++    try {
++        while (!m_nextSurfaceID || m_surfaces.count(m_nextSurfaceID)) ++m_nextSurfaceID;
++        const IOSurfaceID id = m_nextSurfaceID++;
++        std::unique_ptr<IOSurface> surface(new IOSurface(id, (NSDictionary*)values));
++        m_surfaces.emplace(id, surface.get());
++        auto& mapping = m_processes.at(g_iokitCurrentCallerPID).surfaces[id];
++        mapping.references = 1;
++        std::memcpy(outputData, &surface->description(), sizeof(_IOSurfaceObjectRetval));
++        *outputCount = sizeof(_IOSurfaceObjectRetval);
++        surface.release();
++    } catch (const std::exception& e) {
++        std::cerr << "IOSurface allocation: " << e.what() << std::endl;
++        result = KERN_INVALID_ARGUMENT;
++    }
++    CFRelease(values);
++    return result;
++}
++
++IOReturn IOSurfaceRoot::releaseSurface(IOSurfaceID id)
++{
++    auto& mappings = m_processes.at(g_iokitCurrentCallerPID).surfaces;
++    auto entry = mappings.find(id);
++    auto surface = m_surfaces.find(id);
++    if (entry == mappings.end() || surface == m_surfaces.end()) return KERN_INVALID_ARGUMENT;
++    IOSurface* object = surface->second;
++    if (--entry->second.references == 0) {
++        while (entry->second.useCount) {
++            object->decrementUseCount(); --entry->second.useCount;
++        }
++        mappings.erase(entry);
++    }
++    object->dropReference();
++    return KERN_SUCCESS;
++}
++
++IOReturn IOSurfaceRoot::lockSurface(const _IOSurfaceLockUnlock* input, void* output, IOByteCount inputCount, IOByteCount* outputCount)
++{
++    if (inputCount != sizeof(*input) || *outputCount < sizeof(uint32_t)) return KERN_INVALID_ARGUMENT;
++    auto& mappings = m_processes.at(g_iokitCurrentCallerPID).surfaces;
++    auto surface = m_surfaces.find(input->surfaceID);
++    if (!mappings.count(input->surfaceID) || surface == m_surfaces.end()) return KERN_INVALID_ARGUMENT;
++    surface->second->lock();
++    uint32_t seed = surface->second->seed();
++    std::memcpy(output, &seed, sizeof(seed)); *outputCount = sizeof(seed);
++    return KERN_SUCCESS;
++}
++
++IOReturn IOSurfaceRoot::unlockSurface(const _IOSurfaceLockUnlock* input, void* output, IOByteCount inputCount, IOByteCount* outputCount)
++{
++    if (inputCount != sizeof(*input) || *outputCount < sizeof(uint32_t)) return KERN_INVALID_ARGUMENT;
++    auto& mappings = m_processes.at(g_iokitCurrentCallerPID).surfaces;
++    auto surface = m_surfaces.find(input->surfaceID);
++    if (!mappings.count(input->surfaceID) || surface == m_surfaces.end()) return KERN_INVALID_ARGUMENT;
++    surface->second->unlock((input->options & kIOSurfaceLockReadOnly) != 0);
++    uint32_t seed = surface->second->seed();
++    std::memcpy(output, &seed, sizeof(seed)); *outputCount = sizeof(seed);
++    return KERN_SUCCESS;
++}
++
++IOReturn IOSurfaceRoot::lookupById(IOSurfaceID id, void* output, IOByteCount* outputCount)
++{
++    if (*outputCount < sizeof(_IOSurfaceObjectRetval)) return KERN_NO_SPACE;
++    auto entry = m_surfaces.find(id);
++    if (entry == m_surfaces.end()) return KERN_INVALID_ARGUMENT;
++    auto& mappings = m_processes.at(g_iokitCurrentCallerPID).surfaces;
++    IOSurface* surface = entry->second;
++    if (!mappings.count(id) && !surface->isGlobal()) return KERN_INVALID_ARGUMENT;
++    auto& mapping = mappings[id];
++    surface->acquireReference(); ++mapping.references;
++    std::memcpy(output, &surface->description(), sizeof(_IOSurfaceObjectRetval));
++    *outputCount = sizeof(_IOSurfaceObjectRetval);
++    return KERN_SUCCESS;
++}
++
++IOReturn IOSurfaceRoot::incrementSurfaceUseCount(IOSurfaceID id)
++{
++    auto& mappings = m_processes.at(g_iokitCurrentCallerPID).surfaces;
++    auto entry = mappings.find(id); auto surface = m_surfaces.find(id);
++    if (entry == mappings.end() || surface == m_surfaces.end()) return KERN_INVALID_ARGUMENT;
++    surface->second->incrementUseCount(); ++entry->second.useCount;
++    return KERN_SUCCESS;
++}
++
++IOReturn IOSurfaceRoot::decrementSurfaceUseCount(IOSurfaceID id)
++{
++    auto& mappings = m_processes.at(g_iokitCurrentCallerPID).surfaces;
++    auto entry = mappings.find(id); auto surface = m_surfaces.find(id);
++    if (entry == mappings.end() || surface == m_surfaces.end() || !entry->second.useCount)
++        return KERN_INVALID_ARGUMENT;
++    surface->second->decrementUseCount(); --entry->second.useCount;
++    return KERN_SUCCESS;
++}
++
++IOReturn IOSurfaceRoot::processUseCount(IOSurfaceID id, uint64_t* count)
++{
++    auto& mappings = m_processes.at(g_iokitCurrentCallerPID).surfaces;
++    auto entry = mappings.find(id);
++    if (entry == mappings.end()) return KERN_INVALID_ARGUMENT;
++    *count = entry->second.useCount;
++    return KERN_SUCCESS;
+ }
+ 
+ IOReturn IOSurfaceRoot::lookupByMachPort(mach_port_t remoteMachPort, void* outputData, IOByteCount* outputCount)
+@@ -267,7 +298,10 @@
+ 			mapping.useCount--;
+ 		}
+ 
+-		itSurface->second->release();
++        IOSurface* object = itSurface->second;
++        while (mapping.references) {
++            object->dropReference(); --mapping.references;
++        }
+ 	}
+ 
+ 	m_processes.erase(it);
+--- a/src/frameworks/IOSurface/include/IOSurface/IOSurfacePriv.h
++++ b/src/frameworks/IOSurface/include/IOSurface/IOSurfacePriv.h
+@@ -49,6 +49,7 @@
+ 	kIOSurfaceMethodIncrementUseCount = 14,
+ 	// in: IOSurfaceID
+ 	kIOSurfaceMethodDecrementUseCount = 15,
++    kIOSurfaceMethodGetUseCount = 16,
+ 	// in: mach_port_t as a plain value
+ 	// out: _IOSurfaceObjectRetval
+ 	kIOSurfaceMethodCreateByMachPort = 34,
+@@ -67,8 +68,18 @@
+ 	uint32_t bytesPerRow;
+ };
+ 
++struct _IOSurfaceSharedState
++{
++    uint32_t seed;
++    uint32_t useCount;
++};
++
+ struct _IOSurfaceObjectRetval
+ {
++    uint32_t protocolVersion;
++    uint32_t sharedHeaderBytes;
++    uint64_t allocationSize;
++    char backingPath[128];
+ 	IOSurfaceID surfaceID;
+ 	uint32_t pixelFormat;
+ 	
+--- a/src/frameworks/IOSurface/include/IOSurface/IOSurfaceObjC.h
++++ b/src/frameworks/IOSurface/include/IOSurface/IOSurfaceObjC.h
+@@ -48,6 +48,7 @@
+ - (kern_return_t)unlockWithOptions:(IOSurfaceLockOptions)options seed:(nullable uint32_t *)seed;
+ 
+ 
++@property (readonly) IOSurfaceID surfaceID;
+ @property (readonly) NSInteger allocationSize;
+ 
+ @property (readonly) NSInteger width;
+--- a/src/frameworks/IOSurface/src/IOSurfaceObjC.m
++++ b/src/frameworks/IOSurface/src/IOSurfaceObjC.m
+@@ -23,13 +23,30 @@
+ #import <Foundation/Foundation.h>
+ #import <IOKit/IOCFSerialize.h>
+ #include <stdatomic.h>
++#include <sys/mman.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <string.h>
++#include <pthread.h>
+ 
+ static io_service_t g_surfaceService;
++
++static void releaseSurfaceReference(IOSurfaceID surfaceID)
++{
++    uint64_t scalar = surfaceID;
++    IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodRelease, &scalar, 1, NULL, 0, NULL, 0, NULL, 0);
++}
++
+ 
+ typedef struct
+ {
+ 	struct _IOSurfaceObjectRetval* surface;
+ 	_Atomic int32_t localUseCount;
++    pthread_mutex_t usageLock;
++    void* mapping;
++    size_t mappingSize;
++    struct _IOSurfaceSharedState* shared;
++    NSMutableDictionary* attachments;
+ } ImplData;
+ 
+ @implementation IOSurface
+@@ -51,14 +68,39 @@
+ 
+ - (nullable instancetype)initWithResponse:(const void*)bytes length:(size_t)length
+ {
+-	ImplData* idata = (ImplData*) malloc(sizeof(ImplData));
+-	idata->surface = malloc(length);
+-	memcpy(idata->surface, bytes, length);
+-
+-	idata->localUseCount = 0;
+-	self->_impl = idata;
+-
+-	return self;
++    if (length != sizeof(struct _IOSurfaceObjectRetval)) { [self release]; return nil; }
++    const struct _IOSurfaceObjectRetval* description = bytes;
++    if (description->protocolVersion != 1 || description->planeCount != 1
++        || description->sharedHeaderBytes < sizeof(struct _IOSurfaceSharedState)
++        || description->allocationSize > SIZE_MAX - description->sharedHeaderBytes
++        || !memchr(description->backingPath, 0, sizeof(description->backingPath))) {
++        [self release]; return nil;
++    }
++    size_t size = description->allocationSize + description->sharedHeaderBytes;
++    int fd = open(description->backingPath, O_RDWR);
++    void* mapping = fd < 0 ? MAP_FAILED : mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
++    if (fd >= 0) close(fd);
++    if (mapping == MAP_FAILED) {
++        uint64_t scalar = description->surfaceID;
++        IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodRelease, &scalar, 1, NULL, 0, NULL, 0, NULL, 0);
++        [self release]; return nil;
++    }
++    ImplData* data = calloc(1, sizeof(ImplData));
++    if (!data) { munmap(mapping, size); releaseSurfaceReference(description->surfaceID); [self release]; return nil; }
++    data->surface = malloc(length);
++    if (!data->surface) { free(data); munmap(mapping, size); releaseSurfaceReference(description->surfaceID); [self release]; return nil; }
++    memcpy(data->surface, bytes, length);
++    data->surface->address = (uintptr_t)mapping + description->sharedHeaderBytes;
++    data->mapping = mapping; data->mappingSize = size;
++    data->shared = mapping;
++    atomic_init(&data->localUseCount, 0);
++    if (pthread_mutex_init(&data->usageLock, NULL) != 0) {
++        free(data->surface); free(data); munmap(mapping, size);
++        releaseSurfaceReference(description->surfaceID); [self release]; return nil;
++    }
++    data->attachments = [NSMutableDictionary new];
++    self->_impl = data;
++    return self;
+ }
+ 
+ - (nullable instancetype)initWithProperties:(NSDictionary <IOSurfacePropertyKey, id> *)properties
+@@ -99,22 +141,50 @@
+ 	return [self initWithResponse: responseBuffer length: responseLength];
+ }
+ 
+-- (void) dealloc
+-{
+-	ImplData* data = (ImplData*) _impl;
+-	if (data != NULL)
+-	{
+-		if (data->surface != NULL)
+-		{
+-			IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodRelease, NULL, 0, &data->surface->surfaceID, 1, NULL, 0, NULL, 0);
+-
+-			free(data->surface);
+-		}
+-
+-		free(data);
+-	}
+-	[super dealloc];
+-}
++- (void)dealloc
++{
++    ImplData* data = self->_impl;
++    if (data) {
++        uint64_t scalar = data->surface->surfaceID;
++        for (int32_t count = atomic_load(&data->localUseCount); count > 0; --count)
++            IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodDecrementUseCount, &scalar, 1, NULL, 0, NULL, 0, NULL, 0);
++        pthread_mutex_destroy(&data->usageLock);
++        [data->attachments release];
++        munmap(data->mapping, data->mappingSize);
++        IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodRelease, &scalar, 1, NULL, 0, NULL, 0, NULL, 0);
++        free(data->surface); free(data);
++    }
++    [super dealloc];
++}
++
++- (nullable instancetype)initWithMachPort:(mach_port_t)port
++{
++    // The CPU transport does not yet transfer Mach send rights between clients.
++    [self release]; return nil;
++}
++
++- (IOSurfaceID)surfaceID { return ((ImplData*)_impl)->surface->surfaceID; }
++- (NSInteger)allocationSize { return ((ImplData*)_impl)->surface->allocationSize; }
++- (uint32_t)seed { return __atomic_load_n(&((ImplData*)_impl)->shared->seed, __ATOMIC_ACQUIRE); }
++- (int32_t)_darlingGlobalUseCount { return __atomic_load_n(&((ImplData*)_impl)->shared->useCount, __ATOMIC_ACQUIRE); }
++- (BOOL)isInUse { return [self _darlingGlobalUseCount] != 0; }
++- (BOOL)allowsPixelSizeCasting { return NO; }
++- (kern_return_t)setPurgeable:(IOSurfacePurgeabilityState)newState oldState:(IOSurfacePurgeabilityState*)oldState
++{
++    return KERN_NOT_SUPPORTED;
++}
++
++- (void)setAttachment:(id)value forKey:(NSString*)key
++{
++    ImplData* data = _impl;
++    if (value) [data->attachments setObject:value forKey:key];
++    else [data->attachments removeObjectForKey:key];
++}
++- (id)attachmentForKey:(NSString*)key { return [((ImplData*)_impl)->attachments objectForKey:key]; }
++- (void)removeAttachmentForKey:(NSString*)key { [((ImplData*)_impl)->attachments removeObjectForKey:key]; }
++- (void)setAllAttachments:(NSDictionary*)values { [((ImplData*)_impl)->attachments addEntriesFromDictionary:values]; }
++- (NSDictionary*)allAttachments { return [[((ImplData*)_impl)->attachments copy] autorelease]; }
++- (void)removeAllAttachments { [((ImplData*)_impl)->attachments removeAllObjects]; }
+ 
+ - (NSUInteger) hash
+ {
+@@ -178,12 +248,12 @@
+ 
+ - (NSUInteger) planeCount
+ {
+-	return ((ImplData*) _impl)->surface->planeCount;
++	return 0;
+ }
+ 
+ - (NSInteger)widthOfPlaneAtIndex:(NSUInteger)planeIndex
+ {
+-	if (planeIndex >= [self planeCount])
++	if (planeIndex >= ((ImplData*)_impl)->surface->planeCount)
+ 		return 0;
+ 
+ 	ImplData* data = (ImplData*) _impl;
+@@ -192,7 +262,7 @@
+ 
+ - (NSInteger)heightOfPlaneAtIndex:(NSUInteger)planeIndex
+ {
+-	if (planeIndex >= [self planeCount])
++	if (planeIndex >= ((ImplData*)_impl)->surface->planeCount)
+ 		return 0;
+ 
+ 	ImplData* data = (ImplData*) _impl;
+@@ -201,7 +271,7 @@
+ 
+ - (NSInteger)bytesPerRowOfPlaneAtIndex:(NSUInteger)planeIndex
+ {
+-	if (planeIndex >= [self planeCount])
++	if (planeIndex >= ((ImplData*)_impl)->surface->planeCount)
+ 		return 0;
+ 
+ 	ImplData* data = (ImplData*) _impl;
+@@ -210,7 +280,7 @@
+ 
+ - (NSInteger)bytesPerElementOfPlaneAtIndex:(NSUInteger)planeIndex
+ {
+-	if (planeIndex >= [self planeCount])
++	if (planeIndex >= ((ImplData*)_impl)->surface->planeCount)
+ 		return 0;
+ 
+ 	ImplData* data = (ImplData*) _impl;
+@@ -229,7 +299,7 @@
+ 
+ - (void *)baseAddressOfPlaneAtIndex:(NSUInteger)planeIndex
+ {
+-	if (planeIndex >= [self planeCount])
++	if (planeIndex >= ((ImplData*)_impl)->surface->planeCount)
+ 		return NULL;
+ 
+ 	ImplData* data = (ImplData*) _impl;
+@@ -238,28 +308,33 @@
+ 
+ - (void)incrementUseCount
+ {
+-	ImplData* data = (ImplData*) _impl;
+-	if ((data->localUseCount++) == 0)
+-	{
+-		uint64_t scalar = data->surface->surfaceID;
+-		IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodIncrementUseCount, &scalar, 1, NULL, 0, NULL, 0, NULL, 0);
+-	}
++    ImplData* data = _impl;
++    uint64_t scalar = data->surface->surfaceID;
++    pthread_mutex_lock(&data->usageLock);
++    kern_return_t result = IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodIncrementUseCount, &scalar, 1, NULL, 0, NULL, 0, NULL, 0);
++    if (result == KERN_SUCCESS) atomic_fetch_add(&data->localUseCount, 1);
++    pthread_mutex_unlock(&data->usageLock);
+ }
+ 
+ - (void)decrementUseCount
+ {
+-	ImplData* data = (ImplData*) _impl;
+-	if (--data->localUseCount == 0)
+-	{
+-		uint64_t scalar = data->surface->surfaceID;
+-		IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodDecrementUseCount, &scalar, 1, NULL, 0, NULL, 0, NULL, 0);
+-	}
+-}
+-
+-- (int32_t) localUseCount
+-{
+-	ImplData* data = (ImplData*) _impl;
+-	return data->localUseCount;
++    ImplData* data = _impl;
++    uint64_t scalar = data->surface->surfaceID;
++    pthread_mutex_lock(&data->usageLock);
++    if (atomic_load(&data->localUseCount) > 0) {
++        kern_return_t result = IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodDecrementUseCount, &scalar, 1, NULL, 0, NULL, 0, NULL, 0);
++        if (result == KERN_SUCCESS) atomic_fetch_sub(&data->localUseCount, 1);
++    }
++    pthread_mutex_unlock(&data->usageLock);
++}
++
++- (int32_t)localUseCount
++{
++    ImplData* data = _impl;
++    uint64_t scalar = data->surface->surfaceID, count = 0;
++    uint32_t outputCount = 1;
++    kern_return_t result = IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodGetUseCount, &scalar, 1, NULL, 0, &count, &outputCount, NULL, 0);
++    return result == KERN_SUCCESS ? (int32_t)count : 0;
+ }
+ 
+ - (kern_return_t)lockWithOptions:(IOSurfaceLockOptions)options seed:(nullable uint32_t *)seed
+@@ -269,7 +344,11 @@
+ 		.surfaceID = data->surface->surfaceID,
+ 		.options = options,
+ 	};
+-	return IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodLock, NULL, 0, &args, sizeof(args), NULL, 0, NULL, 0);
++	uint32_t resultSeed = 0;
++    size_t size = sizeof(resultSeed);
++    kern_return_t result = IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodLock, NULL, 0, &args, sizeof(args), NULL, 0, &resultSeed, &size);
++    if (result == KERN_SUCCESS && seed) *seed = resultSeed;
++    return result;
+ }
+ 
+ - (kern_return_t)unlockWithOptions:(IOSurfaceLockOptions)options seed:(nullable uint32_t *)seed
+@@ -279,7 +358,11 @@
+ 		.surfaceID = data->surface->surfaceID,
+ 		.options = options,
+ 	};
+-	return IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodUnlock, NULL, 0, &args, sizeof(args), NULL, 0, NULL, 0);
++	uint32_t resultSeed = 0;
++    size_t size = sizeof(resultSeed);
++    kern_return_t result = IOConnectCallMethod(g_surfaceService, kIOSurfaceMethodUnlock, NULL, 0, &args, sizeof(args), NULL, 0, &resultSeed, &size);
++    if (result == KERN_SUCCESS && seed) *seed = resultSeed;
++    return result;
+ }
+ 
+ - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector {
+--- a/src/frameworks/IOSurface/src/api.m
++++ b/src/frameworks/IOSurface/src/api.m
+@@ -19,6 +19,32 @@
+ 
+ #import <IOSurface/IOSurface.h>
+ #import <IOSurface/IOSurfaceObjC.h>
++#include <unistd.h>
++#include <stdint.h>
++
++
++IOSurfaceRef IOSurfaceLookup(IOSurfaceID id)
++{
++    return (IOSurfaceRef)[[IOSurface alloc] initWithSurfaceID:id];
++}
++IOSurfaceID IOSurfaceGetID(IOSurfaceRef surface) { return [(IOSurface*)surface surfaceID]; }
++size_t IOSurfaceGetAllocSize(IOSurfaceRef surface) { return [(IOSurface*)surface allocationSize]; }
++
++size_t IOSurfaceGetPropertyAlignment(CFStringRef key)
++{
++    if (CFEqual(key, kIOSurfaceBytesPerRow) || CFEqual(key, kIOSurfacePlaneBytesPerRow)) return 64;
++    if (CFEqual(key, kIOSurfaceAllocSize) || CFEqual(key, kIOSurfaceOffset)
++        || CFEqual(key, kIOSurfacePlaneOffset) || CFEqual(key, kIOSurfacePlaneBase)) return getpagesize();
++    return 1;
++}
++size_t IOSurfaceAlignProperty(CFStringRef key, size_t value)
++{
++    size_t alignment = IOSurfaceGetPropertyAlignment(key);
++    size_t remainder = value % alignment;
++    if (!remainder) return value;
++    size_t extra = alignment - remainder;
++    return value > SIZE_MAX - extra ? 0 : value + extra;
++}
+ 
+ CFTypeID IOSurfaceGetTypeID(void)
+ {
+@@ -198,13 +224,13 @@
+ 
+ size_t IOSurfaceGetElementWidth(IOSurfaceRef buffer)
+ {
+-	return [(IOSurface*)buffer widthOfPlaneAtIndex: 0];
++	return [(IOSurface*)buffer elementWidth];
+ }
+ 
+ 
+ size_t IOSurfaceGetElementHeight(IOSurfaceRef buffer)
+ {
+-	return [(IOSurface*)buffer heightOfPlaneAtIndex: 0];
++	return [(IOSurface*)buffer elementHeight];
+ }
+ 
+ Boolean IOSurfaceIsInUse(IOSurfaceRef buffer)
+--- a/src/frameworks/IOSurface/src/stubs.m
++++ b/src/frameworks/IOSurface/src/stubs.m
+@@ -31,22 +31,10 @@
+ }
+ 
+ 
+-IOSurfaceRef _Nullable IOSurfaceLookup(IOSurfaceID csid){
+-    if (verbose) printf("STUB: %s called\n", __FUNCTION__);
+-    return 0;
+-}
+ 
+ 
+-IOSurfaceID IOSurfaceGetID(IOSurfaceRef buffer){
+-    if (verbose) printf("STUB: %s called\n", __FUNCTION__);
+-    return 0;
+-}
+ 
+ 
+-size_t IOSurfaceGetAllocSize(IOSurfaceRef buffer){
+-    if (verbose) printf("STUB: %s called\n", __FUNCTION__);
+-    return 0;
+-}
+ 
+ 
+ 
+@@ -104,17 +92,9 @@
+     return 0;
+ }
+ 
+-size_t IOSurfaceGetPropertyAlignment(CFStringRef property){
+-    if (verbose) printf("STUB: %s called\n", __FUNCTION__);
+-    return 0;
+-}
+ 
+ 
+ 
+-size_t IOSurfaceAlignProperty(CFStringRef property, size_t value){
+-    if (verbose) printf("STUB: %s called\n", __FUNCTION__);
+-    return 0;
+-}
+ 
+ 
+ 

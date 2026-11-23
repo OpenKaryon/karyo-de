@@ -12,7 +12,7 @@ import sys
 import tarfile
 import tempfile
 
-from patch_policy import DARLING_REVISION, COCOTRON_REVISION, OBJC_REVISION, FOUNDATION_REVISION, COREFOUNDATION_REVISION, RUBY_REVISION, SCREEN_REVISION, UNWIND_REVISION, LIBSYSTEM_REVISION, DYLD_REVISION, MAX_FILE_BYTES, EXPECTED_PATCH_COUNT, parse_paths
+from patch_policy import IOKITD_REVISION, DARLING_REVISION, COCOTRON_REVISION, OBJC_REVISION, FOUNDATION_REVISION, COREFOUNDATION_REVISION, RUBY_REVISION, SCREEN_REVISION, UNWIND_REVISION, LIBSYSTEM_REVISION, DYLD_REVISION, MAX_FILE_BYTES, EXPECTED_PATCH_COUNT, parse_paths
 from prepare_swift import digest, matches
 
 
@@ -109,6 +109,10 @@ def verify(snapshot, recipe, output):
     if (len(dyld) != 1 or dyld[0].get("revision") != DYLD_REVISION
             or dyld[0].get("url") != "https://github.com/darlinghq/darling-dyld.git"):
         raise ValueError("Pinned dyld source snapshot required")
+    iokitd = [m for m in manifest.get("modules", []) if m.get("path", "").rstrip("/") == "src/external/iokitd"]
+    if (len(iokitd) != 1 or iokitd[0].get("revision") != IOKITD_REVISION
+            or iokitd[0].get("url") != "https://github.com/darlinghq/darling-iokitd.git"):
+        raise ValueError("Pinned IOKit daemon source snapshot required")
     artifact = manifest.get("archive", {})
     if (artifact.get("file") != "source.tar.gz" or type(artifact.get("bytes")) is not int
             or not isinstance(artifact.get("sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", artifact["sha256"])):
@@ -120,7 +124,7 @@ def verify(snapshot, recipe, output):
     originals = {}
     report = {"schema": 1, "kind": "darling-patch-stack", "status": "pending",
               "source": manifest["source"], "cocotron_revision": COCOTRON_REVISION, "objc_revision": OBJC_REVISION,
-              "corefoundation_revision": COREFOUNDATION_REVISION,
+              "corefoundation_revision": COREFOUNDATION_REVISION, "iokitd_revision": IOKITD_REVISION,
               "snapshot_manifest_sha256": digest(snapshot / "manifest.json"), "archive": artifact,
               "checker_sha256": digest(Path(__file__)), "policy_sha256": digest(Path(__file__).with_name("patch_policy.py")),
               "patches": [{k: v for k, v in p.items() if k != "data"} for p in patches],
