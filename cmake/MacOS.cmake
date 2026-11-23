@@ -8,6 +8,7 @@ install(FILES "${macos_source}/../../LICENSE" "${macos_source}/README.md"
 if(BUILD_TESTING)
     find_package(Python3 3.10 REQUIRED COMPONENTS Interpreter)
     add_test(NAME macos-launch-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover -s ${macos_source}/tests -v)
+    add_test(NAME macos-process-streams COMMAND ${Python3_EXECUTABLE} -B ${macos_source}/tests/test_process_streams.py -v)
     add_test(NAME macos-swift-source-inputs COMMAND ${Python3_EXECUTABLE} -m unittest discover -s ${macos_source}/runtime/tests -v)
     set_tests_properties(macos-swift-source-inputs PROPERTIES ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
     set_tests_properties(macos-launch-policy PROPERTIES ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")

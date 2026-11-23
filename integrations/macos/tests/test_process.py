@@ -25,7 +25,7 @@ class Process(ProfileFixture, unittest.TestCase):
 
     def run_plan(self,plan):
         output=io.BytesIO()
-        with contextlib.redirect_stderr(io.StringIO()):code=process.wait_launch(plan,output)
+        with contextlib.redirect_stderr(io.StringIO()):code=process.wait_launch(plan,output,io.BytesIO())
         return code,output.getvalue()
 
     def test_literal_argv_diagnostics_and_status(self):
@@ -69,7 +69,7 @@ class Process(ProfileFixture, unittest.TestCase):
     def test_exec_error_has_a_private_log(self):
         plan=self.plan(environment={});plan=replace(plan,argv=[str(self.folder/'missing')])
         with contextlib.redirect_stderr(io.StringIO()),self.assertRaisesRegex(LaunchError,'Не удалось запустить Darling'):
-            process.wait_launch(plan,io.BytesIO())
+            process.wait_launch(plan,io.BytesIO(),io.BytesIO())
         self.assertIn('Darling launch error:',plan.log.read_text())
 
     def test_signal_exit_maps_to_shell_status(self):

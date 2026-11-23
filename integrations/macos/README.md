@@ -39,12 +39,19 @@ separate engine's own privilege bootstrap; it does not install a privileged
 wrapper. Existing NoNewPrivs policy is never disabled. The engine package owns
 its setuid/helper audit and is not supplied or proven by wrapper policy tests.
 
-The CLI streams actual output and preserves child exit status. A persistent
-server holding stdout cannot keep a completed application wrapper blocked; live
+The CLI preserves separate application stdout and diagnostic stderr while
+recording both streams in the launch log, without filtering engine diagnostics.
+It preserves child exit status. A persistent
+server holding either pipe cannot keep a completed application wrapper blocked; live
 applications do not acquire a timeout from that bounded post-exit drain. Logs
 are exclusive0600 files. Runtime installation or exit0 never establishes GUI
 or arbitrary application compatibility. Shared Qt picker/MIME and native engine
 packaging/actual runtime acceptance are later pieces of this migration.
+
+The separate `macos-process-streams` CTest entry runs only five ordinary Linux
+subprocess scenarios: separate streams/status, one-sided EOF, simultaneous pipe
+draining, quiet live children and inherited daemon pipes. It does not invoke the
+shared policy suite or establish Mach-O application compatibility.
 
 
 The wrapper suite now has35 cases, passing without skips as ordinary UID1001 on native
