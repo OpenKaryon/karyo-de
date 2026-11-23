@@ -1,0 +1,43 @@
+Subject: Preserve shared system catalog colors across plugin initialization
+
+Keep System catalog proxies resident when temporary autorelease pools drain,
+while leaving custom catalog colors and explicit fallback colors unchanged.
+
+--- a/src/external/cocotron/AppKit/NSColor.subproj/NSColor_catalog.m
++++ b/src/external/cocotron/AppKit/NSColor.subproj/NSColor_catalog.m
+@@ -21,6 +21,7 @@
+ #import <AppKit/NSColor_catalog.h>
+ #import <AppKit/NSDisplay.h>
+ #import <AppKit/NSGraphics.h>
++#import <Foundation/NSDictionary.h>
+ 
+ @interface NSColor (NSAppKitPrivate)
+ - (CGColorRef) CGColorRef;
+@@ -75,6 +76,27 @@
+ + (NSColor *) colorWithCatalogName: (NSColorListName) catalogName
+                          colorName: (NSColorName) colorName
+ {
++    // System colors are shared proxies. Keep them alive when a plugin's
++    // temporary autorelease pool is drained after static palette setup.
++    if ([catalogName isEqualToString: @"System"] && colorName != nil) {
++        static NSMutableDictionary *systemColors = nil;
++        @synchronized([NSColor_catalog class]) {
++            if (systemColors == nil)
++                systemColors = [[NSMutableDictionary alloc] init];
++            NSColor *result = [systemColors objectForKey: colorName];
++            if (result == nil) {
++                result = [[[self alloc]
++                        initWithCatalogName: catalogName
++                                  colorName: colorName
++                                      color: [[NSDisplay currentDisplay]
++                                                     colorWithName: colorName]]
++                        autorelease];
++                if (result != nil)
++                    [systemColors setObject: result forKey: colorName];
++            }
++            return result;
++        }
++    }
+     return [[[self alloc]
+             initWithCatalogName: catalogName
+                       colorName: colorName

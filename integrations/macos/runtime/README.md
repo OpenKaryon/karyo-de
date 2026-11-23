@@ -697,3 +697,37 @@ https://raw.githubusercontent.com/qt/qtbase/5.15/src/platformsupport/fontdatabas
 The public CoreText reference documents font/size/matrix state changes:
 https://developer.apple.com/documentation/coretext/ctfontdrawglyphs(_:_:_:_:_:)
 Full modern CoreText positioning semantics are not inferred from one client.
+
+
+## Shared system-color lifetime during dynamic Qt initialization
+
+An unchanged UGENE53.1 Intel Mac bundle fails during initialization of its
+bundled Qt5.15.10 platform plugin. With its own crash handler temporarily
+disabled for diagnosis, an NSException identifies an O2Color receiver where
+an NSColor is required. This diagnostic option is not a product setting.
+
+A separate minimal client of the identical original Qt frameworks reproduces
+the failure. A local method tracer shows valid system catalog colors during
+initial palette construction, then a stale controlTextColor backing object
+whose storage has been reused by a CFString. Its stack leads through
+qt_mac_toQColor and QApplicationPrivate::initializeWidgetPalettesFromTheme.
+Ordinary palette access and even before-main initialization pass separately;
+those narrower checks do not cover plugin autorelease-pool cleanup.
+
+Patch0046 retains shared System catalog proxies in a synchronized class cache.
+The custom-catalog path and explicit fallback-color factory remain unchanged.
+The existing proxy owns its concrete backing color; no raw CGColor is treated
+as an NSColor. There is no Qt fork, UGENE name check or per-application policy.
+General dynamic appearance/color-management support is not inferred from this
+lifetime fix; the current X11 backend still supplies its existing system colors.
+
+An executable-only proposed factory cache lets that real dynamic Qt5.15.10
+client construct QApplication and QLabel and exit0 on both installed45 bases.
+This is prototype evidence, not installed46 acceptance or UGENE GUI acceptance.
+Both source checks, complete native46 builds and the original unchanged external
+application's displayed UI remain required.
+Shared policy/security suites are not executed as part of this work.
+
+Primary client implementation consulted; no Qt code is copied into this patch:
+https://raw.githubusercontent.com/qt/qtbase/5.15/src/plugins/platforms/cocoa/qcocoatheme.mm
+https://raw.githubusercontent.com/qt/qtbase/5.15/src/gui/painting/qcoregraphics.mm
