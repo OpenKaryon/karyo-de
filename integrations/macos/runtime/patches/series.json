@@ -130,6 +130,10 @@
     {
       "file": "0032-libm-keep-scalar-calls-out-of-abi-helper-recursion.patch",
       "sha256": "dcdebca5a3d46c954ead998074cb45d3617072266320ac229357ab6ccee027d2"
+    },
+    {
+      "file": "0033-mldr-return-to-live-linux-stack.patch",
+      "sha256": "6b2a0728caf92663c3decf5aba9c1dc1830ce465f9a14934f9a032547d6c9837"
     }
   ]
 }
