@@ -84,13 +84,19 @@ def observe_gui(title, output, kind, stop, observation):
             window=windows[0]
             info=subprocess.check_output(['xwininfo','-id',window],text=True,timeout=2)
             if 'Map State: IsViewable' not in info:continue
-            def number(label):
-                match=re.search(r'^\s*'+re.escape(label)+r':\s*(-?\d+)\s*$',info,re.MULTILINE)
-                if match is None:raise ValueError('Missing actual window geometry: '+label)
-                return int(match.group(1))
-            x,y,width,height=(number(label) for label in ('Absolute upper-left X','Absolute upper-left Y','Width','Height'))
-            if x<0 or y<0 or width<=0 or height<=0:raise ValueError('Application frame is outside the native output')
+            def geometry(details):
+                values=[]
+                for label in ('Absolute upper-left X','Absolute upper-left Y','Width','Height'):
+                    match=re.search(r'^\s*'+re.escape(label)+r':\s*(-?\d+)\s*$',details,re.MULTILINE)
+                    if match is None:raise ValueError('Missing actual window geometry: '+label)
+                    values.append(int(match.group(1)))
+                return values
             if stop.wait(.6):return
+            info=subprocess.check_output(['xwininfo','-id',window],text=True,timeout=2)
+            if 'Map State: IsViewable' not in info:continue
+            before=geometry(info)
+            x,y,width,height=before
+            if x<0 or y<0 or width<=0 or height<=0:raise ValueError('Application frame is outside the native output')
             png=output/(kind+'-visible.png')
             subprocess.run(['grim',str(png)],
                            env=environment,capture_output=True,check=True,timeout=3)
@@ -98,8 +104,12 @@ def observe_gui(title, output, kind, stop, observation):
             frame_width,frame_height=int.from_bytes(header[16:20],'big'),int.from_bytes(header[20:24],'big')
             if header[:8]!=b'\x89PNG\r\n\x1a\n' or frame_width<=0 or frame_height<=0:
                 raise ValueError('Missing actual whole-desktop PNG dimensions')
+            info=subprocess.check_output(['xwininfo','-id',window],text=True,timeout=2)
+            if 'Map State: IsViewable' not in info or geometry(info)!=before:
+                observation['moving_frame_retries']=observation.get('moving_frame_retries',0)+1
+                continue
             observation.update(captured=True,title=title,expected_title=title,observed_title=None if observation.get('title_missing') else title,title_verified=not observation.get('title_missing',False),window=window,geometry=[x,y,width,height],
-                               png=str(png),sha256=digest(png),capture_scope='whole-desktop',frame_dimensions=[frame_width,frame_height],visual_review_pending=True)
+                               geometry_stable_across_capture=True,png=str(png),sha256=digest(png),capture_scope='whole-desktop',frame_dimensions=[frame_width,frame_height],visual_review_pending=True)
             return
     except (OSError,ValueError,subprocess.SubprocessError) as error:
         observation.update(captured=False,error=str(error))
