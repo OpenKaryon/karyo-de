@@ -359,3 +359,25 @@ complete native source-stack and installed checks remain required.
 API contract consulted:
 https://developer.apple.com/documentation/appkit/nswindow/tabbingmode-swift.property
 https://raw.githubusercontent.com/qt/qtbase/5.15/src/plugins/platforms/cocoa/qcocoawindow.mm
+
+
+## Optional menu-item view ownership
+
+Qt's ordinary menu initialization clears NSMenuItem.view with nil; the original
+UGENE currently fails because the selector is absent. Patch0048 adds the public
+property, default nil storage, retain-before-release assignment, copy ownership
+and deallocation. This fixes clearing and lifetime bookkeeping, not custom view
+layout/event delivery or keyed archiving. Those broader presentation/serialization
+capabilities remain explicit follow-up work; nil requests keep standard menus.
+
+A temporary subclass implementing the same ownership rules passes default nil,
+caller-release retention, self-assignment, copied ownership, clearing and exact
+final release on both native45 bases. The unchanged UGENE's common diagnostic
+prototype records only nil view assignments and reaches startup plugin loading,
+then still exits1 without a captured window. Neither observation is full original
+application or installed48 acceptance. No product application-name check exists.
+
+Only the pinned menu-item implementation and public header extend the exact
+source footprint. Both files apply and reverse against their pristine module
+objects locally; full48 Git/zero-fuzz quilt and native installed checks remain.
+The shared policy/security unit suite is not executed by these checks.

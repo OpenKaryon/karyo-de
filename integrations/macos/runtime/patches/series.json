@@ -190,6 +190,10 @@
     {
       "file": "0047-appkit-window-preference-properties.patch",
       "sha256": "be75596c2edb2c4e3e7d9b23b278a52ebf081295d925460b266499c12dc6ab7a"
+    },
+    {
+      "file": "0048-appkit-menu-item-view-ownership.patch",
+      "sha256": "66e781f238e5fc19f604c04189cfa03be340d1cc7ab1c9fa160b304278019edf"
     }
   ]
 }

@@ -1,0 +1,59 @@
+Subject: Preserve optional NSMenuItem view ownership
+
+Support ordinary clearing and ownership of the optional view property, including
+copied ownership and destruction. Embedded custom-view rendering and archive support remain
+separate backend work, not supplied by this storage change.
+
+--- a/src/external/cocotron/AppKit/NSMenu.subproj/NSMenuItem.m
++++ b/src/external/cocotron/AppKit/NSMenu.subproj/NSMenuItem.m
+@@ -148,6 +148,7 @@
+     [_offStateImage release];
+     [_representedObject release];
+     [_identifier release];
++    [_view release];
+     [super dealloc];
+ }
+ 
+@@ -164,7 +165,18 @@
+     copy->_mixedStateImage = [_mixedStateImage retain];
+     copy->_offStateImage = [_offStateImage retain];
+     copy->_representedObject = [_representedObject retain];
++    copy->_view = [_view retain];
+     return copy;
++}
++
++- (NSView *) view {
++    return _view;
++}
++
++- (void) setView: (NSView *) view {
++    [view retain];
++    [_view release];
++    _view = view;
+ }
+ 
+ - (NSMenu *) menu {
+--- a/src/external/cocotron/AppKit/include/AppKit/NSMenuItem.h
++++ b/src/external/cocotron/AppKit/include/AppKit/NSMenuItem.h
+@@ -22,7 +22,7 @@
+ #import <Foundation/NSObject.h>
+ #import <AppKit/NSUserInterfaceItemIdentification.h>
+ 
+-@class NSMenu, NSImage, NSAttributedString;
++@class NSMenu, NSImage, NSAttributedString, NSView;
+ 
+ @interface NSMenuItem : NSObject <NSCopying, NSValidatedUserInterfaceItem, NSUserInterfaceItemIdentification> {
+     NSMenu *_menu;
+@@ -48,10 +48,12 @@
+     BOOL _alternate;
+     BOOL _allowsKeyEquivalentWhenHidden;
+     NSUserInterfaceItemIdentifier _identifier;
++    NSView *_view;
+ }
+ 
+ @property(getter=isAlternate) BOOL alternate;
+ @property BOOL allowsKeyEquivalentWhenHidden;
++@property(retain) NSView *view;
+ 
+ + (NSMenuItem *) separatorItem;
+ 
