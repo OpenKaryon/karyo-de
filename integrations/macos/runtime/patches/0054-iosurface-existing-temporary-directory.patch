@@ -1,0 +1,16 @@
+Subject: Store CPU surfaces in the initialized Darling temporary directory
+
+Fresh prefixes initialize /private/tmp but not /private/var/tmp.
+Use the existing per-prefix directory for both daemon allocation and client mapping.
+
+--- a/src/external/iokitd/src/IOSurface.mm
++++ b/src/external/iokitd/src/IOSurface.mm
+@@ -73,7 +73,7 @@
+         || allocation > INT64_MAX - page)
+         throw std::runtime_error("IOSurface allocation cannot hold its pixels");
+ 
+-    char path[] = "/private/var/tmp/darling-iosurface-XXXXXX";
++    char path[] = "/private/tmp/darling-iosurface-XXXXXX";
+     int fd = mkstemp(path);
+     if (fd < 0) throw std::runtime_error("Cannot create IOSurface backing storage");
+     size_t length = page + allocation;

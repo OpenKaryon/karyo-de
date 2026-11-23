@@ -214,6 +214,10 @@
     {
       "file": "0053-iokit-single-service-matching.patch",
       "sha256": "19b59d167ab89b9d718797f4942bba3be5d5ed0f2389706e9b7a993aaeba50b4"
+    },
+    {
+      "file": "0054-iosurface-existing-temporary-directory.patch",
+      "sha256": "b1fe192adccc199cd0a66b2dab4f22eee9f4da38f8a41f52f8bd1da601a32756"
     }
   ]
 }

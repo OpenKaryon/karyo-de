@@ -518,3 +518,28 @@ inside the active52 build were replaced. Full53/source and actual installed
 single-match, CPU buffer, lifecycle and displayed pixels remain separate gates.
 The retained ordinary matching client exercises two valid public queries, not
 policy denial or a security suite.
+
+
+## Existing CPU-surface temporary directory (installed54 acceptance pending)
+
+Installed Ubuntu53 now passes both ordinary public IOSurfaceRoot matching queries.
+Its buffer client then fails at allocation: fresh prefixes initialize /private/tmp,
+while the hard-coded /private/var/tmp directory does not exist. An ordinary own
+QA client that creates the missing directory from inside its prefix successfully
+creates, maps, locks, fills and unlocks the same17x9 BGRA buffer. A separate valid
+IOKit request also returns its192-byte description and maps the8192-byte backing
+file. These temporary diagnostic clients do not modify the runtime or UGENE.
+Creating a directory from the host side of an existing prefix did not make the
+original client pass and is retained as an unsuccessful diagnostic.
+
+Patch0054 changes the common backing-file template to /private/tmp, which is
+already initialized in a fresh Darling prefix. The private response still names
+the exact file used by both daemon and client; its protocol and lifecycle are
+unchanged. The affected Objective-C++ unit compiles on Clang19 and21. Actual
+installed54 buffer/lifecycle/pixel acceptance is pending, and no UGENE GUI or
+Debian53 result is claimed by this source change. No app-specific option,
+application/framework replacement, security test or shared unit suite was used.
+
+The complete54 stack also passes source-only preparation on Debian and Ubuntu:
+Git and quilt application/reversal are checked against the pinned source files.
+Unit tests were not executed in that gate. Installed54 acceptance remains open.
