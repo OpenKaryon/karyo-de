@@ -32,7 +32,7 @@ if sys.argv[1:2]==['--peer-server']:
     assert len(sys.argv)==3 and socket.gethostname() in {'karyo-de-acceptance','karyo-de-ubuntu-acceptance'}
     asyncio.run(peer_server(sys.argv[2]));raise SystemExit(0)
 if (os.getuid()!=0 or os.geteuid()!=0 or socket.gethostname() not in
-        {'karyo-de-acceptance','karyo-de-ubuntu-acceptance'} or sys.argv[1:] not in ([],['--missing'],['--connected'],['--pkce'],['--home-vpn'])):
+        {'karyo-de-acceptance','karyo-de-ubuntu-acceptance'} or sys.argv[1:] not in ([],['--missing'],['--connected'],['--pkce'],['--home-vpn'],['--home-vpn-reconnect'])):
     raise SystemExit('Use only the fixed disposable hosts as root')
 sys.dont_write_bytecode=True;sys.path.insert(0,'/usr/libexec/karyo/profiles')
 from karyo_profiles.credentials import LocalAccounts
@@ -97,8 +97,9 @@ def status():
     return json.loads(result.stdout)
 
 
-homevpn=sys.argv[1:]==['--home-vpn']
-missing=sys.argv[1:]==['--missing'];pkce=sys.argv[1:]==['--pkce'];connected=sys.argv[1:] in (['--connected'],['--pkce'],['--home-vpn'])
+reconnect=sys.argv[1:]==['--home-vpn-reconnect']
+homevpn=sys.argv[1:] in (['--home-vpn'],['--home-vpn-reconnect'])
+missing=sys.argv[1:]==['--missing'];pkce=sys.argv[1:]==['--pkce'];connected=sys.argv[1:] in (['--connected'],['--pkce'],['--home-vpn'],['--home-vpn-reconnect'])
 helper=Path('/usr/local/libexec/karyo-qa-public-runtime');info=helper.lstat()
 require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and not info.st_mode&0o022 and
         hashlib.sha256(helper.read_bytes()).hexdigest()=='3be27e4ef96458f2400d7ea68058db6cdfe40916c4299ecdb68d152cedea1d83','Fixed context helper changed')
@@ -165,6 +166,29 @@ try:
                 require(result.returncode==0 and status().get('daemonStatus')=='Connected','Public ordinary enrollment failed')
             if homevpn:
                 subprocess.run(['/usr/local/libexec/karyo-qa-home-wireguard','probe'],check=True)
+                if reconnect:
+                    # Use the existing ordinary Work manager; never run the probe
+                    # in Home's root namespace or replace the connected daemon.
+                    code="import hashlib,ipaddress,json,os,socket,subprocess;from pathlib import Path;assert socket.getaddrinfo('example.com',443,socket.AF_INET);hidden=False\ntry:socket.gethostbyname('home-tunnel.karyo.test')\nexcept socket.gaierror:hidden=True\nassert hidden;r=subprocess.run(['/usr/bin/curl','-4','--fail','--silent','--show-error','--max-time','15','https://api.ipify.org'],capture_output=True,text=True);assert r.returncode==0;ipaddress.IPv4Address(r.stdout.strip());print(json.dumps({'dns_https':True,'private_home_zone_hidden':True,'namespace':os.readlink('/proc/self/ns/net'),'resolver_sha256':hashlib.sha256(Path('/etc/resolv.conf').read_bytes()).hexdigest()}))"
+                    def live_work():
+                        require(status().get('daemonStatus')=='Connected','Live Work provider disconnected')
+                        result=json.loads(run(*user('/usr/bin/systemd-run','--user','--wait','--pipe','--collect',
+                            '--unit=karyo-qa-vpn-reconnect-'+uuid.uuid4().hex+'.service','--','/usr/bin/python3','-I','-c',code)))
+                        require(result['namespace']!=os.readlink('/proc/self/ns/net'),'Probe escaped Work network')
+                        current=journal()['profiles'][0]
+                        require(current['token']==record['token'] and current['provider']==record['provider'] and current['session']==record['session'],'Work graph replaced')
+                        return result
+                    before_cycle=live_work()
+                    for cycle in range(2):
+                        run('/usr/local/libexec/karyo-qa-home-wireguard','disconnect')
+                        try:
+                            run('/usr/local/libexec/karyo-qa-home-wireguard','probe-disconnected')
+                            require(live_work()==before_cycle,'Work network/DNS changed while Home disconnected')
+                        finally:
+                            run('/usr/local/libexec/karyo-qa-home-wireguard','reconnect')
+                        run('/usr/local/libexec/karyo-qa-home-wireguard','probe')
+                        require(live_work()==before_cycle,'Work network/DNS changed after Home reconnected')
+                        print(json.dumps({'home_vpn_reconnect_cycle':cycle+1,'work_connected_dns_https':True,'work_graph_reused':True,'home_tunnel_restored':True}),flush=True)
                 peer_actor=Path('/usr/local/libexec/karyo-qa-netbird-peers')
                 require(peer_actor.is_file() and peer_actor.stat().st_uid==0 and hashlib.sha256(peer_actor.read_bytes()).hexdigest()=='0349066f637b1698801534bc51fac56630ba57d80f16ebd7250f53fe6f742ea9','Peer QA actor missing or changed')
                 own=status();own_ip=own['netbirdIp'].split('/')[0]
@@ -230,7 +254,7 @@ try:
             require(sessions.get(source.id)==source and snapshot()==original,'Original Home/network changed')
             with KernelConsoles() as consoles:require(consoles.state().active==source.vt,'Public provider did not return Home')
             print(json.dumps({'mode':mode,'cold_public_provider':True,'ordinary_status':value.get('daemonStatus'),
-                              'connected':connected,'browser_pkce':pkce,'real_home_wireguard':homevpn,'state_reused':identity==state_identity,'existing_switch_unchanged':True,
+                              'connected':connected,'browser_pkce':pkce,'real_home_wireguard':homevpn,'home_wireguard_reconnect':reconnect,'state_reused':identity==state_identity,'existing_switch_unchanged':True,
                               'home_return':True,'cleanup':'complete'}),flush=True)
             with store.locked():store.save_settings(child.name,policy)
 finally:

@@ -1377,8 +1377,9 @@ counterpart without assuming that NetBird's on-demand Idle means disconnected.
 An explicit incoming-payload barrier keeps both peers alive through reciprocal
 verification. Captured logout/provider/account/host-runtime and Home tunnel
 teardown restore the original host snapshots. This does not accept ExternalProvider's
-legacy firewall/broker integration, simultaneous Work exit-node routing or live
-Home-VPN reconnects; those are distinct external/lifecycle gates.
+legacy firewall/broker integration or simultaneous Work exit-node routing;
+those remain distinct external/lifecycle gates. Live Home reconnects are covered
+by the subsequent installed gate below.
 
 ### Optional family clipboard
 
@@ -1426,3 +1427,30 @@ selection owners, then checks package integrity and the original Home. The
 optional broker remains disabled/inactive afterward. This does not establish
 X11 clipboard interoperability, file transfer, unmarked-secret detection or a
 VMware host bridge; those remain separate protocols and acceptance scenarios.
+
+
+### Live Home VPN disconnect and reconnect with connected Work
+
+The fixed-host installed-home-wireguard.py fixture now supports explicit
+ disconnect, probe-disconnected and reconnect actions. It validates the captured
+links, root receipt, private key and exact reserved policy before mutation.
+Disconnect removes its DNS association, default policy and actual Home WG link;
+reconnect creates a new link identity and restores the same keys, peer and DNS.
+It does not emulate a client disconnect by toggling a boolean or installing a
+blackhole route. Partial phases retain captured resources for review.
+
+The installed-public-netbird.py --home-vpn-reconnect gate performs two complete
+cycles with the same running public Work session and connected provider.
+An ordinary Work process retains its private network/resolver identity, resolves
+external DNS and completes HTTPS while Home is disconnected and after every
+reconnect. Home resolves external names while its VPN link is absent; its own private name
+is absent until the tunnel returns. New kernel handshakes,
+private DNS and digest-checked encrypted Home TCP prove restoration.
+
+Both native kernels pass those cycles, subsequent reciprocal Work TCP/UDP by
+NetBird IP and managed private name, existing-session switches and connected
+logout. Exact account/PAM, Home routing/rules/nft/resolver and forwarding snapshots
+are restored; current postchecks reject leftover laboratory/provider resources.
+This uses an own temporary NetBird realm and kernel WireGuard fixture, with no
+user VPN profiles. External ExternalProvider, simultaneous Work exit nodes, physical
+DHCP changes and onward provider GUI/tray need separate acceptance.

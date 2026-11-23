@@ -84,11 +84,17 @@ def link(name,namespace=False):
 def capture():
     info=ROOT.lstat();require(stat.S_ISDIR(info.st_mode) and info.st_uid==0 and stat.S_IMODE(info.st_mode)==0o700,'Unsafe fixture directory')
     path=ROOT/'receipt.json';info=path.lstat();require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and info.st_nlink==1 and stat.S_IMODE(info.st_mode)==0o600,'Unsafe fixture receipt')
-    value=json.loads(path.read_bytes());require(value['phase']=='live' and [ROOT.stat().st_dev,ROOT.stat().st_ino]==value['directory'],'Incomplete fixture')
+    value=json.loads(path.read_bytes());require(value['phase'] in ('live','disconnected') and [ROOT.stat().st_dev,ROOT.stat().st_ino]==value['directory'],'Incomplete fixture')
     for name,namespace in ((HOST,False),(WG,False),(PEER,True),(REMOTE,True)):
+        if name==WG and value['phase']=='disconnected':continue
         row=link(name,namespace);require([row['ifindex'],row['ifalias']]==value['links'][name],'Captured link changed')
     ns=os.stat('/run/netns/'+NS);require([ns.st_dev,ns.st_ino]==value['namespace'],'Namespace changed')
-    require(run('/usr/bin/wg','show',WG,'public-key')==value['public']['host'],'Home WG key changed')
+    if value['phase']=='live':
+        require(run('/usr/bin/wg','show',WG,'public-key')==value['public']['host'],'Home WG key changed')
+    else:
+        require(all(row['ifname']!=WG for row in json.loads(run('/usr/sbin/ip','-j','link','show'))),'Disconnected WG link remains')
+        require(not any(row.get('priority')==90 for row in json.loads(run('/usr/sbin/ip','-4','-j','-N','rule','show'))),'Disconnected rule remains')
+        require(not any(str(row.get('table'))=='54000' for row in json.loads(run('/usr/sbin/ip','-4','-j','-N','route','show','table','all'))),'Disconnected route remains')
     require(run('/usr/sbin/ip','netns','exec',NS,'/usr/bin/wg','show',REMOTE,'public-key')==value['public']['peer'],'Peer WG key changed')
     unit=dict(line.split('=',1) for line in run('/usr/bin/systemctl','show',UNIT,'-p','MainPID','-p','InvocationID','-p','ControlGroup','-p','ActiveState').splitlines())
     require(unit==value['unit'] and unit['ActiveState']=='active','Captured server changed')
@@ -158,10 +164,46 @@ if action==['prepare']:
     record['start']=NativeProcess.read(int(record['unit']['MainPID']),tuple(record['exe']),1000,record['unit']['ControlGroup'],tuple(record['namespace']))
     record['phase']='live';save();capture()
     print(json.dumps({'home_wireguard_ready':True,'physical_dns':record['physical_dns']}),flush=True)
+elif action==['disconnect']:
+    record=capture();require(record['phase']=='live','Home VPN is not live')
+    require(json.loads(Path('/run/karyo/profile-host/state.json').read_text())['profiles'],'Live Work required')
+    rules=[row for row in json.loads(run('/usr/sbin/ip','-4','-j','-N','rule','show')) if row.get('priority')==90]
+    require(len(rules)==1 and set(rules[0])=={'priority','src','table'} and rules[0]['src']=='all' and str(rules[0]['table'])=='54000','VPN policy changed')
+    routes=[row for row in json.loads(run('/usr/sbin/ip','-4','-j','-N','route','show','table','all')) if str(row.get('table'))=='54000']
+    require(len(routes)==1 and routes[0].get('dev')==WG and routes[0].get('dst')=='default','VPN route changed')
+    record['phase']='disconnecting';save()
+    run('/usr/bin/resolvectl','revert',WG)
+    run('/usr/sbin/ip','-4','rule','delete','priority','90','lookup','54000')
+    run('/usr/sbin/ip','link','delete',WG)
+    record['phase']='disconnected';save();capture()
+    print(json.dumps({'home_wireguard_disconnected':True,'link_absent':True,'vpn_default_absent':True}),flush=True)
+elif action==['probe-disconnected']:
+    record=capture();require(record['phase']=='disconnected','Expected disconnected Home')
+    code="import json,socket;assert socket.getaddrinfo('example.com',443,socket.AF_INET);hidden=False\ntry:socket.gethostbyname('home-tunnel.karyo.test')\nexcept socket.gaierror:hidden=True\nassert hidden;print(json.dumps({'physical_dns':True,'home_private_name_absent':True}))"
+    print(run('/usr/sbin/runuser','-u','karyoqa','--','/usr/bin/python3','-I','-c',code),flush=True)
+elif action==['reconnect']:
+    record=capture();require(record['phase']=='disconnected','Expected disconnected Home')
+    require([KEYS.stat().st_dev,KEYS.stat().st_ino]==record['key_directory'],'Key directory changed')
+    key=KEYS/'host.key';info=key.lstat()
+    require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and info.st_nlink==1 and stat.S_IMODE(info.st_mode)==0o600,'Private key changed')
+    require(run('/usr/bin/wg','pubkey',input=key.read_text())==record['public']['host'],'Private key changed')
+    record['phase']='reconnecting';save();previous=record['links'][WG]
+    run('/usr/sbin/ip','link','add',WG,'type','wireguard')
+    alias='Karyo QA Home WG '+uuid.uuid4().hex;run('/usr/sbin/ip','link','set',WG,'alias',alias)
+    row=link(WG);record['links'][WG]=[row['ifindex'],alias];save()
+    run('/usr/bin/wg','set',WG,'private-key',str(key),'listen-port','51868','peer',record['public']['peer'],
+        'allowed-ips','0.0.0.0/0','endpoint','172.31.254.2:51867')
+    run('/usr/sbin/ip','address','add','10.240.254.1/30','dev',WG);run('/usr/sbin/ip','link','set',WG,'up')
+    run('/usr/sbin/ip','-4','route','add','default','dev',WG,'table','54000')
+    run('/usr/sbin/ip','-4','rule','add','priority','90','lookup','54000')
+    run('/usr/bin/resolvectl','dns',WG,VIP);run('/usr/bin/resolvectl','domain',WG,'~.')
+    record['phase']='live';save();capture()
+    require(record['links'][WG]!=previous,'The tunnel link was not replaced')
+    print(json.dumps({'home_wireguard_reconnected':True,'new_link_identity':True}),flush=True)
 elif action==['probe']:
-    capture();print(json.dumps(probe()),flush=True)
+    record=capture();require(record['phase']=='live','Home VPN is disconnected');print(json.dumps(probe()),flush=True)
 elif action==['cleanup']:
-    record=capture()
+    record=capture();require(record['phase']=='live','Reconnect captured Home before cleanup')
     require(not json.loads(Path('/run/karyo/profile-host/state.json').read_text())['profiles'],'Close Work first')
     rules=((80,'192.168.230.0/24','254'),(81,'172.31.254.0/30','254'),(90,None,'54000'))
     for pref,destination,table in rules:
@@ -186,4 +228,4 @@ elif action==['cleanup']:
         require(run('/usr/bin/wg','pubkey',input=path.read_text())==record['public'][role],'Key changed');path.unlink()
     KEYS.rmdir();(ROOT/'receipt.json').unlink();ROOT.rmdir()
     print('PASS exact real Home WG fixture removed; original route/rule/nft/resolver/forwarding snapshot restored',flush=True)
-else:raise SystemExit('Use prepare, probe or cleanup')
+else:raise SystemExit('Use prepare, probe, disconnect, probe-disconnected, reconnect or cleanup')
