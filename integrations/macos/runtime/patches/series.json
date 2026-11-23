@@ -178,6 +178,10 @@
     {
       "file": "0044-corefoundation-mach-receive-deadline.patch",
       "sha256": "5b9df8181c5c2065a53642257a5284016902bb905a0de4e6102b73dde05370a8"
+    },
+    {
+      "file": "0045-coretext-preserve-text-origin.patch",
+      "sha256": "ddd844f86fd44f48fe5d90ac6a885c139ca1ea5a678125224cd35260a782f983"
     }
   ]
 }

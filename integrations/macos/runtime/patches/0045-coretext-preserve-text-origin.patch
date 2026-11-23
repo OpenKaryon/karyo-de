@@ -1,0 +1,21 @@
+Subject: Preserve the current text origin while drawing CoreText glyphs
+
+Keep the caller-provided text origin when installing the font matrix so
+positioned glyphs are not rasterized against a reset zero baseline.
+
+--- a/src/external/cocotron/CoreText/CTFont.m
++++ b/src/external/cocotron/CoreText/CTFont.m
+@@ -477,7 +477,12 @@
+     /* The API intentionally leaves these CGContext font/text attributes set. */
+     CGContextSetFont(context, [(KTFont *)font graphicsFont]);
+     CGContextSetFontSize(context, [(KTFont *)font pointSize]);
+-    CGContextSetTextMatrix(context, [(KTFont *)font fontMatrix]);
++    // Installing font attributes must not erase the caller's text origin.
++    CGPoint origin = CGContextGetTextPosition(context);
++    CGAffineTransform matrix = [(KTFont *)font fontMatrix];
++    matrix.tx += origin.x;
++    matrix.ty += origin.y;
++    CGContextSetTextMatrix(context, matrix);
+     CGContextShowGlyphsAtPositions(context, glyphs, positions, count);
+ }
+ CFIndex CTFontGetLigatureCaretPositions(CTFontRef font, CGGlyph glyph, CGFloat *positions, CFIndex maxPositions) {

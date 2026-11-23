@@ -272,3 +272,32 @@ the verifier checks the exact module revision a3640a77410cf1825f7855172b1551ae79
 Source application/reversal, complete native builds and installed event-deadline
 and unchanged-application acceptance remain required. Direct windowed CF timing
 is still an open installed-runtime gate until those checks pass.
+
+
+## CoreText current text origin
+
+The installed43 Qt raster has visibly clipped/jittered glyphs although Cocoa
+text and document editing render normally. The Qt Cocoa font engine sets a
+current CGContext text position before asking CoreText to draw a glyph at a
+relative zero position. The existing CTFontDrawGlyphs implementation replaced
+the entire text matrix with the font matrix, discarding that origin.
+
+Patch0045 carries the current text origin into the installed font matrix before
+the existing positioned-glyph renderer runs. It remains one common CoreText
+implementation, with no Qt/font/application setting or new source footprint.
+Font/font-size state and the existing matrix-state behavior are retained.
+
+An executable-only proposed function on Ubuntu43 gives a clean, reviewed Qt
+label and button, and a normal exit with real PNG output. The PNG changes from
+a043c436661c41667bf846c902634e4fe52841306c83a161ca8f87ad207b4325 to
+d90cf2c330b6cb14b737a913f15a4e4430fe7607b7c79394ba77041b4d3347d6.
+This is a diagnostic prototype, not installed shared-library acceptance.
+Debian43 prototype, complete source and installed45 checks remain separate
+required gates, including transformed/repeated drawing behavior before broader
+graphics compatibility is claimed.
+
+Primary client source consulted (no Qt code is copied into the patch):
+https://raw.githubusercontent.com/qt/qtbase/5.15/src/platformsupport/fontdatabases/mac/qfontengine_coretext.mm
+The public CoreText reference documents font/size/matrix state changes:
+https://developer.apple.com/documentation/coretext/ctfontdrawglyphs(_:_:_:_:_:)
+Full modern CoreText positioning semantics are not inferred from one client.
