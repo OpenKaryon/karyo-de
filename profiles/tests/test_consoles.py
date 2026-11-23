@@ -81,7 +81,7 @@ class ConsoleTest(unittest.TestCase):
     def test_inventory_has_one_total_deadline_and_does_not_hide_lookup_failure(self):
         command = InventoryCommand({"first": "8", "second": "9"})
         with self.assertRaises(TimeoutError):
-            Sessions(command, clock=iter((10, 14, 16)).__next__).occupied_vts()
+            Sessions(command, clock=iter((10, 10, 14, 16)).__next__).occupied_vts()
         self.assertEqual(command.calls[1][1], 1)
         with patch.object(InventoryCommand, "run", side_effect=SessionError("unavailable")):
             with self.assertRaises(SessionError):

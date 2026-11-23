@@ -244,67 +244,56 @@ class Sessions:
             *("--property="+name for name in PROPERTIES),timeout=timeout)
         return Greeter.parse(text,identifier)
 
-    def greeters(self):
-        deadline=self.clock()+5;found=[]
-        for identifier in self._identifiers():
-            value=self.greeter(identifier,timeout=deadline-self.clock())
-            if value is not None:found.append(value)
-        return found
-
-    def occupied_vts(self):
-        # Console ownership is global, not limited to selectable graphical user
-        # sessions: greeters, TTY users and closing sessions must reserve theirs.
-        deadline = self.clock() + 5
-        occupied = set()
-        for identifier in self._identifiers():
-            text = self.command.run("show-session", identifier, "--all", "--property=Id", "--property=VTNr",
-                                    timeout=deadline - self.clock())
-            values = {}
-            for line in text.splitlines():
-                key, separator, value = line.partition("=")
-                if not separator or key not in {"Id", "VTNr"} or key in values:
-                    raise ValueError("Invalid console ownership properties")
-                values[key] = value
-            if set(values) != {"Id", "VTNr"} or values["Id"] != identifier:
-                raise ValueError("Console ownership returned another or incomplete session")
-            vt = values["VTNr"]
-            if not vt.isascii() or not vt.isdecimal() or str(int(vt)) != vt or not 0 <= int(vt) <= 63:
-                raise ValueError("Invalid console owner virtual terminal")
-            if int(vt):
-                occupied.add(int(vt))
-        return frozenset(occupied)
-
-    def owners(self, uid):
-        """Read a complete UID inventory; retry churn, never infer absence from errors."""
-        if type(uid) is not int or not 1000 <= uid < 65534:
-            raise ValueError("Invalid desktop owner UID")
+    def _inventory(self, reader):
+        """Retry a complete inventory within one deadline; never skip unreadable logins."""
         deadline = self.clock() + 5
         for attempt in range(3):
             try:
                 found = []
                 for identifier in self._identifiers(timeout=deadline - self.clock()):
-                    text = self.command.run("show-session", identifier, "--all",
-                        *("--property=" + name for name in OWNER_PROPERTIES), timeout=deadline - self.clock())
-                    owner = LoginOwner.parse(text, identifier)
-                    if owner.uid == uid:
-                        found.append(owner)
+                    value = reader(identifier, timeout=deadline - self.clock())
+                    if value is not None:
+                        found.append(value)
                 return tuple(found)
             except SessionError:
-                # A listed login may disappear before show-session. Only a
-                # successful new complete inventory can establish its absence.
+                # A listed login may end before show-session. Discard partial
+                # results and read a fresh complete inventory to establish absence.
+                # Persistent service errors still fail closed, never mean offline.
                 if attempt == 2 or self.clock() >= deadline:
                     raise
 
+    def greeters(self):
+        return list(self._inventory(self.greeter))
+
+    def _console_vt(self, identifier, *, timeout):
+        text = self.command.run("show-session", identifier, "--all", "--property=Id", "--property=VTNr",
+                                timeout=timeout)
+        values = {}
+        for line in text.splitlines():
+            key, separator, value = line.partition("=")
+            if not separator or key not in {"Id", "VTNr"} or key in values:
+                raise ValueError("Invalid console ownership properties")
+            values[key] = value
+        if set(values) != {"Id", "VTNr"} or values["Id"] != identifier:
+            raise ValueError("Console ownership returned another or incomplete session")
+        vt = values["VTNr"]
+        if not vt.isascii() or not vt.isdecimal() or str(int(vt)) != vt or not 0 <= int(vt) <= 63:
+            raise ValueError("Invalid console owner virtual terminal")
+        return int(vt)
+
+    def occupied_vts(self):
+        # Console ownership is global, not limited to selectable graphical user
+        # sessions: greeters, TTY users and closing sessions must reserve theirs.
+        return frozenset(vt for vt in self._inventory(self._console_vt) if vt)
+
+    def owners(self, uid):
+        """Read a complete UID inventory; retry churn, never infer absence from errors."""
+        if type(uid) is not int or not 1000 <= uid < 65534:
+            raise ValueError("Invalid desktop owner UID")
+        return tuple(owner for owner in self._inventory(self.owner) if owner.uid == uid)
+
     def all(self):
-        deadline = self.clock() + 5
-        found = []
-        for identifier in self._identifiers():
-            # A session ending while inventory is read fails this attempt. Never
-            # interpret an unavailable login manager as proof a desktop stopped.
-            value = self.get(identifier, timeout=deadline - self.clock())
-            if value is not None:
-                found.append(value)
-        return tuple(found)
+        return self._inventory(self.get)
 
 
 def authorized_caller(environment, *, accounts=None, sessions=None, identify=process_session):

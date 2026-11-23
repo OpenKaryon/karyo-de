@@ -115,7 +115,7 @@ class LogindTest(unittest.TestCase):
     def test_shared_total_deadline_instead_of_timeout_per_session(self):
         command = Command({"c2": properties(), "c3": properties("c3")})
         with self.assertRaises(TimeoutError):
-            Sessions(command, clock=iter((10, 14, 16)).__next__).all()
+            Sessions(command, clock=iter((10, 10, 14, 16)).__next__).all()
         self.assertEqual(command.calls[1][1], 1)
 
     def test_ending_session_is_error_instead_of_false_stopped_state(self):
