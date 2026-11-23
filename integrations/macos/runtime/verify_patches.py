@@ -12,7 +12,7 @@ import sys
 import tarfile
 import tempfile
 
-from patch_policy import DARLING_REVISION, COCOTRON_REVISION, OBJC_REVISION, FOUNDATION_REVISION, RUBY_REVISION, SCREEN_REVISION, UNWIND_REVISION, LIBSYSTEM_REVISION, DYLD_REVISION, MAX_FILE_BYTES, EXPECTED_PATCH_COUNT, parse_paths
+from patch_policy import DARLING_REVISION, COCOTRON_REVISION, OBJC_REVISION, FOUNDATION_REVISION, COREFOUNDATION_REVISION, RUBY_REVISION, SCREEN_REVISION, UNWIND_REVISION, LIBSYSTEM_REVISION, DYLD_REVISION, MAX_FILE_BYTES, EXPECTED_PATCH_COUNT, parse_paths
 from prepare_swift import digest, matches
 
 
@@ -81,6 +81,10 @@ def verify(snapshot, recipe, output):
     if (len(objc) != 1 or objc[0].get("revision") != OBJC_REVISION
             or objc[0].get("url") != "https://github.com/darlinghq/darling-objc4.git"):
         raise ValueError("Pinned Objective-C runtime source snapshot required")
+    corefoundation = [m for m in manifest.get("modules", []) if m.get("path", "").rstrip("/") == "src/external/corefoundation"]
+    if (len(corefoundation) != 1 or corefoundation[0].get("revision") != COREFOUNDATION_REVISION
+            or corefoundation[0].get("url") != "https://github.com/darlinghq/darling-corefoundation.git"):
+        raise ValueError("Pinned CoreFoundation source snapshot required")
     foundation = [m for m in manifest.get("modules", []) if m.get("path", "").rstrip("/") == "src/external/foundation"]
     if (len(foundation) != 1 or foundation[0].get("revision") != FOUNDATION_REVISION
             or foundation[0].get("url") != "https://github.com/darlinghq/darling-foundation.git"):
@@ -116,6 +120,7 @@ def verify(snapshot, recipe, output):
     originals = {}
     report = {"schema": 1, "kind": "darling-patch-stack", "status": "pending",
               "source": manifest["source"], "cocotron_revision": COCOTRON_REVISION, "objc_revision": OBJC_REVISION,
+              "corefoundation_revision": COREFOUNDATION_REVISION,
               "snapshot_manifest_sha256": digest(snapshot / "manifest.json"), "archive": artifact,
               "checker_sha256": digest(Path(__file__)), "policy_sha256": digest(Path(__file__).with_name("patch_policy.py")),
               "patches": [{k: v for k, v in p.items() if k != "data"} for p in patches],

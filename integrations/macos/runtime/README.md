@@ -644,3 +644,27 @@ observed glyph/spacing defects. Visual font quality remains a separate open
 issue; neither the family count nor a passing raster report proves that quality.
 Source and installed API checks are still required. Only the already permitted
 CoreText directory gains the touched CTFontManager file in the pinned stack.
+
+
+## Windowed run-loop deadline follow-up
+
+Ordinary native diagnostics reproduce a50ms Cocoa event wait taking29-30seconds
+on both bases. Instrumentation places the delay inside NSRunLoop's CF wait,
+not X11 event processing. A plain nonwindowed CF timeout works; a direct CF
+timeout after window creation reproduces the delay. An executable-only deadline
+timer prototype makes event waits return in40-51ms on Debian35 and Ubuntu43.
+That prototype is diagnostic evidence, not an installed shared-library fix.
+
+Patch0044 bounds Darling's Mach receive by the run loop's existing finite
+deadline rather than relying solely on a dispatch-source wakeup. It retains
+the existing polling path, reserves the infinity sentinel, rounds finite waits
+up to milliseconds and caps long waits without overflow. Existing callbacks,
+source delivery and dispatch timeout cleanup remain unchanged. Non-Darling
+behavior remains the upstream infinite-receive behavior. No application rule,
+global library injection or per-application configuration is added.
+
+Only the pinned CoreFoundation CFRunLoop.c file is added to the footprint;
+the verifier checks the exact module revision a3640a77410cf1825f7855172b1551ae7917c461.
+Source application/reversal, complete native builds and installed event-deadline
+and unchanged-application acceptance remain required. Direct windowed CF timing
+is still an open installed-runtime gate until those checks pass.

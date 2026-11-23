@@ -1,0 +1,49 @@
+Subject: Bound Darling run-loop receives by their existing deadline
+
+Preserve source polling and infinite waits, but use the remaining finite
+run-loop deadline for the Mach receive when the dispatch wakeup arrives late.
+
+--- a/src/external/corefoundation/CFRunLoop.c
++++ b/src/external/corefoundation/CFRunLoop.c
+@@ -2208,6 +2208,23 @@
+ 
+ #define TIMEOUT_INFINITY (~(mach_msg_timeout_t)0)
+ 
++// Darling's dispatch timeout wakeup may arrive late after a window source is
++// registered. Bound the receive itself without interrupting running callbacks.
++static mach_msg_timeout_t __CFRunLoopMachDeadlineTimeout(Boolean poll, uint64_t deadline) {
++    if (poll) return 0;
++#ifdef DARLING
++    if (deadline == UINT64_MAX) return TIMEOUT_INFINITY;
++    uint64_t now = mach_absolute_time();
++    if (deadline <= now) return 0;
++    double milliseconds = ceil(__CFTSRToTimeInterval(deadline - now) * 1000.0);
++    // Reserve the sentinel and round upwards: never poll before the deadline.
++    if (milliseconds >= (double)(TIMEOUT_INFINITY - 1)) return TIMEOUT_INFINITY - 1;
++    return (mach_msg_timeout_t)milliseconds;
++#else
++    return TIMEOUT_INFINITY;
++#endif
++}
++
+ static Boolean __CFRunLoopServiceMachPort(mach_port_name_t port, mach_msg_header_t **buffer, size_t buffer_size, mach_port_t *livePort, mach_msg_timeout_t timeout, voucher_mach_msg_state_t *voucherState, voucher_t *voucherCopy) {
+     Boolean originalBuffer = true;
+     kern_return_t ret = KERN_SUCCESS;
+@@ -2457,7 +2474,7 @@
+             }
+             msg = (mach_msg_header_t *)msg_buffer;
+             
+-            __CFRunLoopServiceMachPort(waitSet, &msg, sizeof(msg_buffer), &livePort, poll ? 0 : TIMEOUT_INFINITY, &voucherState, &voucherCopy);
++            __CFRunLoopServiceMachPort(waitSet, &msg, sizeof(msg_buffer), &livePort, __CFRunLoopMachDeadlineTimeout(poll, timeout_context->termTSR), &voucherState, &voucherCopy);
+             
+             if (modeQueuePort != MACH_PORT_NULL && livePort == modeQueuePort) {
+                 // Drain the internal queue. If one of the callout blocks sets the timerFired flag, break out and service the timer.
+@@ -2481,7 +2498,7 @@
+             memset(msg_buffer, 0, sizeof(msg_buffer));
+         }
+         msg = (mach_msg_header_t *)msg_buffer;
+-        __CFRunLoopServiceMachPort(waitSet, &msg, sizeof(msg_buffer), &livePort, poll ? 0 : TIMEOUT_INFINITY, &voucherState, &voucherCopy);
++        __CFRunLoopServiceMachPort(waitSet, &msg, sizeof(msg_buffer), &livePort, __CFRunLoopMachDeadlineTimeout(poll, timeout_context->termTSR), &voucherState, &voucherCopy);
+ #endif
+         
+         
