@@ -81,10 +81,11 @@ def hold(user,cli,status,run,journal,record):
                 before=json.loads(managed('/usr/sbin/ip','-s','-j','link','show','dev','wt0'))[0]
                 route=json.loads(managed('/usr/sbin/ip','-4','-j','route','get','198.18.0.11'))
                 result=json.loads(managed('/usr/bin/python3','-I',str(peer_actor),'--exit-client',request['nonce']))
+                dns_https=json.loads(managed('/usr/bin/python3','-I','-c',"import ipaddress,json,socket,urllib.request\nanswers=socket.getaddrinfo('api.ipify.org',443,socket.AF_INET,socket.SOCK_STREAM)\nassert answers\nopener=urllib.request.build_opener(urllib.request.ProxyHandler({}))\nwith opener.open('https://api.ipify.org',timeout=15) as reply:data=reply.read(128).decode().strip()\nassert ipaddress.IPv4Address(data).is_global\ntry:socket.getaddrinfo('home-tunnel.karyo.test',443,socket.AF_INET,socket.SOCK_STREAM)\nexcept socket.gaierror:pass\nelse:raise RuntimeError('Home-only DNS name leaked into Work')\nprint(json.dumps({'external_dns':True,'tls_https':True,'public_ipv4_valid':True,'home_private_name_hidden':True}))\n"))
                 after=json.loads(managed('/usr/sbin/ip','-s','-j','link','show','dev','wt0'))[0]
                 same_graph()
                 observation={'base':HOSTS[socket.gethostname()],'route':route,'ordinary':result,'before':before,'after':after,
-                             'rules':json.loads(managed('/usr/sbin/ip','-4','-j','-N','rule','show')),'public_graph_reused':True}
+                             'rules':json.loads(managed('/usr/sbin/ip','-4','-j','-N','rule','show')),'dns_https':dns_https,'public_graph_reused':True}
                 connection.sendall((json.dumps({'exit_observation':observation})+'\n').encode())
     finally:
         listener.close()

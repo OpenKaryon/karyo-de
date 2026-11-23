@@ -1481,3 +1481,21 @@ tunnel fixture. External ExternalProvider broker/firewall compatibility, Work ex
 DNS/HTTPS while the exit route is selected, physical network lifecycle and GUI/
 tray behavior still require their own evidence. See Builder
 `docs/VALIDATION-HOME-VPN-EXIT.md` for the executed boundaries and local log index.
+
+
+### DNS and HTTPS while the public Work exit route is selected
+
+The subsequent fixed-host gate extends the selected-exit operation itself with
+fresh ordinary Work DNS and certificate-verified HTTPS requests. Both reciprocal
+routing roles resolve the external service, complete TLS and receive a valid
+public IPv4 response; only booleans are exported for that address. Each ordinary
+Work process also verifies that Home's private DNS-only name cannot resolve.
+The checks run before the temporary exit route is deleted, while the captured
+provider/session graph remains connected and unchanged.
+
+Both Home tunnels independently retain their own private DNS, encrypted TCP and
+kernel handshake during each selected exit. Complete captured teardown and native
+postchecks restore both original Home sessions and host network snapshots. This
+supersedes only the selected-exit DNS/HTTPS limit above; external ExternalProvider client,
+physical network lifecycle and NetBird GUI/tray acceptance remain separate.
+Builder `docs/VALIDATION-HOME-VPN-EXIT-DNS.md` records the exact executed actors.
