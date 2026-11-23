@@ -194,6 +194,10 @@
     {
       "file": "0048-appkit-menu-item-view-ownership.patch",
       "sha256": "66e781f238e5fc19f604c04189cfa03be340d1cc7ab1c9fa160b304278019edf"
+    },
+    {
+      "file": "0049-coregraphics-optional-color-space-metadata.patch",
+      "sha256": "6f2e5161aa6995c3a35556204c59518be3b67a87669cad89b64e3ae0f32f1a1e"
     }
   ]
 }

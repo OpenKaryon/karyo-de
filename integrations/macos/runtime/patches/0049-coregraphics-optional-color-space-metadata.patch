@@ -1,0 +1,28 @@
+Subject: Report unavailable optional color-space metadata
+
+Expose the nullable property-list query without inventing an ICC profile for
+the current device-color backend. An absent representation is not serialization
+support; it lets ordinary graphics clients handle that optional information.
+
+--- a/src/external/cocotron/CoreGraphics/CGColorSpace.m
++++ b/src/external/cocotron/CoreGraphics/CGColorSpace.m
+@@ -85,3 +85,10 @@
+ CGColorSpaceRef CGColorSpaceCreateWithName(CFStringRef name) {
+     return (CGColorSpaceRef) O2ColorSpaceCreateWithName(name);
+ }
++
++CFPropertyListRef CGColorSpaceCopyPropertyList(CGColorSpaceRef colorSpace) {
++    // Onyx2D does not retain an encoded ICC/property-list representation.
++    // Device component counts alone must not masquerade as a calibrated profile.
++    (void) colorSpace;
++    return NULL;
++}
+--- a/src/external/cocotron/CoreGraphics/include/CoreGraphics/CGColorSpace.h
++++ b/src/external/cocotron/CoreGraphics/include/CoreGraphics/CGColorSpace.h
+@@ -68,4 +68,6 @@
+ 
+ COREGRAPHICS_EXPORT CGColorSpaceRef CGColorSpaceCreateWithName(CFStringRef name);
+ 
++COREGRAPHICS_EXPORT CFPropertyListRef CGColorSpaceCopyPropertyList(CGColorSpaceRef colorSpace);
++
+ CF_IMPLICIT_BRIDGING_DISABLED

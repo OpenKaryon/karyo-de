@@ -777,3 +777,28 @@ Only the pinned menu-item implementation and public header extend the exact
 source footprint. Both files apply and reverse against their pristine module
 objects locally; full48 Git/zero-fuzz quilt and native installed checks remain.
 The shared policy/security unit suite is not executed by these checks.
+
+
+## Optional color-space representation query
+
+The original Qt Cocoa plugin bundled with the official UGENE53.1 application
+reaches CGColorSpaceCopyPropertyList when tagging an IOSurface graphics buffer.
+The missing export currently aborts in dyld before the client can handle an
+unavailable representation. Patch0049 adds the public nullable query and returns
+no representation because Onyx2D currently retains no encoded ICC/property-list
+profile. Device component counts are not substituted for calibrated metadata.
+
+This supplies an honest optional-API boundary, not color-space serialization,
+ColorSync fidelity or acceptance of UGENE rendering. The temporary helper did
+not resolve the two-level CoreGraphics bind; the actual export must be provided
+by the framework. An ordinary-file diagnostic and a temporary SIGABRT trace
+identify the original binding failure. No helper or application-specific
+environment setting is installed into the product launcher.
+
+Only CoreGraphics/CGColorSpace.m and its public header extend the exact pinned
+footprint. Git and zero-fuzz quilt application/reversal of the complete49 series
+pass on both pinned SDKs, restoring88 pristine files. Installed-runtime checks
+remain separate. Shared/security policy suites are not executed.
+
+API contract: https://developer.apple.com/documentation/coregraphics/cgcolorspace/copypropertylist()
+Original caller: https://github.com/qt/qtbase/blob/5.15/src/plugins/platforms/cocoa/qiosurfacegraphicsbuffer.mm
