@@ -16,6 +16,8 @@ ROOT=Path('/var/lib/karyo-qa-netbird-admission')
 SOCKET=ROOT/'exit-control.sock'
 READY=ROOT/'exit-ready.json'
 HOSTS={'karyo-de-acceptance':'debian','karyo-de-ubuntu-acceptance':'ubuntu'}
+METRIC_SHA='d7ad8c6ec86ffbd15a53465a8363054e1b48726d35de095916a5b06f4c300178'
+DNS_CODE="import ipaddress,json,socket,urllib.request\nanswers=socket.getaddrinfo('api.ipify.org',443,socket.AF_INET,socket.SOCK_STREAM)\nassert answers\nopener=urllib.request.build_opener(urllib.request.ProxyHandler({}))\nwith opener.open('https://api.ipify.org',timeout=15) as reply:data=reply.read(128).decode().strip()\nassert ipaddress.IPv4Address(data).is_global\ntry:socket.getaddrinfo('home-tunnel.karyo.test',443,socket.AF_INET,socket.SOCK_STREAM)\nexcept socket.gaierror:pass\nelse:raise RuntimeError('Home-only DNS name leaked into Work')\nprint(json.dumps({'external_dns':True,'tls_https':True,'public_ipv4_valid':True,'home_private_name_hidden':True}))\n"
 
 
 def require(value,message):
@@ -71,6 +73,18 @@ def hold(user,cli,status,run,journal,record):
                 same_graph()
                 if request=={'operation':'close'}:
                     connection.sendall(b'{"closing":true}\n');break
+                if set(request)=={'operation','expect'} and request['operation']=='metric':
+                    import hashlib
+                    import runpy
+                    actor=Path('/usr/local/libexec/karyo-qa-public-metric-control')
+                    info=actor.lstat()
+                    require(stat.S_ISREG(info.st_mode) and info.st_uid==info.st_gid==0
+                            and not info.st_mode&0o022 and hashlib.sha256(actor.read_bytes()).hexdigest()==METRIC_SHA,
+                            'Metric QA controller changed')
+                    observation=runpy.run_path(str(actor))['check'](record,journal,managed,DNS_CODE,request['expect'])
+                    same_graph()
+                    connection.sendall((json.dumps({'metric_observation':observation})+'\n').encode())
+                    continue
                 require(set(request)=={'operation','nonce'} and request['operation']=='exit'
                         and isinstance(request['nonce'],str) and re.fullmatch('[0-9a-f]{64}',request['nonce']),'Unsupported exit request')
                 deadline=time.monotonic()+35
@@ -81,7 +95,7 @@ def hold(user,cli,status,run,journal,record):
                 before=json.loads(managed('/usr/sbin/ip','-s','-j','link','show','dev','wt0'))[0]
                 route=json.loads(managed('/usr/sbin/ip','-4','-j','route','get','198.18.0.11'))
                 result=json.loads(managed('/usr/bin/python3','-I',str(peer_actor),'--exit-client',request['nonce']))
-                dns_https=json.loads(managed('/usr/bin/python3','-I','-c',"import ipaddress,json,socket,urllib.request\nanswers=socket.getaddrinfo('api.ipify.org',443,socket.AF_INET,socket.SOCK_STREAM)\nassert answers\nopener=urllib.request.build_opener(urllib.request.ProxyHandler({}))\nwith opener.open('https://api.ipify.org',timeout=15) as reply:data=reply.read(128).decode().strip()\nassert ipaddress.IPv4Address(data).is_global\ntry:socket.getaddrinfo('home-tunnel.karyo.test',443,socket.AF_INET,socket.SOCK_STREAM)\nexcept socket.gaierror:pass\nelse:raise RuntimeError('Home-only DNS name leaked into Work')\nprint(json.dumps({'external_dns':True,'tls_https':True,'public_ipv4_valid':True,'home_private_name_hidden':True}))\n"))
+                dns_https=json.loads(managed('/usr/bin/python3','-I','-c',DNS_CODE))
                 after=json.loads(managed('/usr/sbin/ip','-s','-j','link','show','dev','wt0'))[0]
                 same_graph()
                 observation={'base':HOSTS[socket.gethostname()],'route':route,'ordinary':result,'before':before,'after':after,

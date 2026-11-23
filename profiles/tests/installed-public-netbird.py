@@ -244,7 +244,7 @@ try:
                 control_actor=Path('/usr/local/libexec/karyo-qa-public-exit-control')
                 info=control_actor.lstat()
                 require(stat.S_ISREG(info.st_mode) and info.st_uid==0 and not info.st_mode&0o022
-                        and hashlib.sha256(control_actor.read_bytes()).hexdigest()=='a63a996e2a16a9dca08ffcd0f1fdef3bbb39ccfec57bd8ca4662439ec36ea4f7','Exit QA controller changed')
+                        and hashlib.sha256(control_actor.read_bytes()).hexdigest()=='44aad56de4bb5364f7457f5dc05f28a522c3e337f36b377c312f1ddd7f8c0eb9','Exit QA controller changed')
                 import runpy
                 runpy.run_path(str(control_actor))['hold'](user,cli,status,run,journal,record)
             if mode=='locked-crash':
