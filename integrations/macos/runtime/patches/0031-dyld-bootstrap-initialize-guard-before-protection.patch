@@ -1,0 +1,15 @@
+Subject: Let the dyld entry frame finish its own guard initialization
+
+Only the native dyld bootstrap entry is exempt; ordinary dyld code is unchanged.
+
+--- a/src/external/dyld/src/dyldInitialization.cpp
++++ b/src/external/dyld/src/dyldInitialization.cpp
+@@ -127,6 +127,8 @@
+ //  This is code to bootstrap dyld.  This work in normally done for a program by dyld and crt.
+ //  In dyld we have to do this manually.
+ //
++// This entry frame seeds the guard itself before returning to the caller.
++__attribute__((no_stack_protector))
+ uintptr_t start(const dyld3::MachOLoaded* appsMachHeader, int argc, const char* argv[],
+ 				const dyld3::MachOLoaded* dyldsMachHeader, uintptr_t* startGlue)
+ {

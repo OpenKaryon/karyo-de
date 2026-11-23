@@ -122,6 +122,10 @@
     {
       "file": "0030-libsystem-initialize-stack-guard-before-protection.patch",
       "sha256": "fee092903e358e88923c218e90bd798e19549eb3c3942b9063f11a8243333073"
+    },
+    {
+      "file": "0031-dyld-bootstrap-initialize-guard-before-protection.patch",
+      "sha256": "717a0964ed96aa6aa907e08b73f74c2fff0c3ae4f4e0df1fd3a825bd1cca8ca6"
     }
   ]
 }

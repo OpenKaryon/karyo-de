@@ -788,3 +788,10 @@ display. The Linux engine fixture and32-byte synthetic Mach-O inspection header
 are explicitly labeled, never installed as a runtime or presented as Darling
 compatibility. Before/after installed argument controls retain original failing
 packages and new actual-Wayland results without per-application runtime rules.
+
+
+The follow-up dyld bootstrap patch reviews darling-dyld
+63f667cf06d7ed59553adebb0c8d70a117135ac9, src/dyldInitialization.cpp.
+The upstream Apple notice and runtime license index are retained. The patch
+changes only the entry function's initialization annotation; the functional
+callback harness is new Karyo code and executes that actual entry body.

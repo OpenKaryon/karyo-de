@@ -366,3 +366,27 @@ tests pass on Debian and Ubuntu; all30 patches apply and reverse through Git and
 zero-fuzz quilt, restoring72 pristine files. This is diagnosis and source/compiler
 acceptance. A new full engine package and real Mac runtime must still establish
 that this fixes bootstrap on both supported native bases.
+
+
+## Follow-up: the dyld entry's own initialization epoch
+
+Both native 30-patch engines now build and package successfully. Reinstalling the
+Debian runtime preserves existing packages and prefixes, but its actual ordinary
+Mach-O launch still aborts before application main. A fresh captured core now
+resolves to `dyldbootstrap::start -> __stack_chk_fail -> dyld::halt`; the previous
+Libsystem initializer failure is absent. The entry stores zero at FP-0x30, calls
+its own __guard_setup and later compares against the seeded dyld guard. The core
+and mapped instructions confirm this distinct initialization-epoch mismatch.
+
+Patch0031 marks only that bootstrap entry no_stack_protector. It does not change
+dyld's ordinary functions or global compiler settings. The reviewed dyld module
+is independently pinned to63f667cf06d7ed59553adebb0c8d70a117135ac9; the only added
+source footprint is src/external/dyld/src/dyldInitialization.cpp.
+
+`tests/check_dyld_bootstrap.py` compiles the actual patched entry body with simple
+startup callback implementations. The native Debian and Ubuntu SDKs both verify
+return to the caller, startup callback order and literal argv/envp/apple vectors.
+This positive functional check does not represent a whole engine or real Mac
+application pass. Real installed CLI/Cocoa/Qt launches remain required after
+rebuilding the 31-patch runtime. Subsequent preparation uses Builder's explicit
+source-only mode; the shared unit suite is not part of that run.
