@@ -1,0 +1,71 @@
+Subject: Composite ordinary layer trees in painter order
+
+Keep supported 2D layers on one plane instead of assigning synthetic depth to
+tree levels. A grandchild must remain visible, and a later sibling must cover
+an earlier subtree without the depth buffer defeating normal composition.
+
+--- a/src/external/cocotron/QuartzCore/CARenderer.m
++++ b/src/external/cocotron/QuartzCore/CARenderer.m
+@@ -329,7 +329,6 @@
+ }
+ 
+ - (void) _renderLayer: (CALayer *) layer
+-                    z: (CGFloat) z
+           currentTime: (CFTimeInterval) currentTime
+ {
+     id contents = layer.contents;
+@@ -379,19 +378,19 @@
+ 
+     vertices[0] = 0;
+     vertices[1] = 0;
+-    vertices[2] = z;
++    vertices[2] = 0;
+ 
+     vertices[3] = bounds.size.width;
+     vertices[4] = 0;
+-    vertices[5] = z;
++    vertices[5] = 0;
+ 
+     vertices[6] = 0;
+     vertices[7] = bounds.size.height;
+-    vertices[8] = z;
++    vertices[8] = 0;
+ 
+     vertices[9] = bounds.size.width;
+     vertices[10] = bounds.size.height;
+-    vertices[11] = z;
++    vertices[11] = 0;
+ 
+     glPushMatrix();
+     //  glTranslatef(width/2,height/2,0);
+@@ -409,7 +408,7 @@
+     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+ 
+     for (CALayer *child in layer.sublayers)
+-        [self _renderLayer: child z: z + 1 currentTime: currentTime];
++        [self _renderLayer: child currentTime: currentTime];
+ 
+     glPopMatrix();
+ }
+@@ -421,8 +420,10 @@
+     glClearColor(0, 0, 0, 1);
+     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+ 
+-    glEnable(GL_DEPTH_TEST);
+-    glDepthFunc(GL_LEQUAL);
++    // Ordinary layer hierarchy is painter ordered, not artificial GL depth.
++    // Synthetic depth clips grandchildren and lets an earlier subtree obscure
++    // a later sibling. All currently supported 2D layers share the same plane.
++    glDisable(GL_DEPTH_TEST);
+ 
+     glEnable(GL_TEXTURE_2D);
+     glEnableClientState(GL_VERTEX_ARRAY);
+@@ -434,7 +435,7 @@
+     glAlphaFunc(GL_GREATER, 0);
+     glEnable(GL_ALPHA_TEST);
+ 
+-    [self _renderLayer: _rootLayer z: 0 currentTime: CACurrentMediaTime()];
++    [self _renderLayer: _rootLayer currentTime: CACurrentMediaTime()];
+ 
+     glFlush();
+ }

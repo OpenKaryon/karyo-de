@@ -593,3 +593,18 @@ are normalized within that closure; the initial Debian QA extractor refused them
 before compiling, and that failed log remains. This is compiler evidence only:
 actual installed56 colors, redraw, root replacement, release and unchanged UGENE
 GUI acceptance remain pending. No security or shared unit suites were run.
+
+## Ordinary 2D layer tree order (installed57 pending)
+
+The public three-phase client on installed Ubuntu56 retains and moves the same
+surface through a valid tree. Its program succeeds, but a nested blue surface
+is absent (green parent visible); flattening it makes blue appear. The renderer
+assigns z=tree depth despite a projection limited to -1..1. Merely widening the
+projection would also let an earlier deep subtree obscure later siblings.
+
+Patch0057 uses painter order for the supported 2D layer path: all vertices share
+one plane and synthetic depth testing is disabled. This does not claim support
+for arbitrary 3D transforms or zPosition. The retained positive client checks
+nested content, unchanged flattened content and a later sibling over the nested
+tree. The renderer compiles with Clang19/21 against the exact840-file closure;
+installed changed-runtime pixels remain pending. No security/shared suites ran.

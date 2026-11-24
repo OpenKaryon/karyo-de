@@ -226,6 +226,10 @@
     {
       "file": "0056-appkit-hosted-layer-redraw.patch",
       "sha256": "17e3361259bea03b80fb09d548f4f29c2dcbaa3d3c3d7b6813ab05a0098b424c"
+    },
+    {
+      "file": "0057-quartzcore-layer-painter-order.patch",
+      "sha256": "bab1e9a901e928bf9b2c85859b366c9c843507487de3da354cef54ed9af56bc4"
     }
   ]
 }

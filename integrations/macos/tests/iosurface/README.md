@@ -41,3 +41,10 @@ without reassigning the contents object, then detaches and checks release.
 Capture both phases from the real compositor, verify their distinct expected
 colors, export/view the frames and retain the program result. A visible title,
 a successful compile or the program's own boolean alone is insufficient.
+
+`karyo-macos-iosurface-tree REPORT` compares the same blue surface as a
+grandchild and a direct child at unchanged visible geometry, then places a
+later yellow sibling over the nested subtree. Capture all three phases: the
+center must be blue, blue and yellow. This exercises ordinary 2D tree depth
+and sibling painter order without changing runtime methods. Keep the positive
+hierarchy/lifetime report and actual pixel results separately.
