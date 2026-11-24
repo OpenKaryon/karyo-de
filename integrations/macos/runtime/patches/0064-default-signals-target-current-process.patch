@@ -1,0 +1,22 @@
+--- a/src/external/xnu/darling/src/libsystem_kernel/emulation/src/linux_premigration/signal/sigexc.c
++++ b/src/external/xnu/darling/src/libsystem_kernel/emulation/src/linux_premigration/signal/sigexc.c
+@@ -342,7 +342,7 @@
+ 			if (bsd_signum == SIGTSTP || bsd_signum == SIGSTOP)
+ 			{
+ 				kern_printf("sigexc: emulating SIGTSTP/SIGSTOP\n");
+-				LINUX_SYSCALL(__NR_kill, 0, LINUX_SIGSTOP);
++				LINUX_SYSCALL(__NR_kill, LINUX_SYSCALL(__NR_getpid), LINUX_SIGSTOP);
+ 			}
+ 			else
+ 			{
+@@ -358,8 +358,8 @@
+ 						&sa, NULL,
+ 						sizeof(sa.sa_mask));
+ 
+-				// Resend signal to self
+-				LINUX_SYSCALL(__NR_kill, 0, linux_signum);
++				// Replay only to this Linux process, not its process group.
++				LINUX_SYSCALL(__NR_kill, LINUX_SYSCALL(__NR_getpid), linux_signum);
+ 			}
+ 		}
+ 	}

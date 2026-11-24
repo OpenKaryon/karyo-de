@@ -254,6 +254,10 @@
     {
       "file": "0063-native-threads-preserve-darwin-signal-delivery.patch",
       "sha256": "84bfeab85485c0643103227d507f8805a4f45006bb19b1a858750276f16a3796"
+    },
+    {
+      "file": "0064-default-signals-target-current-process.patch",
+      "sha256": "4a09adfbc274743b6aaa929b3183bd07ff49f0d9a347f0d8023fc888d1dcad76"
     }
   ]
 }

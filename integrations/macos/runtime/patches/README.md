@@ -745,3 +745,25 @@ These are bounded candidate checks, not a linked new mldr, configured complete
 Ubuntu63 engine, installed Darwin mask restoration or accepted original UGENE
 GUI. Those remain separate gates. The32-bit target has not been executed. Read
 the Builder VALIDATION-DARLING62-UBUNTU report for the preceding installed result.
+
+## Default signal replay (candidate0064; installed acceptance pending)
+
+Ordinary original UGENE53.1 on installed Ubuntu63 exposes a separate control
+failure. The direct Darling client reads EOF instead of a four-byte exit status
+and exits1. A trace of the captured app's exact shellspawn parent records an
+incoming user-originated SIGSEGV, the default kill(0,SIGSEGV) replay, and death of
+that helper. No signal or fault was injected by the QA actor. The first fault's
+origin is not established by that collateral helper observation.
+
+The XNU emulation source labels its default replay as "to self", but Linux
+kill(0,signal) addresses the caller's whole process group. Patch0064 selects the
+actual Linux getpid result for both default stop and terminating-signal replay.
+The default disposition, signal number, masks, RPC checks and ordinary cleanup
+remain intact. This is a common process-lifetime correction, with no UGENE rule.
+
+The recipe adds only the exact reviewed sigexc.c path, not an XNU directory.
+Verification pins darling-xnu fa29287aa2f0115271e091f1031f53c9e024005d and its
+upstream URL independently. Original upstream notices remain in the source
+archive. Source application/reversal and native compilation are separate gates;
+no installed64 behavior or original UGENE GUI compatibility is accepted yet.
+No security/shared suite or deliberate fault-triggering program is required.

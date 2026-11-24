@@ -6,6 +6,7 @@ import shlex
 
 IOKITD_REVISION = '5549ac4cd2db923c256f016a1381b3bfb716730a'
 DARLING_REVISION = '60ba801decee7a00782f74f6be4c8ffb013f79ff'
+XNU_REVISION = 'fa29287aa2f0115271e091f1031f53c9e024005d'
 COCOTRON_REVISION = 'c8d38d16a9f613d300157bebbab2b9501bc0c274'
 OBJC_REVISION = '1a12df76d12bfc9fdfffadb290f7742763568765'
 FOUNDATION_REVISION = '55a4341b470c2a56fea667c1d2167fb074226f04'
@@ -16,7 +17,7 @@ DYLD_REVISION = '63f667cf06d7ed59553adebb0c8d70a117135ac9'
 LIBSYSTEM_REVISION = '08df454b6eb0df9400aa4c39839a7efd6efd2c3c'
 SCREEN_REVISION = '4bed52587563ede850bf9ff834567478ac1e616b'
 COCOTRON_PREFIX = 'src/external/cocotron/'
-EXPECTED_PATCH_COUNT = 63
+EXPECTED_PATCH_COUNT = 64
 EXACT_ROOT_FILES = {'src/shellspawn/shellspawn.c', 'src/external/cocotron/QuartzCore/include/QuartzCore/CALayerContext.h', 'src/external/iokitd/src/IOObject.cpp', 'src/external/iokitd/src/main.mm', 'src/external/iokitd/src/iokitd.h', 'src/external/iokitd/src/ServiceRegistry.mm', 'src/external/iokitd/src/stubs.c', 'src/external/cocotron/QuartzCore/CALayer.m', 'src/external/cocotron/QuartzCore/CALayerContext.m', 'src/external/cocotron/QuartzCore/CALayerInternal.h', 'src/external/cocotron/QuartzCore/CARenderer.m', 'src/external/cocotron/QuartzCore/CMakeLists.txt', 'src/external/cocotron/QuartzCore/include/QuartzCore/CALayer.h', 'src/external/iokitd/src/IOSurface.h', 'src/external/iokitd/src/IOSurface.mm', 'src/external/iokitd/src/IOSurfaceRoot.h', 'src/frameworks/IOSurface/include/IOSurface/IOSurfacePriv.h', 'src/frameworks/IOSurface/include/IOSurface/IOSurfaceObjC.h', 'src/frameworks/IOSurface/src/IOSurfaceObjC.m', 'src/frameworks/IOSurface/src/api.m', 'src/frameworks/IOSurface/src/stubs.m', 'src/external/iokitd/src/IOSurfaceRoot.mm', 'src/external/corefoundation/CFRunLoop.c', 'src/frameworks/ImageIO/src/CGImageSource.m', 'src/frameworks/ImageIO/include/ImageIO/CGImageSource.h', 'src/external/foundation/src/NSUserDefaults.m', 'src/startup/mldr/elfcalls/threads.c', 'src/libm/CMakeLists.txt', 'src/external/dyld/src/dyldInitialization.cpp', 'src/external/libsystem/init.c', 'src/external/libunwind/CMakeLists.txt', 'src/external/screen/screen/attacher.c', 'src/external/screen/screen/display.c', 'src/external/screen/screen/fileio.c', 'src/external/screen/screen/misc.c', 'src/external/screen/screen/process.c', 'src/external/screen/screen/resize.c', 'src/external/screen/screen/screen.c', 'src/external/screen/screen/socket.c', 'src/external/screen/screen/termcap.c', 'src/external/screen/screen/window.c', 'src/external/screen/screen/ansi.c', 'src/external/ruby/ruby/debug_counter.h', 'src/external/foundation/src/NSConcreteMapTable.m',
                     'src/external/foundation/src/NSConcreteHashTable.m', 'src/startup/darling.c', 'src/CMakeLists.txt', 'CMakeLists.txt', 'cmake/use_ld64.cmake', 'src/external/objc4/runtime/CMakeLists.txt',
                     'src/frameworks/CoreServices/src/FSEvents/CMakeLists.txt',
@@ -50,7 +51,8 @@ EXACT_ROOT_FILES = {'src/shellspawn/shellspawn.c', 'src/external/cocotron/Quartz
                     'src/external/cocotron/AppKit/X11.backend/X11Display.m',
                     'src/external/cocotron/AppKit/X11.backend/X11Window.m',
                     'src/startup/mldr/CMakeLists.txt',
-                    'src/startup/mldr/elfcalls/native_threads.c'}
+                    'src/startup/mldr/elfcalls/native_threads.c',
+                    'src/external/xnu/darling/src/libsystem_kernel/emulation/src/linux_premigration/signal/sigexc.c'}
 COCOTRON_DIRECTORIES = ('AppKit/NSColor.subproj/', 'AppKit/NSEvent.subproj/', 'CoreText/', 'CoreGraphics/', 'Onyx2D/')
 PRIVATE_HEADER = COCOTRON_PREFIX + 'CoreText/CTFontDescriptorInternal.h'
 HUNK = re.compile(r'^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@')

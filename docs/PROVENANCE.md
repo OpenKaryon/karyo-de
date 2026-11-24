@@ -803,3 +803,11 @@ Source/sincos.c, Source/exp10.c and the ABI declarations in Source/math.h.
 The only upstream source change is a libm-local compiler option; original source
 and notices remain intact. The numerical/code-generation checker is new Karyo
 code and uses the exact selected scalar-call source files.
+
+
+The default signal replay patch reviews darling-xnu revision
+fa29287aa2f0115271e091f1031f53c9e024005d, specifically
+darling/src/libsystem_kernel/emulation/src/linux_premigration/signal/sigexc.c.
+Its two default-action replay targets change from process-group0 to the raw
+Linux caller PID. The original source/archive notices and runtime license index
+are retained; Karyo does not replace the upstream file or relicense its contents.

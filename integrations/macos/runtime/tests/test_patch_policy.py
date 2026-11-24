@@ -27,10 +27,12 @@ class PatchPolicy(unittest.TestCase):
 
     def test_actual_ordered_file_hashes_and_footprint_are_captured(self):
         patches, files, added = capture_patches(self.recipe)
-        self.assertEqual(len(patches), 63)
+        self.assertEqual(len(patches), 64)
         self.assertIn("src/startup/darling.c", files)
         self.assertIn("src/external/cocotron/CoreText/CTFontDescriptorInternal.h", added)
-        self.assertEqual(added, {"src/external/cocotron/CoreText/CTFontDescriptorInternal.h"})
+        self.assertIn("src/external/xnu/darling/src/libsystem_kernel/emulation/src/linux_premigration/signal/sigexc.c", files)
+        self.assertEqual(added, {"src/external/cocotron/CoreText/CTFontDescriptorInternal.h",
+                                 "src/startup/mldr/elfcalls/native_threads.c"})
 
     def test_changed_patch_and_unlisted_patch_are_rejected(self):
         recipe = self.root / "recipe"

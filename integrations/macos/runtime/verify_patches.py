@@ -14,6 +14,7 @@ import tempfile
 
 from patch_policy import IOKITD_REVISION, DARLING_REVISION, COCOTRON_REVISION, OBJC_REVISION, FOUNDATION_REVISION, COREFOUNDATION_REVISION, RUBY_REVISION, SCREEN_REVISION, UNWIND_REVISION, LIBSYSTEM_REVISION, DYLD_REVISION, MAX_FILE_BYTES, EXPECTED_PATCH_COUNT, parse_paths
 from prepare_swift import digest, matches
+from patch_policy import XNU_REVISION
 
 
 def capture_patches(folder):
@@ -73,6 +74,10 @@ def verify(snapshot, recipe, output):
     if (manifest.get("schema") != 1 or manifest.get("kind") != "source-snapshot"
             or manifest.get("source") != {"url": "https://github.com/darlinghq/darling.git", "revision": DARLING_REVISION}):
         raise ValueError("Pinned Darling source snapshot required")
+    xnu = [m for m in manifest.get("modules", []) if m.get("path", "").rstrip("/") == "src/external/xnu"]
+    if (len(xnu) != 1 or xnu[0].get("revision") != XNU_REVISION
+            or xnu[0].get("url") != "https://github.com/darlinghq/darling-xnu.git"):
+        raise ValueError("Pinned XNU emulation source snapshot required")
     cocotron = [m for m in manifest.get("modules", []) if m.get("path", "").rstrip("/") == "src/external/cocotron"]
     if (len(cocotron) != 1 or cocotron[0].get("revision") != COCOTRON_REVISION
             or cocotron[0].get("url") != "https://github.com/darlinghq/darling-cocotron.git"):
