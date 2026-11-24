@@ -695,3 +695,23 @@ arguments also compile with native Ubuntu Clang21. This is candidate-source
 validation only: installed61 termination semantics and UGENE GUI remain pending.
 No intentional crash, security or shared unit suite ran. The immutable full
 Debian60 engine remains separate and unchanged by this candidate.
+
+## Terminated prefix server (installed62 pending)
+
+An ordinary Debian60 Qt startup times out. Its subsequent same-prefix retry
+cannot open the old server's mount namespace: the stored PID is still present
+with comm darlingserver and the expected owner, but its state is zombie and
+its mount namespace is gone. No prefix data or PID file was manually repaired.
+
+Patch0062 checks the stored server's process state before accepting it as live.
+A terminated or unreadable process state follows the existing absent-server
+path; normal startup can replace only its stale PID record. Existing comm and
+ownership checks remain in place, and prefix data is retained. This is a common
+server lifecycle correction, without application-specific selection.
+
+An explicit ordinary native lifecycle check runs the exact getInitProcess body
+against a real same-user child: first launch, live server, normal child exit,
+unreaped terminated state and a saved data marker. The original body reproduces
+the stale-server result; the changed body passes on Debian and Ubuntu. No crash
+or security/shared suite is involved. This extracted-function check is not a
+complete startup-unit build or installed engine acceptance; those remain gates.

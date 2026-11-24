@@ -1,0 +1,33 @@
+Subject: Restart a prefix after its old server has terminated
+
+A zombie darlingserver still passes kill(pid, 0), comm and ownership checks,
+but has no mount namespace. Treat a terminated server as absent so the normal
+startup path can replace its stale PID file without discarding prefix data.
+
+--- a/src/startup/darling.c
++++ b/src/startup/darling.c
+@@ -1143,6 +1143,24 @@
+ 	}
+ 	free(exeBuf);
+ 
++	// A terminated server can remain a zombie until its parent reaps it.
++	// kill(pid, 0) and comm still succeed, but its namespaces are already gone.
++	snprintf(procBuf, sizeof(procBuf), "/proc/%d/stat", pid);
++	fp = fopen(procBuf, "r");
++	if (fp == NULL)
++	{
++		unlink(pidPath);
++		return 0;
++	}
++	char processState = 0;
++	int stateRead = fscanf(fp, "%*d (%*[^)]) %c", &processState);
++	fclose(fp);
++	if (stateRead != 1 || processState == 'Z' || processState == 'X')
++	{
++		unlink(pidPath);
++		return 0;
++	}
++
+ 	// Is it owned by the current user?
+ 	if (g_originalUid != 0)
+ 	{

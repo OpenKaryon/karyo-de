@@ -246,6 +246,10 @@
     {
       "file": "0061-shellspawn-report-child-termination.patch",
       "sha256": "7fce79f338b892e82fce862fc64ae84b74499bebcc61899beac6b43eeaa40f3e"
+    },
+    {
+      "file": "0062-startup-ignore-terminated-server.patch",
+      "sha256": "5f12d65c3d6f8b15fb6f9ae7e53e5179b89c50175805f51ba5302d768ea94114"
     }
   ]
 }
