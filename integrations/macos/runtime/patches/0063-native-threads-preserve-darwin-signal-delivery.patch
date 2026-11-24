@@ -1,0 +1,102 @@
+--- a/src/startup/mldr/CMakeLists.txt
++++ b/src/startup/mldr/CMakeLists.txt
+@@ -21,12 +21,14 @@
+ 	commpage.c
+ 	elfcalls/elfcalls.c
+ 	elfcalls/threads.c
++	elfcalls/native_threads.c
+ )
+ 
+ add_executable(mldr ${mldr_sources})
+ 
+ target_compile_options(mldr PRIVATE -pthread)
+ target_link_options(mldr PRIVATE -pthread)
++target_link_options(mldr PRIVATE -Wl,--export-dynamic-symbol=pthread_create)
+ 
+ target_link_libraries(mldr PRIVATE -lrt -ldl mldr_dserver_rpc -lm)
+ 
+@@ -49,6 +51,7 @@
+ 	target_link_options(mldr32 PRIVATE -m32)
+ 	target_compile_options(mldr32 PRIVATE -pthread)
+ 	target_link_options(mldr32 PRIVATE -pthread)
++	target_link_options(mldr32 PRIVATE -Wl,--export-dynamic-symbol=pthread_create)
+ 	target_link_libraries(mldr32 PRIVATE -lrt -ldl mldr32_dserver_rpc)
+ 
+ 	install(TARGETS mldr32 DESTINATION libexec/darling/usr/libexec/darling)
+--- a/src/startup/mldr/elfcalls/threads.c
++++ b/src/startup/mldr/elfcalls/threads.c
+@@ -73,6 +73,7 @@
+ 	uintptr_t stack_bottom;
+ 	uintptr_t stack_addr;
+ 	bool is_workqueue;
++	sigset_t inherited_signals;
+ };
+ 
+ static void* darling_thread_entry(void* p);
+@@ -166,6 +167,8 @@
+ 		.stack_addr       = 0, // set later on
+ 		.is_workqueue     = real_entry_point == 0, // our `workq_kernreturn` sets `real_entry_point` to NULL; `bsdthread_create` actually passes a value
+ 	};
++	// Preserve the creator mask before the native pthread boundary masks signals.
++	(void)pthread_sigmask(SIG_SETMASK, NULL, &args.inherited_signals);
+ 	pthread_attr_t attr;
+ 	pthread_t nativeLibcThread;
+ 
+@@ -249,6 +252,9 @@
+ 	int thread_self_port = args.callbacks->thread_self_trap();
+ 	dthread->tsd[DTHREAD_TSD_SLOT_MACH_THREAD_SELF] = (void*)(intptr_t)thread_self_port;
+ 	args.port = thread_self_port;
++
++	// This is now a registered Darwin thread, so restore normal signal delivery.
++	(void)pthread_sigmask(SIG_SETMASK, &args.inherited_signals, NULL);
+ 
+ 	in_args->pth = NULL;
+ 
+--- /dev/null
++++ b/src/startup/mldr/elfcalls/native_threads.c
+@@ -0,0 +1,45 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#ifndef _GNU_SOURCE
++#define _GNU_SOURCE 1
++#endif
++#include <dlfcn.h>
++#include <errno.h>
++#include <pthread.h>
++#include <signal.h>
++
++typedef int (*native_create_fn)(pthread_t *, const pthread_attr_t *,
++                               void *(*)(void *), void *);
++static native_create_fn native_create;
++static pthread_once_t resolve_once = PTHREAD_ONCE_INIT;
++
++static void resolve_native_create(void)
++{
++    native_create = (native_create_fn)dlsym(RTLD_NEXT, "pthread_create");
++}
++
++/* Linux libraries can create workers without Darwin thread state. Keep the
++ * two process-directed signals handled directly by the Darwin trampoline out
++ * of those workers. A real Darwin thread restores its creator's original mask
++ * only after its RPC socket and Darwin thread state have been registered.
++ */
++int pthread_create(pthread_t *thread, const pthread_attr_t *attributes,
++                   void *(*entry)(void *), void *argument)
++{
++    int status = pthread_once(&resolve_once, resolve_native_create);
++    if (status != 0)
++        return status;
++    if (native_create == NULL)
++        return ENOSYS;
++
++    sigset_t blocked, inherited;
++    sigemptyset(&blocked);
++    sigaddset(&blocked, SIGCHLD);
++    sigaddset(&blocked, SIGTTOU);
++    status = pthread_sigmask(SIG_BLOCK, &blocked, &inherited);
++    if (status != 0)
++        return status;
++    status = native_create(thread, attributes, entry, argument);
++    /* inherited is a mask returned by this same POSIX implementation. */
++    (void)pthread_sigmask(SIG_SETMASK, &inherited, NULL);
++    return status;
++}

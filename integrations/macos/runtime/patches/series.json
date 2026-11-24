@@ -250,6 +250,10 @@
     {
       "file": "0062-startup-ignore-terminated-server.patch",
       "sha256": "5f12d65c3d6f8b15fb6f9ae7e53e5179b89c50175805f51ba5302d768ea94114"
+    },
+    {
+      "file": "0063-native-threads-preserve-darwin-signal-delivery.patch",
+      "sha256": "84bfeab85485c0643103227d507f8805a4f45006bb19b1a858750276f16a3796"
     }
   ]
 }

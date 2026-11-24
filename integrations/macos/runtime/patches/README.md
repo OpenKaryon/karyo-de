@@ -715,3 +715,33 @@ unreaped terminated state and a saved data marker. The original body reproduces
 the stale-server result; the changed body passes on Debian and Ubuntu. No crash
 or security/shared suite is involved. This extracted-function check is not a
 complete startup-unit build or installed engine acceptance; those remain gates.
+
+## Native Linux worker signals (candidate0063; installed acceptance pending)
+
+An unchanged original UGENE53.1 launch on installed Ubuntu62 naturally aborts.
+Matching mldr dbgsym resolves the stack to __darling_thread_rpc_socket, called
+from dserver_rpc_interrupt_enter and handler_linux_to_bsd_wrapper. An ordinary
+breakpoint records SIGCHLD/CLD_EXITED; the saved interrupted context maps to a
+native Linux Vulkan worker waiting in libc. No application code or ptrace policy
+was changed to obtain this observation.
+
+Patch0063 masks SIGCHLD/SIGTTOU across the native pthread creation boundary, so
+foreign Linux-library workers do not inherit the two directly dispatched Darwin
+process-signal handlers. The creator's mask is restored before pthread_create
+returns. Actual Darwin threads save that original mask and restore it only after
+their RPC socket, TSD and thread port have been registered. Existing RPC ownership
+checks and abort conditions remain intact. No application-specific setting is
+introduced, and child-notification delivery is retained on registered threads.
+
+The explicit native-thread-boundary.py check builds an ordinary Linux DSO that
+creates a worker, checks inherited masks and observes a real child's normal exit.
+The original boundary reproduces the unmasked worker; the candidate preserves
+the parent mask and normal SIGCHLD notification on both native bases. No crash,
+security or shared unit suite is involved. Complete original/candidate threads.c
+and native boundary units compile with the actual Debian62 Clang19 command and
+native Ubuntu Clang21 replay using the exact8-file project/header closure.
+
+These are bounded candidate checks, not a linked new mldr, configured complete
+Ubuntu63 engine, installed Darwin mask restoration or accepted original UGENE
+GUI. Those remain separate gates. The32-bit target has not been executed. Read
+the Builder VALIDATION-DARLING62-UBUNTU report for the preceding installed result.
