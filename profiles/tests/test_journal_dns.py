@@ -86,6 +86,17 @@ class FilesTest(unittest.TestCase):
         self.assertEqual(file_receipt(restored),self.dns["files"])
         self.assertEqual({p.name:(p.stat().st_ino,p.read_bytes()) for p in Path(self.files.plan.config).iterdir()},before)
 
+    def test_network_service_view_recaptures_its_own_versioned_template(self):
+        network, accounts = self.files.network, self.files.accounts
+        self.files.close()
+        self.files = ResolverFiles(network, SEED, accounts, service_view='network-manager').create()
+        self.dns.update(view='network-manager', files=file_receipt(self.files))
+        validate_dns(self.dns, SPEC, 1002)
+        restored = self.restored()
+        self.assertEqual(restored.plan.service_view, 'network-manager')
+        self.assertEqual(restored.plan.files(), self.files.plan.files())
+        self.assertEqual(file_receipt(restored), self.dns['files'])
+
     def test_changed_content_or_replaced_file_is_retained(self):
         target=Path(self.files.plan.config)/"bus.conf";original=target.read_bytes()
         target.write_bytes(original+b"changed")

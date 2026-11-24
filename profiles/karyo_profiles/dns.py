@@ -159,6 +159,7 @@ class ResolverPlan:
     gid: int
     service_uid: int
     config: str
+    service_view: str = "resolver"
 
     def __post_init__(self):
         if not isinstance(self.spec, NetworkSpec) or not isinstance(self.seed, DNSSeed):
@@ -168,6 +169,8 @@ class ResolverPlan:
             raise NetworkError("Invalid private DNS service or profile group identity")
         if not isinstance(self.config, str) or SAFE_PATH.fullmatch(self.config) is None or ".." in Path(self.config).parts:
             raise NetworkError("Invalid private resolver configuration path")
+        if not isinstance(self.service_view, str) or self.service_view not in {"resolver", "network-manager"}:
+            raise NetworkError("Unsupported private network service view")
 
     @property
     def runtime_name(self):
@@ -207,6 +210,14 @@ class ResolverPlan:
                '<allow send_destination="org.freedesktop.resolve1" send_interface="org.freedesktop.resolve1.Manager" send_member="ResolveHostname"/>'
                '<allow send_destination="org.freedesktop.resolve1" send_interface="org.freedesktop.resolve1.Manager" send_member="ResolveAddress"/>'
                '</policy></busconfig>\n')
+        if self.service_view == "network-manager":
+            # Keep the old resolver-only template byte-for-byte restorable.
+            # Root owns the unmodified local daemon; only this desktop UID is
+            # admitted as its ordinary connection-management client.
+            bus = bus.replace('<policy user="root"><allow send_destination="*"/>',
+                              '<policy user="root"><allow own_prefix="org.freedesktop.NetworkManager"/><allow send_destination="*"/>')
+            bus = bus.replace(f'<policy user="{self.spec.uid}">', f'<policy user="{self.spec.uid}">'
+                              '<allow send_destination="org.freedesktop.NetworkManager"/>')
         return {"resolved.conf": resolved.encode(), "bus.conf": bus.encode()}
 
     def bus_properties(self):
@@ -235,12 +246,12 @@ class ResolverPlan:
 
 
 class ResolverFiles:
-    def __init__(self, network, seed, accounts=None):
+    def __init__(self, network, seed, accounts=None, *, service_view="resolver"):
         self.network = network
         self.accounts = LocalAccounts() if accounts is None else accounts
         account = self.accounts.by_uid(network.spec.uid)
         self.plan = ResolverPlan(network.spec, seed, account.gid, resolver_service_uid(),
-                                 str(network.store.runtime / "resolver-config" / network.spec.token))
+                                 str(network.store.runtime / "resolver-config" / network.spec.token), service_view)
         self.fd = None
         self.identity = None
         self.captured = {}

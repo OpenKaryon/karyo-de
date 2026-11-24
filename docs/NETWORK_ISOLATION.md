@@ -1,7 +1,11 @@
 # Per-desktop networking
 
-Status: approved architecture and implementation plan, not an installed feature
-or a stable provider protocol. This plan supersedes the earlier target in which
+Status: architecture with incremental implementation and native acceptance.
+Main-account login is implemented and tested as described in
+[main entry validation](VALIDATION_MAIN_ENTRY.md). The independent
+[NetworkManager primitive](VALIDATION_NETWORK_MANAGER.md) passes its native
+service gate, but the full VPN/service environment is not installed or accepted.
+This plan supersedes the earlier target in which
 the main desktop used the host network and external clients needed a bespoke
 provider lease before any integration could work.
 

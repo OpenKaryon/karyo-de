@@ -52,7 +52,7 @@ def unit_receipt(files,role,unit):
 
 
 def restore_files(network,dns,accounts):
-    files=ResolverFiles(network,seed(dns["seed"]),accounts)
+    files=ResolverFiles(network,seed(dns["seed"]),accounts,service_view=dns.get("view","resolver"))
     if files.plan.gid!=dns["gid"] or files.plan.service_uid!=dns["service_uid"]:
         raise JournalRetained("The private DNS service/profile identity changed")
     proof=dns["files"];removing=dns["pending"]=="files-remove"
@@ -141,15 +141,16 @@ class JournalDNS:
         self.update(pending=None,**{role:None})
 
     @classmethod
-    def start(cls,journal,network,physical_seed,*,accounts=None):
+    def start(cls,journal,network,physical_seed,*,accounts=None,service_view="resolver"):
         accounts=LocalAccounts() if accounts is None else accounts
         before=journal.record(network.token)
         if ("dns" in before or before["pending"] is not None or before["network"]!=receipt(network.network)
                 or asdict(accounts.by_uid(network.network.spec.uid))!=before["account"]):
             raise JournalRetained("DNS startup requires its captured current network and account")
-        files=ResolverFiles(network.network,physical_seed,accounts)
+        files=ResolverFiles(network.network,physical_seed,accounts,service_view=service_view)
         dns={"seed":asdict(physical_seed),"gid":files.plan.gid,"service_uid":files.plan.service_uid,
              "pending":"files-create","files":None,"bus":None,"resolver":None}
+        if service_view != "resolver":dns["view"] = service_view
         # asdict preserves tuples; journal publication canonicalizes JSON lists.
         import json
         dns=json.loads(json.dumps(dns))

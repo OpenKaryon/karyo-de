@@ -198,13 +198,15 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 11 or data["boot"] != self.boot
+                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 12 or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
+            if "view" in record.get("dns", {}) and data["schema"] < 12:
+                raise ValueError("Network service views require journal schema 12")
             if "main_login" in record and data["schema"] < 11:
                 raise ValueError("Main login ownership requires journal schema 11")
             if "entry" in record and data["schema"] < 10:
@@ -335,6 +337,7 @@ class RuntimeJournal:
             data["profiles"].append(replacement)
         if replacement is not None and "dns" in replacement:
             data["schema"] = max(data["schema"],2)
+            if "view" in replacement["dns"]:data["schema"] = max(data["schema"],12)
         if replacement is not None and "session" in replacement:
             data["schema"] = max(data["schema"],3)
         if replacement is not None and "main_login" in replacement:

@@ -145,7 +145,7 @@ print(json.dumps({'dns':True,'tcp':True,'udp':True,'separate_dns_view':True}))
                  '--property=User=' + str(account.uid), '--property=Group=' + str(account.gid),
                  *('--property=' + value for value in dns.files.plan.client_properties()),
                  '--', '/usr/bin/python3', '-I', '-c', code, endpoint.domain, endpoint.answer,
-                 network.spec.host, str(endpoint.tcp.getsockname()[1]),
+                 endpoint.tcp.getsockname()[0], str(endpoint.tcp.getsockname()[1]),
                  str(endpoint.udp.getsockname()[1]), endpoint.label)
     return json.loads(result)
 

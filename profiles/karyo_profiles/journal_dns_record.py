@@ -37,10 +37,13 @@ def validate_unit(value,role):
 
 def validate_dns(value,spec,gid,*,routing=False):
     required={"seed","service_uid","gid","pending","files","bus","resolver"}
-    if not isinstance(value,dict) or not required<=set(value) or set(value)-required-{"refresh"}:
+    if not isinstance(value,dict) or not required<=set(value) or set(value)-required-{"refresh","view"}:
         raise ValueError("Invalid DNS journal record")
     # ResolverPlan validates scalar identities without accepting a recorded path.
-    ResolverPlan(spec,seed(value["seed"]),value["gid"],value["service_uid"],"/run/karyo/validation-only")
+    ResolverPlan(spec,seed(value["seed"]),value["gid"],value["service_uid"],"/run/karyo/validation-only",
+                 value.get("view","resolver"))
+    if "view" in value and value["view"] != "network-manager":
+        raise ValueError("Invalid private DNS service view receipt")
     if value["gid"]!=gid:
         raise ValueError("The DNS journal profile group changed")
     pending=value["pending"]
