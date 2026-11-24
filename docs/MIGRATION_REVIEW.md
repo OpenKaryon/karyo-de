@@ -28,25 +28,45 @@ Home WireGuard on both native guests, with encrypted counters and restoration.
 Selected-exit ordinary DNS/TLS HTTPS and hidden Home-only DNS also pass both
 routing roles while both Home tunnels remain operational.
 Complete logind inventory also survives a real disappearing SSH/PAM login.
-The first Debian Darling native build/audit/package gate now succeeds; actual
-Mac execution and the Ubuntu engine build remain separate ongoing gates.
+The complete native Darling56 builds, installed ordinary baseline and hosted
+IOSurface root/lifecycle checks now pass on both bases. Cocoa/static Qt and
+upstream TextEditor open/edit/save have reviewed actual frames. Dynamic Qt's
+layer-backed viewport remains blank, and original UGENE53.1 has no accepted GUI.
+Common layer-tree and backing-view callback patches57/58 pass both native
+compiler/source-stack checks; their installed58 acceptance is separately queued.
+These source checks do not establish a working changed runtime.
+
+The joined 41-component native package graph has both-base build evidence.
+Separate fresh Xfce installations also accept the tested22-base-package install,
+upgrade, normal LightDM Karyo/Xfce login and actual D-Bus activation boundaries.
+Actual standalone Builder session packages match all11 tested payload hashes.
+Exact22-package APT removal preserves foreign configuration/data and permits
+fresh normal Xfce login. Reinstallation then accepts the visible Files chooser:
+ordinary text opens in Karyo Editor and native Mousepad, ZIP in Karyo Archive,
+with viewed frames, exact process arguments and a clean return to Xfce.
+These are bounded component/session slices, not every optional joined profile.
 
 Still required for the complete remaining migration:
 
-- Finish Ubuntu Darling engine build/audit/package work and real Mac CLI,
-  Cocoa/Qt, privileged bootstrap, prefix/upgrade, multi-account and visible GUI
-  acceptance on both native bases. Source/patch/compiler controls alone do not
-  establish a working runtime.
+- Complete changed Darling58 installed root/tree/backing-view and ordinary GUI
+  checks on both bases; diagnose original UGENE GUI without replacing it with a
+  successful CLI or fixture. Debian56's timeout occurred during prefix/bootstrap
+  under observed QA memory pressure, so it is not an established UGENE defect.
 - Establish enabled VMware host clipboard payloads, file drag/drop, other-DE
   ownership interaction, real host-driven resize and monitor layout, and their
   complete Home/Work integration. HGFS private-mount inheritance does not prove
   the whole graphical channel matrix.
 - Resolve the external ExternalProvider broker/firewall contract and test simultaneous
-  physical DHCP/DNS/networkd lifecycle and onward NetBird GUI/tray behavior. The accepted kernel WireGuard fixture
-  does not substitute for the external client.
-- Deploy and test a joined current-HEAD package set on Debian and Ubuntu,
-  including applicable session/component lifecycle and preserved existing users,
-  data, display-manager and other-desktop behavior.
+  physical DHCP/DNS/networkd lifecycle and onward NetBird GUI/tray behavior. The
+  accepted kernel WireGuard fixture does not substitute for the external client.
+- Complete joined current-HEAD optional integration/profile lifecycle, full
+  privilege-prompt interaction and broader application-choice cases while
+  preserving users, data, display-manager and other-desktop behavior.
+
+Builder's linked native session, standalone removal, Files chooser and Darling56
+reports record the exact artifacts and limits. Own joined QA guests currently
+run Xfce with22 Karyo base packages installed again after the removal scenario.
+No shared/security suite was run for these later ordinary functional checks.
 
 External portals remain intentional dependencies. Unavailable physical camera,
 audio/GPU and hardware-specific scenarios must retain explicit limits; VM
