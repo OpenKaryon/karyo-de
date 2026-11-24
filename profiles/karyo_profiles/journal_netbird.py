@@ -172,14 +172,17 @@ def restore_optional(journal, dns):
 def restore_offline_services(journal, network, *, accounts=None):
     """Observe a captured provider alongside DNS; never stop a graphical owner."""
     record = journal.record(network.token)
-    if not {'provider', 'network_service'} & record.keys():
+    if not {'provider', 'network_service', 'host_bus'} & record.keys():
         return JournalDNS.restore(journal, network, accounts=accounts), None, None
     dns = JournalDNS.restore_observers(journal, network, accounts=accounts)
-    provider = network_service = None
+    provider = network_service = host_bus = None
     try:
         provider = restore_optional(journal, dns)
         network_service = restore_network_service(journal, dns)
-        allowed = {str(pid) for pid in worker_pids(provider, network_service)} | {str(dns.services.resolver.identity.pid)}
+        if 'host_bus' in record:
+            from .journal_host_bus import JournalHostBus
+            host_bus=JournalHostBus.restore(journal,dns)
+        allowed = {str(pid) for pid in worker_pids(provider, network_service, host_bus)} | {str(dns.services.resolver.identity.pid)}
         values = network.network._ip("netns", "pids", network.network.name).splitlines()
         if set(values) - allowed:
             raise JournalRetained("Unknown consumers prevent offline profile reconciliation")
@@ -191,3 +194,5 @@ def restore_offline_services(journal, network, *, accounts=None):
         if network_service is not None:network_service.release_handles()
         dns.release_handles()
         raise
+    finally:
+        if host_bus is not None:host_bus.release_handles()

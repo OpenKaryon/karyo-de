@@ -35,6 +35,7 @@ class SessionSchemaTest(unittest.TestCase):
                       dict(active(),pending="enter"),dict(active(),pending="login-close"),
                       dict(active(),pending="manager-close",graphical=None)):
             validate_session(value,ACCOUNT)
+            validate_session(dict(value,bus_view='host-proxy'),ACCOUNT)
 
     def test_graphical_and_manager_login_scope_owner_and_pid_cannot_disagree(self):
         for path,value in ((["graphical","pid"],346),(["graphical","vt"],7),
@@ -64,7 +65,8 @@ class ConsumersTest(unittest.TestCase):
             services=SimpleNamespace(verify=Mock(),resolver=SimpleNamespace(identity=SimpleNamespace(pid=2147483647))))
         manager=SimpleNamespace(verify=Mock(),identity=SimpleNamespace(cgroup="/unrelated/user@1002.service/init.scope"))
         graph=SimpleNamespace(name="karyo-session-fixture.service",verify=Mock(),identity=SimpleNamespace(cgroup=own if group is None else group))
-        return JournalSession(Mock(),dns,manager,graph)
+        journal=Mock();journal.record.return_value={}
+        return JournalSession(journal,dns,manager,graph)
 
     def test_actual_current_pid_is_observed_without_signal_under_its_captured_cgroup(self):
         scope=self.scope();scope.verify_consumers()
@@ -164,6 +166,19 @@ class PreparedRecoveryTest(unittest.TestCase):
 
 
 class RegistryTest(unittest.TestCase):
+    @patch('karyo_profiles.journal_session.JournalHostBus.restore')
+    def test_child_close_retires_proxy_before_manager_policy(self,restore):
+        journal=Mock();journal.record.return_value={'token':'ab'*16,'session':active()}
+        manager=Mock();manager.inactive.return_value=True;manager.sessions.owners.return_value=[]
+        proxy=Mock();restore.return_value=proxy
+        scope=JournalSession(journal,Mock(),manager,host_bus=proxy)
+        scope.token='ab'*16
+        order=[];proxy.close.side_effect=lambda **unused:order.append('proxy')
+        manager.close.side_effect=lambda:order.append('manager')
+        scope.close();scope.close()
+        self.assertEqual(order,['proxy','manager'])
+        self.assertIsNone(scope.host_bus)
+
     def test_completed_session_close_can_be_retried_while_network_worker_drains(self):
         journal=Mock();journal.record.return_value={'token':'ab'*16,'session':active()}
         manager=Mock();scope=JournalSession(journal,Mock(),manager)

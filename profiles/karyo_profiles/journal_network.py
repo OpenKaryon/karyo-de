@@ -24,8 +24,14 @@ def receipt(network):
     return proof
 
 
-def offline(account, accounts, sessions):
-    if accounts.by_uid(account.uid) != account or sessions.owners(account.uid) or uid_processes(account.uid):
+def offline(account, accounts, sessions, *, workers=()):
+    from .services import OwnedUnit
+    allowed = set()
+    for worker in workers:
+        if not isinstance(worker,OwnedUnit) or worker.uid != account.uid or worker.role != 'host-bus':
+            raise JournalRetained('An offline account exception requires its captured profile proxy')
+        allowed.update(worker.consumer_pids())
+    if accounts.by_uid(account.uid) != account or sessions.owners(account.uid) or set(uid_processes(account.uid)) - allowed:
         raise JournalRetained("The journal desktop account is changed or still has login/process owners")
 
 

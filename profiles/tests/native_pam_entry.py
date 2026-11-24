@@ -48,8 +48,11 @@ def identity(path):
 
 def main():
     arguments = sys.argv[1:]
+    host_bus_mode = '--host-bus' in arguments
+    if host_bus_mode:arguments.remove('--host-bus')
     network_service_mode = '--network-service' in arguments
     if network_service_mode:arguments.remove('--network-service')
+    network_service_mode |= host_bus_mode
     require(os.getuid() == os.geteuid() == 0 and len(arguments) in (1, 2), 'Root QA build directory required')
     require(socket.gethostname() in ('karyo-network-debian', 'karyo-network-ubuntu'), 'Use networking QA copies')
     build = Path(arguments[0]).resolve()
@@ -126,7 +129,8 @@ def main():
 
             def fixture_prepare(selected_registry, selected, peer, selected_accounts, selected_sessions):
                 require(selected == account, 'Fixture account changed')
-                prepared = MainEntry.prepare(selected_registry.journal, dns, peer)
+                prepared = MainEntry.prepare(selected_registry.journal, dns, peer,host_bus=host_bus_mode)
+                if host_bus_mode:state['proxy_invocation'] = prepared.host_bus.scope.unit.identity.invocation
                 if initial_service is not None:initial_service.release_handles()
                 return prepared
 
@@ -164,8 +168,13 @@ def main():
                 if network_service_mode:
                     require(entry.network_service.scope.unit.identity.invocation == state['worker_invocation'],
                             'Main recovery changed the captured network worker')
+                if host_bus_mode:
+                    require(entry.host_bus.scope.unit.identity.invocation == state['proxy_invocation'],
+                            'Main recovery changed the captured host-service proxy')
                 if state['attached']:
                     with store.locked():entry.verify_consumers()
+                    if host_bus_mode:
+                        (home/'.karyo_bus_ready').write_text(json.dumps(list(entry.host_bus.scope.socket_identity)))
                     (home/'.karyo_entry_ready').touch(mode=0o644)
                 state[restored] = True
 
@@ -193,6 +202,19 @@ with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as stream:
 print(json.dumps({'network':True,'resolver_mount':True,'dns':True,'tcp':True,'udp':True}))
 """.replace('EXPECTED_NET', repr(list(network.network.identity))).replace('EXPECTED_DNS', repr(list(identity(dns.files.plan.runtime_paths[0]))))
             probe = probe.replace('HOST', repr(endpoint.tcp.getsockname()[0])).replace('TCP', str(endpoint.tcp.getsockname()[1])).replace('UDP', str(endpoint.udp.getsockname()[1]))
+            if host_bus_mode:
+                probe += '''
+import subprocess
+node=Path('/run/dbus/system_bus_socket').stat()
+assert [node.st_dev,node.st_ino]==EXPECTED_BUS
+for name,path in [('org.freedesktop.login1','/org/freedesktop/login1'),
+                  ('org.freedesktop.PolicyKit1','/org/freedesktop/PolicyKit1/Authority'),
+                  ('org.freedesktop.UDisks2','/org/freedesktop/UDisks2')]:
+ result=subprocess.run(['/usr/bin/busctl','--system','--timeout=3s','call',name,path,
+                        'org.freedesktop.DBus.Peer','Ping'],capture_output=True,text=True,timeout=5)
+ assert result.returncode==0,result.stderr
+print(json.dumps({'captured_host_service_bus':True,'ordinary_logind_polkit_udisks':True}))
+'''.replace('EXPECTED_BUS','json.loads(Path(' + repr(str(home/'.karyo_bus_ready')) + ').read_text())')
             client_code = """import time
 from pathlib import Path
 deadline=time.monotonic()+15
@@ -204,7 +226,7 @@ import subprocess
 os.environ['DBUS_SESSION_BUS_ADDRESS']='unix:path=/run/user/'+str(os.getuid())+'/bus'
 result=subprocess.run(['/usr/bin/systemd-run','--user','--quiet','--wait','--pipe','--collect','--unit=karyo-main-user-probe','/usr/bin/python3','-I','-c',PROBE],capture_output=True,text=True,timeout=15)
 assert result.returncode==0,result.stderr
-assert json.loads(result.stdout)['network']
+assert json.loads(result.stdout.splitlines()[0])['network']
 print(json.dumps({'user_manager_activation_same_context':True}))
 """.replace('PROBE', repr(probe))
             result = subprocess.run(['/usr/bin/systemd-run', '--quiet', '--wait', '--pipe', '--collect',
@@ -227,6 +249,10 @@ print(json.dumps({'user_manager_activation_same_context':True}))
             if network_service_mode:
                 evidence['private_network_worker_with_real_pam'] = True
                 evidence['same_worker_across_controller_restoration'] = True
+            if host_bus_mode:
+                evidence['captured_host_bus_after_pam_systemd'] = True
+                evidence['ordinary_and_user_manager_host_service_calls'] = True
+                evidence['same_proxy_across_controller_restoration'] = True
             require(evidence['parent_context_restored'], 'PAM parent did not restore its original context')
         finally:
             (root/'controller_state.json').write_text(json.dumps({key:value for key,value in state.items() if key!='pidfd'}, indent=2) + '\n')

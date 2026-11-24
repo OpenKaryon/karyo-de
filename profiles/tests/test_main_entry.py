@@ -31,7 +31,9 @@ class MainEntryRecordTest(unittest.TestCase):
                           dict(value, pending="entry-start", manager=prepared(), login=None),
                           value, dict(value, pending="login-close"), dict(value, pending="manager-close"),
                           dict(value, pending="login-close", manager=prepared(), login=None)):
-            with self.subTest(pending=candidate["pending"]):validate_main(candidate, ACCOUNT)
+            with self.subTest(pending=candidate["pending"]):
+                validate_main(candidate, ACCOUNT)
+                validate_main(dict(candidate,bus_view='host-proxy'),ACCOUNT)
 
     def test_parent_and_logind_receipts_follow_the_same_lifetime(self):
         value = receipt()
@@ -64,6 +66,21 @@ class MainEntryRecordTest(unittest.TestCase):
         with self.assertRaises(ManagerPending):scope.close()
         manager.close.assert_not_called()
         journal.change.assert_not_called()
+
+    @patch('karyo_profiles.journal_main.process_gone',return_value=True)
+    @patch('karyo_profiles.journal_host_bus.JournalHostBus.restore')
+    def test_completed_main_retires_proxy_before_manager_policy_and_repeated_close(self,restore,gone):
+        journal=Mock();journal.record.return_value={'main_login':dict(receipt(),pending='login-close')}
+        manager=Mock();manager.inactive.return_value=True;manager.sessions.owners.return_value=[]
+        scope=MainEntry(journal,Mock(token='a'*32),manager)
+        proxy=Mock();scope.host_bus=proxy
+        restore.return_value=proxy
+        order=[];proxy.close.side_effect=lambda **unused:order.append('proxy')
+        manager.close.side_effect=lambda:order.append('manager')
+        scope.close();scope.close()
+        self.assertEqual(order,['proxy','manager'])
+        self.assertEqual(proxy.release_handles.call_count,2)
+        self.assertIsNone(scope.host_bus)
 
 
 class MainRegistryTest(unittest.TestCase):

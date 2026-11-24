@@ -13,18 +13,22 @@ from karyo_profiles.journal import RuntimeJournal
 from karyo_profiles.journal_dns import JournalDNS
 from karyo_profiles.journal_network import JournalNetwork, restore_network
 from karyo_profiles.journal_network_service import JournalNetworkService
+from karyo_profiles.journal_host_bus import JournalHostBus
 from karyo_profiles.storage import ConfigStore
 
 
 def restore_context(journal, store, root, record, accounts):
     network = JournalNetwork(journal, restore_network(store, record, require_empty=False))
-    dns = service = None
+    dns = service = proxy = None
     try:
         dns = JournalDNS.restore_observers(journal, network, accounts=accounts)
         service = JournalNetworkService.restore(journal, dns, state_root=root/'state')
         service.verify()
         members = service.consumer_pids()
         allowed = members | {dns.services.resolver.identity.pid}
+        if 'host_bus' in record:
+            proxy = JournalHostBus.restore(journal,dns);proxy.verify()
+            allowed |= proxy.scope.unit.consumer_pids()
         actual = {int(value) for value in network.network._ip('netns', 'pids', network.network.name).splitlines()}
         if actual != allowed:raise RuntimeError('The native fixture has unknown namespace consumers')
         return network, dns, service
@@ -33,6 +37,8 @@ def restore_context(journal, store, root, record, accounts):
         if dns is not None:dns.release_handles()
         if network.network.fd is not None:os.close(network.network.fd);network.network.fd = None
         raise
+    finally:
+        if proxy is not None:proxy.release_handles()
 
 
 def main():

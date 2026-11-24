@@ -133,6 +133,18 @@ class GraphicalTest(unittest.TestCase):
         self.assertIn("--property=TTYVHangup=no",native)
         self.assertIn("--property=StandardInput=tty-fail",native)
 
+    def test_prepared_profile_can_start_beside_its_captured_proxy_cgroup(self):
+        proxy=Mock();proxy.dns.files=self.lease.files
+        proxy.scope.unit.consumer_pids.return_value={333}
+        proxy.scope.socket_identity=(4,80)
+        proxy.scope.client_properties.return_value=('NetworkNamespacePath=/run/netns/fixture',)
+        self.lease.manager.host_bus_view=True;self.lease.host_bus=proxy
+        with patch('karyo_profiles.graphical.uid_processes',return_value=(333,)), \
+             patch('karyo_profiles.graphical.os.stat',return_value=SimpleNamespace(st_dev=4,st_ino=80)):
+            self.start();self.lease.verify()
+        self.assertEqual(self.lease.identity.login,LOGIN)
+        proxy.scope.unit.consumer_pids.assert_called_once()
+
     def test_source_protection_is_locked_before_entering_new_profile(self):
         self.start();result=self.lease.enter(HOME)
         self.assertEqual(self.kernel.events,["lock:s1","activate:c1"])

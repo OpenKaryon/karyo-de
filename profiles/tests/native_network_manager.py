@@ -68,6 +68,7 @@ def recover_in_fresh_process(journal, store, root, contexts, accounts):
     with store.locked():
         expected = {value['network'].token: value['scope'].unit.identity.invocation for value in contexts}
         for value in contexts:
+            if value['host_bus'] is not None:value['host_bus'].release_handles()
             value['service'].release_handles();value['dns'].release_handles()
             os.close(value['network'].network.fd);value['network'].network.fd = None
     journal.__exit__(None, None, None)
@@ -83,6 +84,9 @@ def recover_in_fresh_process(journal, store, root, contexts, accounts):
                 record = journal.record(value['network'].token)
                 network, dns, service = restore_context(journal, store, root, record, accounts)
                 value.update(network=network, dns=dns, service=service, scope=service.scope)
+                if value['host_bus'] is not None:
+                    from karyo_profiles.journal_host_bus import JournalHostBus
+                    value['host_bus'] = JournalHostBus.restore(journal,dns)
                 if value['tunnel'] is not None:value['tunnel'].scope = service.scope
     return observed
 
@@ -91,6 +95,7 @@ def retire_through_runtime(journal, store, root, contexts):
     with store.locked():
         tokens = {value['network'].token for value in contexts}
         for value in contexts:
+            if value['host_bus'] is not None:value['host_bus'].release_handles()
             value['service'].release_handles();value['dns'].release_handles()
             os.close(value['network'].network.fd);value['network'].network.fd = None
     journal.close()
@@ -103,7 +108,7 @@ def retire_through_runtime(journal, store, root, contexts):
     for value in contexts:value['retired_by_runtime'] = True
 
 
-def main(*, tunnels=False):
+def main(*, tunnels=False, host_bus=False):
     require(os.getuid() == os.geteuid() == 0 and len(sys.argv) == 1, 'Root QA entry required')
     require(socket.gethostname() in ('karyo-network-debian', 'karyo-network-ubuntu'), 'Use independent networking QA copies')
     root = Path(tempfile.mkdtemp(prefix='network-manager-', dir='/var/lib/karyo-qa'))
@@ -128,7 +133,7 @@ def main(*, tunnels=False):
                 with store.locked():
                     network = JournalNetwork.prepare_main(journal, store, account, accounts=accounts, sessions=sessions, command=command)
                     value = {'network': network, 'dns': None, 'scope': None, 'service': None,
-                             'endpoint': None, 'label': label, 'tunnel': None, 'physical': None}
+                             'endpoint': None, 'label': label, 'tunnel': None, 'physical': None, 'host_bus': None}
                     contexts.append(value)
                     address = UnderlayAddress('192.0.2.' + str(9 + len(contexts)), network.token)
                     value['physical'] = address
@@ -169,6 +174,11 @@ def main(*, tunnels=False):
                     names = fixture_connections(scope)
                     require(names == [label + '-fixture'], 'The ordinary client reached another connection store')
                     evidence[label] = value['tunnel'].probe() if tunnels else client(dns, endpoint)
+                    if host_bus:
+                        from karyo_profiles.journal_host_bus import JournalHostBus
+                        from native_host_bus import probe_host_services
+                        value['host_bus'] = JournalHostBus.start(journal,dns)
+                        evidence[label]['host_services'] = probe_host_services(value['host_bus'].scope, label, endpoint)
                     evidence[label]['private_nm_pid'] = scope.unit.identity.pid
                     evidence[label]['state_directory'] = list(scope.state.identity)
                     persistent = (scope.state.path/'netplan/etc' if scope.netplan
@@ -183,6 +193,12 @@ def main(*, tunnels=False):
                         for existing in contexts:existing['tunnel'].probe()
             require(contexts[0]['scope'].unit.identity.pid != contexts[1]['scope'].unit.identity.pid, 'Manager instances overlap')
             evidence['fresh_controller_observation'] = recover_in_fresh_process(journal, store, root, contexts, accounts)
+            if host_bus:
+                with store.locked():
+                    for value in contexts:
+                        value['host_bus'].verify()
+                        probe_host_services(value['host_bus'].scope,value['label'],value['endpoint'])
+                evidence['journaled_profile_proxy_observed_after_controller_reopen'] = True
             with store.locked():
                 home, work = contexts[:2]
                 work_identity = work['scope'].unit.identity
@@ -259,12 +275,40 @@ def main(*, tunnels=False):
             if tunnels:
                 evidence['disconnect_reconnect_and_worker_restart_neighbor_payloads'] = True
                 evidence['later_experiments_preserves_home_work_payloads'] = True
+            if host_bus:
+                from karyo_profiles.journal_host_bus import JournalHostBus, HostBusPending
+                with store.locked():
+                    home,work = contexts[:2]
+                    neighbor = work['host_bus'].scope.unit.identity
+                    proxy = home['host_bus'];proxy.verify()
+                    signal.pidfd_send_signal(proxy.scope.unit.pidfd,signal.SIGKILL)
+                    deadline = time.monotonic()+8
+                    while True:
+                        try:stopped = JournalHostBus.restore(journal,home['dns'])
+                        except HostBusPending:
+                            require(time.monotonic()<deadline,'The captured proxy did not finish stopping')
+                            time.sleep(.05);continue
+                        require(stopped.scope.unit.closed,'The killed proxy still appears live')
+                        break
+                    proxy.release_handles();stopped.close()
+                    home['host_bus'] = JournalHostBus.start(journal,home['dns'])
+                    require(work['host_bus'].scope.unit.identity == neighbor,'Replacing Home changed the Work proxy')
+                    for value in contexts:
+                        probe_host_services(value['host_bus'].scope,value['label'],value['endpoint'])
+                    # Lose the controller after stop intent, before systemd stop.
+                    home['host_bus'].update(pending='stop')
+                evidence['proxy_worker_failure_recreate_preserves_neighbor'] = True
             retire_through_runtime(journal, store, root, contexts)
             evidence['generic_runtime_recovery_retired_all_workers'] = True
+            if host_bus:
+                evidence['generic_recovery_retired_proxies_before_network_workers'] = True
+                evidence['interrupted_proxy_stop_intent_resumed'] = True
         finally:
             with store.locked():
                 for value in reversed(contexts):
                     retired = value.get('retired_by_runtime', False)
+                    proxy = value['host_bus']
+                    if not retired and proxy is not None and not proxy.scope.unit.closed:proxy.close();proxy.release_handles()
                     service = None if retired else value['service']
                     if (not retired and service is None and value['dns'] is not None
                             and journal.record(value['network'].token).get('network_service', {}).get('pending') == 'uplink-prepare'):

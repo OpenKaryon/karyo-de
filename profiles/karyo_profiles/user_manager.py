@@ -74,10 +74,12 @@ def manager_exec_start(command, uid):
 
 
 class UserManagerScope:
-    def __init__(self, files, *, sessions=None, command=None, process=None, netbird=False, catalog=False):
+    def __init__(self, files, *, sessions=None, command=None, process=None, netbird=False, catalog=False, host_bus=False):
         if type(netbird) is not bool or type(catalog) is not bool or catalog and not netbird:
             raise ValueError("The provider launch policy must be explicit")
         self.files, self.network = files, files.network
+        if type(host_bus) is not bool:raise ValueError('The host-service bus view must be explicit')
+        self.host_bus_view = host_bus
         self.catalog = catalog
         self.environment = (("KARYO_NETBIRD_ENDPOINT=/run/karyo-netbird-" + self.network.spec.token + "/client.json",)
                             if netbird else ())
@@ -89,8 +91,10 @@ class UserManagerScope:
         self.name = "user@" + str(self.account.uid) + ".service"
         self.directory = Path("/run/systemd/system") / (self.name + ".d")
         self.filename = "90-karyo-profile.conf"
+        from .host_bus import client_properties
+        properties = client_properties(files) if host_bus else files.plan.client_properties()
         self.contents = ("# Owned by the current Karyo profile runtime.\n[Service]\n"
-                         + "\n".join(files.plan.client_properties()) + "\nExecStart=\nExecStart="
+                         + "\n".join(properties) + "\nExecStart=\nExecStart="
                          + " ".join(SCOPED_MANAGER[1]) + "\n"
                          + ("Environment=" + " ".join(self.environment) + "\n" if self.environment else "")).encode()
         self.fd = None
@@ -242,6 +246,10 @@ class UserManagerScope:
         mounted = os.stat("/proc/" + str(identity.pid) + "/root/run/systemd/resolve")
         if (private.st_dev, private.st_ino) != (mounted.st_dev, mounted.st_ino):
             raise ManagerRetained(self)
+        if self.host_bus_view:
+            private = os.stat('/run/karyo-host-bus-' + self.network.spec.token + '/bus')
+            mounted = os.stat('/proc/' + str(identity.pid) + '/root/run/dbus/system_bus_socket')
+            if (private.st_dev,private.st_ino) != (mounted.st_dev,mounted.st_ino):raise ManagerRetained(self)
 
     def verify(self):
         self.guard()

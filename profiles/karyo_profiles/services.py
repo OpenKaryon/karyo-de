@@ -79,11 +79,13 @@ class NativeProcess:
 PROGRAMS = {"dns-bus": "/usr/bin/dbus-daemon",
             "dns-resolver": "/usr/lib/systemd/systemd-resolved",
             "netbird": "/usr/bin/netbird",
-            "network-manager": "/usr/sbin/NetworkManager"}
+            "network-manager": "/usr/sbin/NetworkManager",
+            "host-bus": "/usr/bin/xdg-dbus-proxy"}
 PROPERTIES = frozenset(("User", "Group", "RuntimeDirectory", "RuntimeDirectoryMode",
     "NoNewPrivileges", "PrivateTmp", "NetworkNamespacePath", "Environment",
     "AmbientCapabilities", "CapabilityBoundingSet", "PrivateDevices", "ProtectSystem",
-    "BindPaths", "BindReadOnlyPaths", "InaccessiblePaths", "ReadWritePaths", "ReadOnlyPaths", "UMask", "ExecStartPre"))
+    "BindPaths", "BindReadOnlyPaths", "InaccessiblePaths", "ReadWritePaths", "ReadOnlyPaths", "UMask", "ExecStartPre",
+    "RestrictAddressFamilies"))
 
 
 def program_identity(program):
@@ -107,7 +109,11 @@ class OwnedUnit:
                  process=None, host_guard=host_controller):
         if not isinstance(spec, NetworkSpec) or role not in PROGRAMS:
             raise ValueError("Invalid private service identity")
-        if type(uid) is not int or (uid != 0 if role in {"dns-bus", "netbird", "network-manager"} else not 1 <= uid <= 999):
+        if type(uid) is not int:raise ValueError('Invalid private service account')
+        if role == 'host-bus':valid_uid = uid == spec.uid
+        elif role == 'dns-resolver':valid_uid = 1 <= uid <= 999
+        else:valid_uid = uid == 0
+        if not valid_uid:
             raise ValueError("Invalid private service account")
         if network is not None and (not isinstance(network, tuple) or len(network) != 2
                 or any(type(value) is not int or value <= 0 for value in network)):

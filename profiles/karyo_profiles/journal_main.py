@@ -19,6 +19,7 @@ from .journal_session_record import owner
 from .journal_session_cleanup import removing_manager
 from .logind import Sessions, process_session
 from .main_peer import MainPeer, object_identity
+from .services import program_identity
 from .storage import trusted_directory
 from .user_manager import ManagerPending, UserManagerScope
 from .runtime_services import refresh_network_service, restore_network_service
@@ -35,9 +36,15 @@ class MainEntry:
         from .journal_netbird import restore_optional
         self.forwarding = JournalForwarding.restore(journal, self.network) if "forwarding" in record else None
         self.provider = restore_optional(journal, dns)
-        try:self.network_service = restore_network_service(journal, dns)
+        self.network_service = self.host_bus = None
+        try:
+            self.network_service = restore_network_service(journal, dns)
+            if 'host_bus' in record:
+                from .journal_host_bus import JournalHostBus
+                self.host_bus = JournalHostBus.restore(journal,dns)
         except BaseException:
             if self.provider is not None:self.provider.release_handles()
+            if self.network_service is not None:self.network_service.release_handles()
             raise
 
     def update(self, **values):
@@ -45,22 +52,28 @@ class MainEntry:
         self.journal.change(before, dict(before, main_login=dict(before["main_login"], **values)))
 
     @classmethod
-    def prepare(cls, journal, dns, peer):
+    def prepare(cls, journal, dns, peer, *, host_bus=False):
         before = journal.record(dns.token)
         if (before.get("entry") != "main" or {"main_login", "session"} & before.keys()
                 or before["dns"]["pending"] is not None):
             raise JournalRetained("Main entry requires its acknowledged offline network and DNS")
         peer.verify(cgroup=peer.origin["cgroup"], network=object_identity("/proc/1/ns/net"))
         dns.services.verify()
-        manager = UserManagerScope(dns.files, netbird="provider" in before)
+        if type(host_bus) is not bool:raise ValueError('The main host-bus view must be explicit')
+        if host_bus:program_identity('/usr/bin/xdg-dbus-proxy')
+        manager = UserManagerScope(dns.files, netbird="provider" in before,host_bus=host_bus)
         scope = cls(journal, dns, manager, peer)
-        journal.change(before, dict(before, main_login={"pending": "manager-prepare", "origin": peer.origin,
-                                                      "manager": None, "login": None}))
+        login = {'pending':'manager-prepare','origin':peer.origin,'manager':None,'login':None}
+        if host_bus:login['bus_view'] = 'host-proxy'
+        journal.change(before, dict(before, main_login=login))
         # Intent precedes filesystem mutation; the acknowledged inode receipt
         # precedes handing either context FD to the PAM client.
         try:
             manager.prepare()
             scope.update(pending="entry-start", manager=manager_receipt(manager))
+            if host_bus:
+                from .journal_host_bus import JournalHostBus
+                scope.host_bus = JournalHostBus.start(journal,dns)
             return scope
         except BaseException:
             scope.release_handles()
@@ -78,13 +91,19 @@ class MainEntry:
             resolver = os.open(path.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
         finally:
             os.close(parent)
+        descriptors = [resolver]
         try:
             info = os.fstat(resolver)
             if [info.st_dev, info.st_ino] != self.journal.record(self.token)["dns"]["resolver"]["runtime"][0]:
                 raise JournalRetained("The captured main resolver directory changed")
-            return os.dup(self.network.network.fd), resolver
+            descriptors.insert(0,os.dup(self.network.network.fd))
+            if value.get('bus_view') == 'host-proxy':
+                if self.host_bus is None:raise JournalRetained('The main entry lost its host-service proxy')
+                self.host_bus.verify()
+                descriptors.append(self.host_bus.scope.descriptor())
+            return tuple(descriptors)
         except BaseException:
-            os.close(resolver)
+            for descriptor in descriptors:os.close(descriptor)
             raise
 
     def login(self):
@@ -104,6 +123,9 @@ class MainEntry:
         self.peer.verify(cgroup=cgroup, network=self.network.network.identity)
         if object_identity("/proc/" + str(pid) + "/root/run/systemd/resolve") != object_identity(self.dns.files.plan.runtime_paths[0]):
             raise JournalRetained("The main PAM resolver mount changed")
+        if value.get('bus_view') == 'host-proxy':
+            if self.host_bus is None or object_identity('/proc/' + str(pid) + '/root/run/dbus/system_bus_socket') != self.host_bus.scope.socket_identity:
+                raise JournalRetained('The main PAM host-service socket mount changed')
         return login
 
     def attach(self):
@@ -125,6 +147,7 @@ class MainEntry:
         self.dns.services.verify()
         if self.forwarding is not None:self.forwarding.verify()
         if self.provider is not None:self.provider.verify()
+        if self.host_bus is not None:self.host_bus.verify()
         self.network_service = refresh_network_service(self.journal, self.dns, self.network_service)
         if self.network_service is not None and not self.network_service.scope.unit.closed:
             self.network_service.verify()
@@ -153,6 +176,14 @@ class MainEntry:
         if self.manager.identity is None and not self.manager.inactive(self.manager.info()):
             raise ManagerPending("Waiting for an incomplete main login to finish naturally")
         self.update(pending="manager-close")
+        if self.host_bus is not None:
+            if not self.manager.inactive(self.manager.info()) or self.manager.sessions.owners(self.manager.account.uid):
+                raise ManagerPending('Waiting for the captured main user manager before proxy retirement')
+            from .journal_host_bus import JournalHostBus
+            self.host_bus.release_handles()
+            self.host_bus = JournalHostBus.restore(self.journal,self.dns)
+            self.host_bus.close(sessions=self.manager.sessions)
+            self.host_bus.release_handles();self.host_bus = None
         self.manager.close()
         before = self.journal.record(self.token)
         updated = dict(before); updated.pop("main_login")
@@ -182,11 +213,12 @@ class MainEntry:
                 if not probe.inactive(probe.info()):
                     raise ManagerPending("Waiting for the recorded main manager to finish before recovery")
                 manager = removing_manager(dns.files, value["manager"],
-                                          allow_missing=value["pending"] == "manager-close", netbird="provider" in record)
+                                          allow_missing=value["pending"] == "manager-close", netbird="provider" in record,
+                                          host_bus='bus_view' in value)
             else:
                 peer = MainPeer(origin)
                 manager = restore_manager(dns.files, value["manager"], netbird="provider" in record,
-                                          login_services=(origin["service"],), allow_starting=True)
+                                          login_services=(origin["service"],), allow_starting=True,host_bus='bus_view' in value)
             scope = cls(journal, dns, manager, peer)
             if not gone and value["pending"] is None:scope.verify_consumers()
             journal.known.add(record["token"])
@@ -206,6 +238,7 @@ class MainEntry:
     def release_handles(self):
         if self.provider is not None:self.provider.release_handles()
         if self.network_service is not None:self.network_service.release_handles()
+        if self.host_bus is not None:self.host_bus.release_handles()
         if self.peer is not None:self.peer.close();self.peer = None
         if self.manager.pidfd is not None:self.manager.process.close(self.manager.pidfd);self.manager.pidfd = None
         if self.manager.fd is not None:os.close(self.manager.fd);self.manager.fd = None

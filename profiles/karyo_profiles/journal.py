@@ -71,7 +71,7 @@ def validate_network(value):
 
 def validate_record(value):
     base={"token","account","source","pending","network"}
-    if (not isinstance(value,dict) or not base<=set(value) or set(value)-base-{"dns","session","forwarding","provider","entry","main_login","network_service"}
+    if (not isinstance(value,dict) or not base<=set(value) or set(value)-base-{"dns","session","forwarding","provider","entry","main_login","network_service","host_bus","host_network_policy"}
             or "session" in value and "dns" not in value):
         raise ValueError("Invalid host journal profile record")
     account = validate_account(value["account"])
@@ -114,6 +114,32 @@ def validate_record(value):
                 raise ValueError("Forwarding and DNS require the same physical seed or captured transition")
         if carrier is not None and carrier['step']==7:
             raise ValueError('Carrier cleanup requires closed DNS consumers')
+    if 'host_network_policy' in value:
+        if ('dns' not in value or value['dns']['pending'] is not None or value['dns']['resolver'] is None
+                or value['dns']['bus'] is None or 'host_bus' in value):
+            raise ValueError('A host-network policy requires acknowledged DNS and the real host bus')
+        from .host_network_policy import validate_host_network_policy
+        validate_host_network_policy(value['host_network_policy'])
+        if value['host_network_policy']['pending'] is not None and {'session', 'main_login'} & value.keys():
+            raise ValueError('A login cannot coexist with a host-network policy mutation')
+    if 'host_bus' in value:
+        if ('dns' not in value or value['dns']['pending'] is not None or value['dns']['resolver'] is None
+                or value['dns']['bus'] is None):raise ValueError('A host-service proxy requires acknowledged private DNS')
+        from .journal_host_bus import validate_host_bus
+        validate_host_bus(value['host_bus'])
+        proof = value['host_bus']['unit']
+        if proof is not None and proof['namespace'] != value['network']['namespace']:
+            raise ValueError('The host-service proxy belongs to another namespace')
+        if value['host_bus']['pending'] is not None:
+            child = value.get('session')
+            if child is not None and (child.get('bus_view') != 'host-proxy'
+                                      or child['pending'] not in {'login-start','manager-close'}
+                                      or child['graphical'] is not None):
+                raise ValueError('The child login is not preparing or retiring its host-service proxy')
+            main = value.get('main_login')
+            if main is not None and (main.get('bus_view') != 'host-proxy'
+                                     or main['pending'] not in {'entry-start','manager-close'}):
+                raise ValueError('The main login is not preparing or retiring its host-service proxy')
     if 'network_service' in value:
         if ('dns' not in value or value['dns']['pending'] is not None
                 or value['dns']['bus'] is None or value['dns']['resolver'] is None
@@ -147,6 +173,10 @@ def validate_record(value):
         validate_session(value["session"],account)
         if "catalog" in value["session"] and "provider" not in value:
             raise ValueError("The private catalog requires its captured provider")
+        child = value['session']
+        if child.get('bus_view') == 'host-proxy' and child['graphical'] is not None:
+            if 'host_bus' not in value or value['host_bus']['pending'] is not None:
+                raise ValueError('A live child host-service view requires its acknowledged proxy')
     if "main_login" in value:
         if (value.get("entry") != "main" or "session" in value or "dns" not in value
                 or value["dns"]["pending"] is not None or value["dns"]["bus"] is None
@@ -154,6 +184,10 @@ def validate_record(value):
             raise ValueError("A main login requires its acknowledged private DNS and exclusive entry")
         from .journal_main_record import validate_main
         validate_main(value["main_login"], account)
+        main = value['main_login']
+        if main.get('bus_view') == 'host-proxy' and main['pending'] in {None,'login-close'}:
+            if 'host_bus' not in value or value['host_bus']['pending'] is not None:
+                raise ValueError('A live main host-service view requires its acknowledged proxy')
 
 
 class RuntimeJournal:
@@ -213,13 +247,21 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 13 or data["boot"] != self.boot
+                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 17 or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
+            if 'host_network_policy' in record and data['schema'] < 17:
+                raise ValueError('Host-network policy ownership requires journal schema 17')
+            if 'host_bus' in record and data['schema'] < 14:
+                raise ValueError('Host-service proxy ownership requires journal schema 14')
+            if 'bus_view' in record.get('main_login',{}) and data['schema'] < 15:
+                raise ValueError('Main host-service bus entry requires journal schema 15')
+            if 'bus_view' in record.get('session',{}) and data['schema'] < 16:
+                raise ValueError('Child host-service bus entry requires journal schema 16')
             if 'network_service' in record and data['schema'] < 13:
                 raise ValueError('Private network workers require journal schema 13')
             if "view" in record.get("dns", {}) and data["schema"] < 12:
@@ -321,6 +363,9 @@ class RuntimeJournal:
                 or "refresh" in record.get("dns", {})
                 or ("session" in record and record["session"]["pending"] is not None)
                 or ("main_login" in record and record["main_login"]["pending"] is not None)
+                or ('host_bus' in record and record['host_bus']['pending'] is not None)
+                or ('host_network_policy' in record and record['host_network_policy']['pending'] is not None)
+                or ('network_service' in record and record['network_service']['pending'] is not None)
                 or ("forwarding" in record and record["forwarding"]["pending"] is not None)
                 or 'refresh' in record.get('forwarding',{})
                 or ("provider" in record and record["provider"]["pending"] is not None) for record in data["profiles"]):
@@ -355,6 +400,14 @@ class RuntimeJournal:
         if replacement is not None and "dns" in replacement:
             data["schema"] = max(data["schema"],2)
             if "view" in replacement["dns"]:data["schema"] = max(data["schema"],12)
+        if replacement is not None and 'host_bus' in replacement:
+            data['schema'] = max(data['schema'],14)
+        if replacement is not None and 'host_network_policy' in replacement:
+            data['schema'] = max(data['schema'],17)
+        if replacement is not None and 'bus_view' in replacement.get('main_login',{}):
+            data['schema'] = max(data['schema'],15)
+        if replacement is not None and 'bus_view' in replacement.get('session',{}):
+            data['schema'] = max(data['schema'],16)
         if replacement is not None and 'network_service' in replacement:
             data['schema'] = max(data['schema'],13)
         if replacement is not None and "session" in replacement:

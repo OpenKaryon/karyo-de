@@ -76,6 +76,16 @@ class ServicesTest(unittest.TestCase):
         self.assertEqual(len(self.stops()), 1)
         self.assertEqual(self.kernel.closed, [123])
 
+    def test_profile_host_bus_uses_ordinary_account_and_owned_stop(self):
+        unit=OwnedUnit(self.store,self.unit.spec,'host-bus',1002,self.kernel,
+                       process=self.kernel,host_guard=lambda:None)
+        with patch.object(unit,'capture_executable',return_value=(1,2)):
+            unit.start(('User=1002','Group=1002','CapabilityBoundingSet=',
+                        'RestrictAddressFamilies=AF_UNIX'),'unix:path=/run/dbus/system_bus_socket','/run/fixture/bus')
+        unit.verify();unit.close();unit.close()
+        self.assertEqual(unit.uid,1002)
+        self.assertEqual(len(self.stops()),1)
+
     def test_collision_is_not_started_or_stopped(self):
         self.kernel.rows["LoadState"] = "loaded"
         with self.assertRaises(ServiceError):

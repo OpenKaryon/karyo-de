@@ -196,7 +196,7 @@ class JournalDNS:
             raise
 
     def close(self):
-        if {"session", "main_login", "provider", "network_service"} & self.journal.record(self.token).keys():
+        if {"session", "main_login", "provider", "network_service", "host_bus", "host_network_policy"} & self.journal.record(self.token).keys():
             raise JournalRetained("The profile session and provider must close before private DNS")
         from .dns_refresh import cancel_refresh
         cancel_refresh(self)
@@ -232,7 +232,11 @@ def recover_profiles(journal,store,*,accounts=None,sessions=None,command=None,ex
     from .journal_netbird import recover_providers
     from .provider_state import STATE_ROOT
     from .journal_network_service import recover_network_services
+    from .journal_host_bus import recover_host_buses
     state_root = STATE_ROOT if network_service_state_root is None else network_service_state_root
+    recover_host_buses(journal,store,accounts=accounts,sessions=sessions,command=command,exclude=exclude)
+    from .host_network_policy import recover_host_network_policies
+    recover_host_network_policies(journal,store,accounts=accounts,sessions=sessions,command=command,exclude=exclude)
     recover_providers(journal, store, accounts=accounts, sessions=sessions, command=command, exclude=exclude,
                       network_service_state_root=state_root)
     recover_network_services(journal, store, accounts=accounts, sessions=sessions, command=command, exclude=exclude,

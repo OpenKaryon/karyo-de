@@ -37,9 +37,10 @@ class GraphicalSession:
     ENTRY = "/usr/libexec/karyo/profile-session-entry"
     WAIT = "/usr/libexec/karyo/profile-session-wait"
 
-    def __init__(self, manager, *, sessions=None, command=None, process=None,
+    def __init__(self, manager, *, sessions=None, command=None, process=None, host_bus=None,
                  clock=time.monotonic, sleep=time.sleep):
         self.manager, self.files = manager, manager.files
+        self.host_bus = host_bus
         self.network, self.account = manager.network, manager.account
         self.store = self.network.store
         self.command = self.network.command if command is None else command
@@ -101,8 +102,15 @@ class GraphicalSession:
         self.manager.verify_file()
         rows = self.manager.info()
         self.manager.verify_policy(rows)
+        allowed = set()
+        if getattr(self.manager,'host_bus_view',False) is True:
+            if self.host_bus is None or self.host_bus.dns.files is not self.files:
+                raise ServiceError('The graphical host-service bus was not captured for this manager')
+            self.host_bus.verify()
+            allowed = self.host_bus.scope.unit.consumer_pids()
+        elif self.host_bus is not None:raise ServiceError('An uncaptured graphical host-service bus was supplied')
         if (not self.manager.inactive(rows) or self.sessions.owners(self.account.uid)
-                or uid_processes(self.account.uid)):
+                or set(uid_processes(self.account.uid)) - allowed):
             raise ServiceError("A graphical profile requires its prepared offline user manager")
         expiry = self.files.accounts.expiry_day(self.account.name)
         hashed = self.files.accounts.password_hash(self.account.name)
@@ -119,12 +127,14 @@ class GraphicalSession:
         self.compositor = program_identity("/usr/bin/labwc")
         self.waiter = program_identity("/usr/bin/python3")
         self.vt = console.vt
+        projection = (self.host_bus.scope.client_properties() if self.host_bus is not None
+                      else self.files.plan.client_properties())
         properties = ("Type=exec", "Restart=no", "KillMode=control-group", "TimeoutStopSec=5s",
             "User=" + str(self.account.uid), "Group=" + str(self.account.gid),
             "PAMName=karyo-desktop", "TTYPath=" + console.path, "StandardInput=tty-fail",
             "StandardOutput=journal", "StandardError=journal", "TTYReset=no", "TTYVHangup=no",
             "TTYVTDisallocate=no", "WorkingDirectory=" + self.account.home,
-            *self.files.plan.client_properties())
+            *projection)
         environment = ("XDG_SESSION_TYPE=wayland", "XDG_SESSION_CLASS=user", "XDG_SEAT=seat0",
             "XDG_VTNR=" + str(self.vt), "HOME=" + self.account.home, "USER=" + self.account.name,
             "LOGNAME=" + self.account.name, "PATH=/usr/local/bin:/usr/bin:/bin",
@@ -185,6 +195,10 @@ class GraphicalSession:
         self.guard()
         if self.identity is None or self.pidfd is None:
             raise GraphicalRetained(self)
+        if self.host_bus is not None:
+            self.host_bus.verify()
+            node = os.stat('/proc/' + str(self.pid) + '/root/run/dbus/system_bus_socket')
+            if (node.st_dev,node.st_ino) != self.host_bus.scope.socket_identity:raise GraphicalRetained(self)
         rows, identity = self.info(), self.identity
         if (rows["LoadState"] != "loaded" or rows["Transient"] != "yes" or rows["ActiveState"] != "active"
                 or rows["InvocationID"] != identity.invocation or rows["MainPID"] != str(identity.pid)

@@ -5,6 +5,7 @@ import time
 from .journal_main import MainEntry
 from .user_manager import ManagerPending
 from .journal_network_service import NetworkServicePending
+from .journal_host_bus import HostBusPending
 from .runtime_services import retire_network_service
 
 
@@ -25,7 +26,7 @@ class MainRegistry:
                 if "main_login" not in record:continue
                 with self.store.locked():
                     try:self.entries[record["token"]] = MainEntry.restore(self.journal, self.store, record)
-                    except (ManagerPending, NetworkServicePending):self.deferred.add(record["token"])
+                    except (ManagerPending, NetworkServicePending, HostBusPending):self.deferred.add(record["token"])
             return self
         except BaseException:
             self.release_handles()
@@ -37,7 +38,7 @@ class MainRegistry:
             for token in tuple(self.deferred):
                 with self.store.locked():
                     try:self.entries[token] = MainEntry.restore(self.journal, self.store, self.journal.record(token))
-                    except (ManagerPending, NetworkServicePending):continue
+                    except (ManagerPending, NetworkServicePending, HostBusPending):continue
                     self.deferred.remove(token)
         for token, scope in tuple(self.entries.items()):
             if scope.peer is not None and not scope.peer.process.exited(scope.peer.fd):continue
@@ -50,7 +51,7 @@ class MainRegistry:
                         scope.provider.close();scope.provider.release_handles();scope.provider = None
                     observer = scope.network_service;scope.network_service = None
                     retire_network_service(self.journal, scope.dns, observer)
-                except (ManagerPending, NetworkServicePending):continue
+                except (ManagerPending, NetworkServicePending, HostBusPending):continue
                 scope.dns.close()
                 if scope.forwarding is not None:scope.forwarding.close()
                 scope.network.close()

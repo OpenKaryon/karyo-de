@@ -82,6 +82,8 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-networking.service"
 install(FILES "${profile_source}/karyo-profile-host-runtime.conf"
     DESTINATION ${KARYO_SYSTEMD_SYSTEM_UNIT_DIR}/karyo-profile-host.service.d
     RENAME 50-profile-runtime.conf COMPONENT profile-runtime)
+install(FILES "${profile_source}/org.karyo.ProfileNetwork.conf"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/system.d COMPONENT profile-runtime)
 install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-runtime COMPONENT profile-runtime)
 

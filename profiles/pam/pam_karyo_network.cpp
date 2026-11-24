@@ -77,7 +77,7 @@ bool identifier(const std::string &value) {
 struct Reply {
     std::uint32_t status = 1;
     std::size_t count = 0;
-    std::array<Descriptor, 2> descriptors;
+    std::array<Descriptor, 3> descriptors;
 };
 
 struct stat socketIdentity() {
@@ -131,7 +131,7 @@ Reply request(const std::string &operation, const std::string &user, const std::
     require(::shutdown(socket.get(), SHUT_WR) == 0, "cannot finish controller request");
 
     std::array<std::uint32_t, 3> header{};
-    alignas(cmsghdr) char control[CMSG_SPACE(2 * sizeof(int))]{};
+    alignas(cmsghdr) char control[CMSG_SPACE(3 * sizeof(int))]{};
     iovec data{header.data(), sizeof(header)};
     msghdr message{};
     message.msg_iov = &data; message.msg_iovlen = 1;
@@ -190,10 +190,24 @@ struct Entry {
     std::string user, service;
     Descriptor originalNetwork{openNamespace("net")};
     Descriptor originalMounts{openNamespace("mnt")};
+    Descriptor hostBusMount;
     bool mountsChanged = false;
     bool networkChanged = false;
     bool closed = false;
     bool ignored = false;
+
+    void attachHostBus() {
+        if (hostBusMount.get() < 0) return;
+        // pam_systemd has now registered the login using the root host bus.
+        // Only the final user session receives the ordinary UID's proxy.
+        syscallResult(::move_mount(hostBusMount.get(), "", AT_FDCWD,
+            "/run/dbus/system_bus_socket", MOVE_MOUNT_F_EMPTY_PATH) == 0,
+            "cannot attach the profile host-service bus");
+        syscallResult(::mount(nullptr, "/run/dbus/system_bus_socket", nullptr,
+            MS_BIND | MS_REMOUNT | MS_RDONLY | MS_NOSUID | MS_NODEV, nullptr) == 0,
+            "cannot protect the profile host-service bus");
+        hostBusMount = Descriptor();
+    }
 
     bool restore() noexcept {
         bool result = true;
@@ -274,7 +288,7 @@ int prepare(pam_handle_t *handle, bool karyoOnly) {
     if (karyoOnly && (!desktop || std::string(desktop) != "karyo")) return ignoreEntry(handle, identity);
     auto reply = request("prepare", identity.first, identity.second);
     if (reply.status == 2) return ignoreEntry(handle, identity);
-    require(reply.status == 0 && reply.count == 2, "main network preparation failed");
+    require(reply.status == 0 && (reply.count == 2 || reply.count == 3), "main network preparation failed");
     struct stat resolver{};
     require(::ioctl(reply.descriptors[0].get(), NS_GET_NSTYPE) == CLONE_NEWNET
             && ::fstat(reply.descriptors[1].get(), &resolver) == 0 && S_ISDIR(resolver.st_mode),
@@ -287,6 +301,16 @@ int prepare(pam_handle_t *handle, bool karyoOnly) {
     syscallResult(resolverMount.get() >= 0, "cannot clone the resolver mount");
     auto entry = std::make_unique<Entry>();
     entry->user = identity.first; entry->service = identity.second;
+    if (reply.count == 3) {
+        struct stat socket{}, target{};
+        require(::fstat(reply.descriptors[2].get(), &socket) == 0 && S_ISSOCK(socket.st_mode)
+                && ::lstat("/run/dbus/system_bus_socket", &target) == 0
+                && S_ISSOCK(target.st_mode) && target.st_uid == 0,
+                "invalid main host-service socket context");
+        entry->hostBusMount = Descriptor(::open_tree(reply.descriptors[2].get(), "",
+            AT_EMPTY_PATH | OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC));
+        syscallResult(entry->hostBusMount.get() >= 0, "cannot clone the host-service socket mount");
+    }
     syscallResult(::unshare(CLONE_NEWNS) == 0, "cannot prepare the session mount namespace");
     entry->mountsChanged = true;
     // Accept later host mounts (notably /run/user/$UID, created by
@@ -321,6 +345,7 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *handle, int, int count, const c
         require(identity.first == entry->user && identity.second == entry->service,
                 "PAM account changed during network preparation");
         if (entry->ignored) return PAM_IGNORE;
+        entry->attachHostBus();
         auto reply = request("attach", entry->user, entry->service);
         require(reply.status == 0 && reply.count == 0, "main login attachment failed");
         return PAM_SUCCESS;
