@@ -47,6 +47,13 @@ already owns the standard service. Settings, audio, Bluetooth, power and network
 controls use available host services instead of installing private OS helpers.
 Settings buttons are disabled when no compatible settings application exists.
 
+The entry adds its packaged configuration directory only to Karyo's XDG view.
+It masks MATE's broadly enabled authentication-agent autostart entry, which
+otherwise races Karyo Shell for the same session. The host MATE launcher and
+its behavior in other desktops remain intact; user autostart preferences retain
+their normal higher priority. The configuration scope is also imported for
+ordinary session-bus activation.
+
 Per-user openkaryon/desktop.conf and shell.conf remain compatible with the
 prototype. User environment prefers karyo/session.env, with the old
 openkaryon/session.env as a fallback. Renderer and keyboard helpers preserve

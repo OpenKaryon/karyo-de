@@ -12,6 +12,8 @@ install(FILES "${session_root}/session/labwc/rc.xml"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/karyo/session/labwc COMPONENT session-runtime)
 install(PROGRAMS "${session_root}/session/labwc/autostart"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/karyo/session/labwc COMPONENT session-runtime)
+install(FILES "${session_root}/session/config/autostart/polkit-mate-authentication-agent-1.desktop"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/karyo/session/config/autostart COMPONENT session-runtime)
 install(FILES "${session_root}/LICENSE" "${session_root}/docs/SESSION.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-session COMPONENT session-runtime)
 if(BUILD_TESTING)

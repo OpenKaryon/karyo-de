@@ -65,6 +65,13 @@ case ":${XDG_DATA_DIRS:-/usr/local/share:/usr/share}:" in
     *":$associations:"*) : ;;
     *) export XDG_DATA_DIRS="$associations:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}" ;;
 esac
+# MATE's agent also autostarts outside MATE. This session supplies its own agent;
+# hide the competing launcher in Karyo's XDG view without editing host files.
+session_config="$data_dir/config"
+case ":${XDG_CONFIG_DIRS:-/etc/xdg}:" in
+    *":$session_config:"*) : ;;
+    *) export XDG_CONFIG_DIRS="$session_config:${XDG_CONFIG_DIRS:-/etc/xdg}" ;;
+esac
 # Root-owned protection policy, resolved for the real process UID. This happens
 # after user session preferences so they cannot replace the decision by setting
 # a password environment variable. A protected compositor must start locked,
