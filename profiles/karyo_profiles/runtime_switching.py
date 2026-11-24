@@ -62,8 +62,11 @@ class RuntimeSwitcher(ExistingSwitcher):
             forwarding_ready()
             supported_resolver_layout()
             command = NetworkCommand()
-            physical = discover_underlay(command)
-            seed = discover_dns(physical, command)
+            # DNS discovery performs several native calls. A single budget
+            # bounds the whole inventory before any profile is allocated.
+            with command.bounded(8):
+                physical = discover_underlay(command)
+                seed = discover_dns(physical, command)
             if reauthorize is not None and reauthorize() != caller:
                 raise PermissionError("The desktop caller changed before allocation")
             network = dns = scope = None

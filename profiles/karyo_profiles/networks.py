@@ -6,9 +6,11 @@ The future supervisor must keep the lease alive and stop its consumers before
 closing it. Uncertain resources are retained, not removed by name on a retry.
 """
 from dataclasses import dataclass
+from contextlib import contextmanager
 import fcntl
 import ipaddress
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -31,15 +33,34 @@ class NetworkRetained(NetworkError):
 
 
 class NetworkCommand:
+    @contextmanager
+    def bounded(self, seconds):
+        """Share one deadline across a native inventory or reconciliation batch."""
+        if (type(seconds) not in (int, float) or not math.isfinite(seconds)
+                or not 0 < seconds <= 30):
+            raise ValueError("Invalid native network operation budget")
+        previous = getattr(self, "_deadline", None)
+        deadline = time.monotonic() + seconds
+        self._deadline = deadline if previous is None else min(previous, deadline)
+        try:
+            yield self
+        finally:
+            self._deadline = previous
+
     def run(self, *arguments, input_data=None):
         if input_data is not None and (not isinstance(input_data, bytes) or len(input_data) > 4096):
             raise ValueError("Native network input must be at most one bounded pipe buffer")
+        deadline = time.monotonic() + 10
+        shared = getattr(self, "_deadline", None)
+        if shared is not None:
+            deadline = min(deadline, shared)
+        if deadline <= time.monotonic():
+            raise TimeoutError("Profile network operation budget expired")
         # No shell, caller environment, inherited descriptors or unbounded output.
         with subprocess.Popen(arguments, stdin=subprocess.PIPE if input_data is not None else subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL, close_fds=True,
                 env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LANG": "C.UTF-8"}) as process:
-            deadline = time.monotonic() + 10
             data = bytearray()
             try:
                 if input_data is not None:

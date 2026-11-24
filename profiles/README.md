@@ -1,5 +1,14 @@
 # Optional desktop profile integration
 
+The current startup inventory uses one eight-second budget for physical-route
+and DNS discovery before allocating a profile. Nested native-command budgets
+cannot extend that deadline; expired batches launch no further child, and a
+timed-out child is reaped. The four command-budget cases and twelve existing
+startup cases pass on Debian 13 and Ubuntu 26.04. The same command-budget cases
+and read-only native route/DNS discovery also pass on both QA kernels without
+changing installed files or the host resolver. This does not yet implement live
+address/gateway/DNS reconciliation for an already running desktop.
+
 These are reviewed account-management slices of the prototype's independent
 desktop sessions. The optional profile-accounts-runtime component packages fixed
 privileged account/list/existing-switch helpers and their active-user policies.
