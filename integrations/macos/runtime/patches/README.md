@@ -667,3 +667,31 @@ NSWindow translation unit was not accepted by that reduced closure: it lacks
 NSColorSpace.h. Full-stack/source and installed60 checks remain separate gates.
 No shared/security unit suite ran. Ubuntu59 failure stops the next Debian full
 engine and further original-app retries rather than claiming GUI compatibility.
+
+## Child termination status (installed61 pending)
+
+Original UGENE53.1 on Ubuntu60 exits quickly with launcher status0 and no visible
+window. The same-prefix ordinary echo succeeds and a subsequent unchanged app
+launch still has no window; there is no other live original UGENE process. Its
+initializer trace reaches application initializers. None of these observations
+proves that the application exited normally or identifies its remaining failure.
+
+A later diagnostic runs the exact recorded launch plan under an ordinary
+parent Bash in that same prefix, with every original app member still verified.
+The parent observes a natural Abort trap6 and reports status134. This confirms
+an application termination failure hidden by the earlier status0; it does not
+identify the cause of the abort. No crash was intentionally generated.
+
+Source inspection finds that shellspawn unconditionally uses WEXITSTATUS after
+waitpid, including signaled children, and can use an uninitialized status after
+a failed wait. Patch0061 retries EINTR, preserves ordinary exit codes, returns
+128 plus the Darwin termination signal for signaled children, and prints that
+signal. A wait failure retains status1. This is a common launcher correction,
+without application-specific policy or changes to UGENE.
+
+The complete changed shellspawn translation unit compiles using the configured
+Debian60 command and native Clang19. Its exact159-file source/header closure and
+arguments also compile with native Ubuntu Clang21. This is candidate-source
+validation only: installed61 termination semantics and UGENE GUI remain pending.
+No intentional crash, security or shared unit suite ran. The immutable full
+Debian60 engine remains separate and unchanged by this candidate.

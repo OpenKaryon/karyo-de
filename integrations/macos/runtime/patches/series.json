@@ -242,6 +242,10 @@
     {
       "file": "0060-appkit-lazy-subwindow-backend.patch",
       "sha256": "69bebda3d250a6cc51f3cd6f3f04eab7352df31faec7cdf31603efab744fdf70"
+    },
+    {
+      "file": "0061-shellspawn-report-child-termination.patch",
+      "sha256": "7fce79f338b892e82fce862fc64ae84b74499bebcc61899beac6b43eeaa40f3e"
     }
   ]
 }

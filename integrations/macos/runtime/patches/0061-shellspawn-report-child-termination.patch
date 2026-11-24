@@ -1,0 +1,35 @@
+Subject: Preserve failed and signaled child termination in the launcher status
+
+WEXITSTATUS is only defined for a normally exited child. A signaled process
+can otherwise be reported as success, and a failed wait can read an uninitialized
+status. Retry interrupted waits, distinguish normal and signaled termination,
+and report the Darwin child signal alongside a conventional nonzero status.
+
+--- a/src/shellspawn/shellspawn.c
++++ b/src/shellspawn/shellspawn.c
+@@ -401,10 +401,22 @@
+ 	}
+ 
+ 	// Reap the child
+-	int wstatus;
+-	if (waitpid(shell_pid, &wstatus, 0) != shell_pid)
++	int child_status;
++	int wstatus = 1;
++	pid_t reaped;
++	do {
++		reaped = waitpid(shell_pid, &child_status, 0);
++	} while (reaped == -1 && errno == EINTR);
++	if (reaped != shell_pid)
+ 		perror("waitpid");
+-	wstatus = WEXITSTATUS(wstatus);
++	else if (WIFEXITED(child_status))
++		wstatus = WEXITSTATUS(child_status);
++	else if (WIFSIGNALED(child_status))
++	{
++		int signal_number = WTERMSIG(child_status);
++		wstatus = 128 + signal_number;
++		fprintf(stderr, "Darling: child terminated by signal %d\n", signal_number);
++	}
+ 	
+ 	// Report exit code back to the client
+ 	write(fd, &wstatus, sizeof(int));
