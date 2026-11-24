@@ -150,6 +150,22 @@ class MonitorTests(unittest.TestCase):
         self.monitor.poll(self.profiles, self.store)
         self.read.assert_not_called()
 
+    def test_main_pam_entry_participates_without_a_child_graphical_launcher(self):
+        del self.scope.graph
+        self.scope.is_main = True
+        self.scope.closed = False
+        self.scope.peer = object()
+        self.scope.token = SPEC.token
+        self.scope.verify = Mock()
+        self.scope.journal.value['main_login'] = {'pending': None}
+        self.monitor.poll(self.profiles, self.store)
+        self.scope.verify.assert_called_once()
+        self.apply.assert_called_once()
+        self.scope.journal.value['main_login']['pending'] = 'login-close'
+        self.now = 15
+        self.monitor.poll(self.profiles, self.store)
+        self.assertEqual(self.read.call_count, 1)
+
     def test_routing_change_is_reported_for_the_separate_route_reconciler(self):
         self.read.return_value = replace(NEW, physical=replace(PHYSICAL, gateway='192.0.2.254'))
         self.monitor.poll(self.profiles, self.store)

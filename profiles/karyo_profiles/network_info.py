@@ -35,10 +35,10 @@ def namespace(*, path=None, descriptor=None, expected=None):
 
 
 def ready(scope):
-    if scope.graph is None or scope.graph.closed:
+    if getattr(scope, 'is_main', False) is not True and (scope.graph is None or scope.graph.closed):
         raise NetworkError('The captured desktop is not running')
     record = scope.journal.record(scope.token)
-    for role in ('dns', 'forwarding', 'session', 'provider'):
+    for role in ('dns', 'forwarding', 'session', 'main_login', 'provider'):
         value = record.get(role, {})
         if value.get('pending') is not None or 'refresh' in value:
             raise NetworkError('A desktop transition is still in progress')
@@ -85,8 +85,8 @@ def describe(peer, registry, store, accounts=None):
     """Inspect only the active caller while holding the host configuration lock.
 
     The returned JSON is deliberately not a lease and exports no descriptors.
-    Provider startup, registration, revocation and cleanup require a separate
-    lifecycle protocol; this diagnostic must not authorize route/DNS mutation.
+    Managed service startup and cleanup belong to the controller; this
+    diagnostic must not authorize route/DNS mutation or privileged execution.
     """
     host_controller()
     if registry.store is not store or not store._locked:
@@ -95,24 +95,31 @@ def describe(peer, registry, store, accounts=None):
     account = peer.verify()
     ownership = store.ownership()
     family = ownership.family(account.name)
+    contexts = dict(registry.profiles)
+    primary = getattr(registry, 'main', None)
+    if primary is not None:contexts.update(primary.entries)
     scopes = []
-    for token, scope in registry.profiles.items():
+    for token, scope in contexts.items():
         if scope.manager.account.name in family:
             if token != scope.token or accounts.by_uid(scope.manager.account.uid) != scope.manager.account:
                 raise NetworkError('The captured desktop account changed')
             scopes.append(scope)
     selected = [scope for scope in scopes if scope.manager.account == account]
-    if ownership.is_child(account.name):
+    if ownership.is_child(account.name) or selected:
         if len(selected) != 1:
             raise NetworkError('The current desktop has no unique captured network')
         selected = selected[0]
-        login = selected.graph.identity.login if selected.graph is not None else None
-        if login is None or (login.id, login.uid, login.name, login.vt) != peer.identity.session:
+        if getattr(selected, 'is_main', False) is True:
+            owner = selected.login()
+            login = selected.manager.sessions.get(owner.id)
+            vt = None if login is None else login.vt
+        else:
+            login = selected.graph.identity.login if selected.graph is not None else None
+            vt = getattr(login, 'vt', getattr(selected.graph, 'vt', None))
+        if login is None or (login.id, login.uid, login.name, vt) != peer.identity.session:
             raise PermissionError('The captured desktop is not the current login')
         observed = [selected]
     else:
-        if selected:
-            raise NetworkError('A main desktop unexpectedly owns a private profile context')
         selected = None
         observed = sorted(scopes, key=lambda scope: scope.manager.account.uid)
     if len(observed) > 16:
@@ -144,7 +151,9 @@ def describe(peer, registry, store, accounts=None):
         if peer.verify() != account:
             raise PermissionError('The network inspection caller changed')
         for scope in observed:
-            if registry.profiles.get(scope.token) is not scope:
+            current = dict(registry.profiles)
+            if primary is not None:current.update(primary.entries)
+            if current.get(scope.token) is not scope:
                 raise NetworkError('The captured desktop lifetime changed')
             remaining = deadline - time.monotonic()
             if remaining <= 0:

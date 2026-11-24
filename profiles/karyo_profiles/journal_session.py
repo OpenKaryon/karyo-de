@@ -39,7 +39,7 @@ def graphical_receipt(graph):
             "compositor":list(graph.compositor),"entered":graph.entered}
 
 
-def restore_manager(files,proof,*,netbird=False,catalog=False):
+def restore_manager(files,proof,*,netbird=False,catalog=False,login_services=("karyo-desktop",),allow_starting=False):
     manager=UserManagerScope(files,netbird=netbird,catalog=catalog)
     manager.initial_dropins=frozenset(proof["dropins"])
     manager.directory_identity=tuple(proof["directory"]);manager.file_identity=tuple(proof["file"])
@@ -54,11 +54,11 @@ def restore_manager(files,proof,*,netbird=False,catalog=False):
             cgroup="/user.slice/user-"+str(manager.account.uid)+".slice/"+manager.name+"/init.scope"
             manager.identity=UnitIdentity(live["invocation"],live["pid"],cgroup,live["start"])
             manager.executable=tuple(live["exe"])
-            manager.login=owner(live["login"],manager.account)
+            manager.login=owner(live["login"],manager.account,login_services=login_services)
             manager.manager_login=owner(live["manager_login"],manager.account,manager=True)
             manager.pidfd=manager.process.open(live["pid"])
             manager.verify()
-        elif not manager.inactive(manager.info()) or manager.sessions.owners(manager.account.uid):
+        elif not allow_starting and (not manager.inactive(manager.info()) or manager.sessions.owners(manager.account.uid)):
             raise JournalRetained("The prepared journal manager unexpectedly started")
         return manager
     except BaseException:
@@ -105,6 +105,40 @@ def stat_start(pid):
     if not separator or len(fields)<20 or not fields[19].isdigit():
         raise JournalRetained("Invalid namespace consumer process identity")
     return int(fields[19])
+
+
+def verify_namespace_consumers(scope, roots, verify):
+    """Inspect the captured login/manager cgroups without inventing a launcher."""
+    verify()
+    resolver=scope.dns.services.resolver.identity.pid
+    provider=None if scope.provider is None else scope.provider.scope.unit.identity.pid
+    deadline=time.monotonic()+5
+    for attempt in range(3):
+        try:
+            values=scope.network.network._ip("netns","pids",scope.network.network.name).splitlines()
+            for value in values:
+                if not value.isdecimal() or str(int(value))!=value or int(value)<=1:
+                    raise JournalRetained("Invalid private namespace process inventory")
+                pid=int(value)
+                if pid in (resolver,provider):continue
+                fd=os.pidfd_open(pid)
+                try:
+                    import select
+                    if select.select([fd],[],[],0)[0]:raise ProcessLookupError()
+                    start=stat_start(pid)
+                    rows=Path("/proc",value,"cgroup").read_text().splitlines()
+                    namespace=os.stat("/proc/"+value+"/ns/net")
+                    if (len(rows)!=1 or not rows[0].startswith("0::") or not any(rows[0][3:]==p
+                            or rows[0][3:].startswith(p+"/") for p in roots)
+                            or (namespace.st_dev,namespace.st_ino)!=scope.network.network.identity):
+                        raise JournalRetained("A private namespace consumer is outside captured session scopes")
+                    if stat_start(pid)!=start or select.select([fd],[],[],0)[0]:raise ProcessLookupError()
+                finally:os.close(fd)
+            verify()
+            return
+        except (FileNotFoundError,ProcessLookupError):
+            if attempt==2 or time.monotonic()>=deadline:raise JournalRetained("Namespace process churn did not settle") from None
+
 
 
 class JournalSession:
@@ -182,43 +216,16 @@ class JournalSession:
             if network.fd is not None:os.close(network.fd);network.fd=None
             raise
 
-    def verify_consumers(self):
+    def verify_anchors(self):
         self.manager.verify();self.graph.verify();self.dns.services.verify()
         if self.forwarding is not None:self.forwarding.verify()
         if self.provider is not None:self.provider.verify()
-        session=self.graph.identity.cgroup
-        user=self.manager.identity.cgroup.removesuffix("/init.scope")
-        service="/system.slice/"+self.graph.name
-        resolver=self.dns.services.resolver.identity.pid
-        provider=None if self.provider is None else self.provider.scope.unit.identity.pid
-        deadline=time.monotonic()+5
-        for attempt in range(3):
-            try:
-                values=self.network.network._ip("netns","pids",self.network.network.name).splitlines()
-                for value in values:
-                    if not value.isdecimal() or str(int(value))!=value or int(value)<=1:
-                        raise JournalRetained("Invalid private namespace process inventory")
-                    pid=int(value)
-                    if pid in (resolver,provider):continue
-                    fd=os.pidfd_open(pid)
-                    try:
-                        import select
-                        if select.select([fd],[],[],0)[0]:raise ProcessLookupError()
-                        start=stat_start(pid)
-                        rows=Path("/proc",value,"cgroup").read_text().splitlines()
-                        namespace=os.stat("/proc/"+value+"/ns/net")
-                        if (len(rows)!=1 or not rows[0].startswith("0::") or not any(rows[0][3:]==p
-                                or rows[0][3:].startswith(p+"/") for p in (session,user,service))
-                                or (namespace.st_dev,namespace.st_ino)!=self.network.network.identity):
-                            raise JournalRetained("A private namespace consumer is outside captured session scopes")
-                        if stat_start(pid)!=start or select.select([fd],[],[],0)[0]:raise ProcessLookupError()
-                    finally:os.close(fd)
-                self.manager.verify();self.graph.verify();self.dns.services.verify()
-                if self.forwarding is not None:self.forwarding.verify()
-                if self.provider is not None:self.provider.verify()
-                return
-            except (FileNotFoundError,ProcessLookupError):
-                if attempt==2 or time.monotonic()>=deadline:raise JournalRetained("Namespace process churn did not settle") from None
+
+    def verify_consumers(self):
+        roots = (self.graph.identity.cgroup,
+                 self.manager.identity.cgroup.removesuffix("/init.scope"),
+                 "/system.slice/" + self.graph.name)
+        verify_namespace_consumers(self, roots, self.verify_anchors)
 
     def enter(self,caller,*,reauthorize=None):
         self.verify_consumers()
@@ -285,17 +292,20 @@ class SessionRegistry:
         self.profiles={}
         self.returned=set()
         self.network_watch=None
+        from .main_registry import MainRegistry
+        self.main = MainRegistry(journal, store)
 
     def restore(self):
         from .journal_session_cleanup import recover_closed_session
         try:
+            self.main.restore()
             for record in self.journal.snapshot()["profiles"]:
                 if "session" not in record:continue
                 with self.store.locked():
                     if recover_closed_session(self.journal,self.store,record):continue
                     if recover_prepared_session(self.journal,self.store,record):continue
                     self.profiles[record["token"]]=JournalSession.restore(self.journal,self.store,record)
-            recover_profiles(self.journal,self.store,exclude=self.profiles)
+            recover_profiles(self.journal,self.store,exclude=set(self.profiles) | self.main.tokens)
             return self
         except BaseException:
             self.release_handles()
@@ -305,6 +315,7 @@ class SessionRegistry:
         from .returning import ReturnAfterExit
         from .graphical import GraphicalPending
         from .user_manager import ManagerPending
+        self.main.poll()
         for token,scope in tuple(self.profiles.items()):
             if not scope.graph.closed and not scope.graph.process.exited(scope.graph.pidfd):continue
             with self.store.locked():
@@ -321,9 +332,10 @@ class SessionRegistry:
                 scope.release_handles()
                 del self.profiles[token];self.returned.discard(token)
         if self.network_watch is not None:
-            self.network_watch.poll(self.profiles,self.store)
+            self.network_watch.poll(dict(self.profiles, **self.main.entries),self.store)
 
     def release_handles(self):
+        self.main.release_handles()
         for profile in self.profiles.values():profile.release_handles()
         self.profiles.clear()
         self.returned.clear()

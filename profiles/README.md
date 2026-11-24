@@ -27,6 +27,13 @@ restores the host network baseline and clears temporary accounts/receipts.
 See [the precise actors and limits](../docs/VALIDATION_MAIN_NETWORK.md): this is
 not graphical Home/Work, installed-package, uplink, IPv6 or VPN acceptance.
 
+The next [early PAM entry checkpoint](../docs/VALIDATION_MAIN_ENTRY.md) passes
+real temporary-account authentication/session opening on both networking QA
+copies. The PAM parent enters the captured network/resolver before user-manager
+startup, and ordinary direct/user-manager-activated clients pass DNS/TCP/UDP in
+the same context. The new session-only PAM library is an inactive component:
+production host lifecycle and actual login-manager activation remain open.
+
 The 0.1.3 source adds read-only current-network inspection through
 `pkexec /usr/libexec/karyo/desktop-network-info` when the optional host is enabled.
 It accepts no arguments and uses the current captured desktop peer. Its JSON

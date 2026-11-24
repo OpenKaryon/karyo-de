@@ -150,7 +150,7 @@ def cancel_refresh(dns):
     record = dns.journal.record(dns.token)
     if "refresh" not in record["dns"]:
         return
-    if "session" in record or "provider" in record:
+    if "session" in record or "main_login" in record or "provider" in record:
         raise NetworkError("Live DNS refresh must finish before consumer shutdown")
     value = dict(record["dns"])
     value.pop("refresh")

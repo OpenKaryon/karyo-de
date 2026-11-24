@@ -56,7 +56,7 @@ class JournalNetBird:
     @classmethod
     def start(cls, journal, dns):
         before = journal.record(dns.token)
-        if ("provider" in before or "session" in before or before["dns"]["pending"] is not None):
+        if ("provider" in before or "session" in before or "main_login" in before or before["dns"]["pending"] is not None):
             raise JournalRetained("Provider startup needs acknowledged DNS before graphical consumers")
         dns.services.verify()
         scope = NetBirdScope(dns)
@@ -124,7 +124,7 @@ class JournalNetBird:
 
     def close(self):
         before = self.journal.record(self.token)
-        if "session" in before:
+        if "session" in before or "main_login" in before:
             raise JournalRetained("The graphical profile must close before its provider")
         value = before["provider"]
         if value["pending"] not in {None, "service-stop"} or value["state"] != state_receipt(self.scope.state):
@@ -147,7 +147,7 @@ def recover_providers(journal, store, *, accounts=None, sessions=None, command=N
     for record in journal.snapshot()["profiles"]:
         if record["token"] in exclude or "provider" not in record:
             continue
-        if "session" in record:
+        if "session" in record or "main_login" in record:
             raise JournalRetained("The provider still has a graphical owner")
         with store.locked():
             account = accounts.by_uid(record["account"]["uid"])

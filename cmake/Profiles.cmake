@@ -1,6 +1,13 @@
 # Low-level optional accounts component. Installing it does not enable PAM,
 # create users, start sessions or replace a display manager.
 get_filename_component(profile_source "${CMAKE_CURRENT_LIST_DIR}/../profiles" ABSOLUTE)
+# Keep the independent account-only project free of a compiler dependency.
+# The full DE opts in to building this separate, inactive install component.
+option(KARYO_BUILD_PROFILE_LOGIN "Build the inactive main-login PAM handoff component" OFF)
+if(KARYO_BUILD_PROFILE_LOGIN)
+    enable_language(CXX)
+    add_subdirectory("${profile_source}/pam" "${CMAKE_CURRENT_BINARY_DIR}/profile-login")
+endif()
 foreach(operation IN ITEMS add list switch network-info sync password-changed)
     set(KARYO_PROFILE_OPERATION "${operation}")
     configure_file("${profile_source}/entrypoint.in" "${CMAKE_CURRENT_BINARY_DIR}/desktop-${operation}" @ONLY)
@@ -37,7 +44,7 @@ install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/profile-session-entry"
     "${CMAKE_CURRENT_BINARY_DIR}/profile-session-wait"
     DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo COMPONENT profile-session-runtime)
 install(FILES "${profile_source}/pam.d/karyo-desktop"
-    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/pam.d COMPONENT profile-session-runtime)
+    DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/pam.d COMPONENT profile-session-runtime)
 install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-session
     COMPONENT profile-session-runtime)
@@ -65,6 +72,10 @@ configure_file("${profile_source}/runtime.in"
 configure_file("${profile_source}/karyo-profile-networking.service.in"
     "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-networking.service" @ONLY)
 install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-runtime"
+    DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-runtime)
+configure_file("${profile_source}/main_login.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-main-login" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-main-login"
     DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-runtime)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/karyo-profile-networking.service"
     DESTINATION ${KARYO_SYSTEMD_SYSTEM_UNIT_DIR} COMPONENT profile-runtime)
@@ -107,8 +118,12 @@ if(BUILD_TESTING)
         -s ${profile_source}/tests -p test_route_refresh.py -v)
     add_test(NAME profile-network-info COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_network_info.py -v)
+    add_test(NAME profile-main-entry COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_main_entry.py -v)
+    add_test(NAME profile-main-activation COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_main_activation.py -v)
     set_tests_properties(profile-live-dns profile-network-budget profile-carrier-refresh
-        profile-network-info PROPERTIES TIMEOUT 20)
+        profile-network-info profile-main-entry profile-main-activation PROPERTIES TIMEOUT 20)
 endif()
 
 

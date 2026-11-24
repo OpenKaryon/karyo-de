@@ -35,8 +35,12 @@ class DNSRefreshMonitor:
             self.report("physical DNS " + value)
 
     def poll(self, profiles, store):
-        live = {token: scope for token, scope in profiles.items()
-                if scope.graph is not None and not scope.graph.closed}
+        def running(scope):
+            if getattr(scope, 'is_main', False) is True:
+                return (not scope.closed and scope.peer is not None
+                        and scope.journal.record(scope.token)['main_login']['pending'] is None)
+            return scope.graph is not None and not scope.graph.closed
+        live = {token: scope for token, scope in profiles.items() if running(scope)}
         self.messages = {token: value for token, value in self.messages.items() if token in live}
         if not live:
             self.queue = []
@@ -66,6 +70,7 @@ class DNSRefreshMonitor:
             return
         try:
             with store.locked(), scope.dns.files.network.command.bounded(3):
+                if getattr(scope, 'is_main', False) is True:scope.verify()
                 record = scope.journal.record(token)
                 if routing or 'refresh' in record.get('forwarding',{}):
                     changed = self.routes(scope.forwarding,scope.dns,self.target)

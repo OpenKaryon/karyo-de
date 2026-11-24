@@ -25,7 +25,7 @@ qt6_generate_wayland_protocol_client_sources(karyo-lock
     FILES ${PROJECT_SOURCE_DIR}/lock/protocols/ext-session-lock-v1.xml)
 install(TARGETS karyo-lock RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT lock-runtime)
 install(FILES ${PROJECT_SOURCE_DIR}/lock/pam.d/karyo-lock
-    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/pam.d COMPONENT lock-runtime)
+    DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/pam.d COMPONENT lock-runtime)
 install(FILES LICENSE docs/PROVENANCE.md
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-lock COMPONENT lock-runtime)
 

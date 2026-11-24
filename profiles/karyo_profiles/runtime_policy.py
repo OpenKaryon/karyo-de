@@ -116,7 +116,7 @@ def main():
     try:
         if args.operation == "enable":
             enable()
-            print("Private desktop runtime enabled. Home keeps its ordinary network.")
+            print("Private desktop runtime enabled. Main login is configured separately.")
         else:
             apply()
         return 0

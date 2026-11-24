@@ -119,6 +119,22 @@ class OwnerInfoTests(unittest.TestCase):
         self.assertEqual(result['physical_peers'], [])
         self.assertEqual(result['namespace'], list(self.namespace))
 
+    def test_managed_home_uses_its_captured_private_context(self):
+        runtime = self.scope.dns.files.plan.runtime_paths[0]
+        home = self.scope_for(HOME, runtime, token='ef' * 16)
+        home.is_main = True
+        del home.graph
+        login = Session('c1', HOME.name, HOME.uid, 8, True)
+        home.login = lambda: login
+        home.manager.sessions = SimpleNamespace(get=lambda identifier: login)
+        self.registry.main = SimpleNamespace(entries={home.token: home})
+        result = self.capture()
+        self.assertEqual(result['kind'], 'profile')
+        self.assertEqual(result['uid'], HOME.uid)
+        self.assertEqual(result['profile_token'], home.token)
+        self.assertEqual(result['resolver']['directory'], self.runtime_identity)
+        self.assertEqual([row['uid'] for row in result['physical_peers']], [HOME.uid])
+
 
 class InspectionTransportTests(unittest.TestCase):
     def test_fixed_operation_reaches_the_captured_peer_once(self):

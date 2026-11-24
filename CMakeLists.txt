@@ -110,6 +110,7 @@ if(KARYO_BUILD_APPS)
     add_subdirectory(apps/appcenter)
 endif()
 
+option(KARYO_BUILD_PROFILE_LOGIN "Build the inactive main-login PAM handoff component" ON)
 include(cmake/Profiles.cmake)
 
 include(cmake/XClipboard.cmake)

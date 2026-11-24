@@ -71,7 +71,7 @@ def validate_network(value):
 
 def validate_record(value):
     base={"token","account","source","pending","network"}
-    if (not isinstance(value,dict) or not base<=set(value) or set(value)-base-{"dns","session","forwarding","provider","entry"}
+    if (not isinstance(value,dict) or not base<=set(value) or set(value)-base-{"dns","session","forwarding","provider","entry","main_login"}
             or "session" in value and "dns" not in value):
         raise ValueError("Invalid host journal profile record")
     account = validate_account(value["account"])
@@ -123,7 +123,7 @@ def validate_record(value):
         service = value["provider"]["service"]
         if service is not None and service["unit"]["namespace"] != value["network"]["namespace"]:
             raise ValueError("The provider journal namespace differs from its network")
-        if "session" in value and value["provider"]["pending"] is not None:
+        if ("session" in value or "main_login" in value) and value["provider"]["pending"] is not None:
             raise ValueError("A session cannot coexist with a provider mutation")
     if "session" in value:
         if value["dns"]["pending"] is not None or value["dns"]["bus"] is None or value["dns"]["resolver"] is None:
@@ -132,6 +132,13 @@ def validate_record(value):
         validate_session(value["session"],account)
         if "catalog" in value["session"] and "provider" not in value:
             raise ValueError("The private catalog requires its captured provider")
+    if "main_login" in value:
+        if (value.get("entry") != "main" or "session" in value or "dns" not in value
+                or value["dns"]["pending"] is not None or value["dns"]["bus"] is None
+                or value["dns"]["resolver"] is None):
+            raise ValueError("A main login requires its acknowledged private DNS and exclusive entry")
+        from .journal_main_record import validate_main
+        validate_main(value["main_login"], account)
 
 
 class RuntimeJournal:
@@ -191,13 +198,15 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 10 or data["boot"] != self.boot
+                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 11 or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
+            if "main_login" in record and data["schema"] < 11:
+                raise ValueError("Main login ownership requires journal schema 11")
             if "entry" in record and data["schema"] < 10:
                 raise ValueError("Main desktop preparation requires journal schema 10")
             if "dns" in record and data["schema"] < 2:
@@ -292,6 +301,7 @@ class RuntimeJournal:
                 or ("dns" in record and record["dns"]["pending"] is not None)
                 or "refresh" in record.get("dns", {})
                 or ("session" in record and record["session"]["pending"] is not None)
+                or ("main_login" in record and record["main_login"]["pending"] is not None)
                 or ("forwarding" in record and record["forwarding"]["pending"] is not None)
                 or 'refresh' in record.get('forwarding',{})
                 or ("provider" in record and record["provider"]["pending"] is not None) for record in data["profiles"]):
@@ -327,6 +337,8 @@ class RuntimeJournal:
             data["schema"] = max(data["schema"],2)
         if replacement is not None and "session" in replacement:
             data["schema"] = max(data["schema"],3)
+        if replacement is not None and "main_login" in replacement:
+            data["schema"] = max(data["schema"],11)
         if replacement is not None and "forwarding" in replacement:
             data["schema"] = max(data["schema"], 4)
         if replacement is not None and "provider" in replacement:

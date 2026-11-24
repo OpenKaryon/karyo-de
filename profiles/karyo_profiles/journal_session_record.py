@@ -18,7 +18,7 @@ def process(value):
     invocation(value["invocation"])
 
 
-def owner(value,account,*,manager=False):
+def owner(value,account,*,manager=False,login_services=("karyo-desktop",)):
     if not isinstance(value,dict) or set(value)!={"id","name","uid","leader","kind","scope","service","state"}:
         raise ValueError("Invalid journal logind owner")
     if type(value["uid"]) is not int or type(value["leader"]) is not int:
@@ -28,10 +28,32 @@ def owner(value,account,*,manager=False):
     parsed=LoginOwner.parse("".join(k+"="+str(v)+"\n" for k,v in mapping.items()),value["id"])
     if (parsed.uid!=account.uid or parsed.name!=account.name or parsed.leader<=1
             or (parsed.kind not in {"manager","manager-early"} if manager else parsed.kind!="user")
-            or parsed.service!=("systemd-user" if manager else "karyo-desktop")
+            or parsed.service not in (("systemd-user",) if manager else login_services)
             or (bool(parsed.scope) if manager else not parsed.scope)):
         raise ValueError("The journal login belongs to another owner or service")
     return parsed
+
+
+def validate_manager(manager,account,*,login_services=("karyo-desktop",)):
+    """Validate the shared receipt without assuming how PAM was entered."""
+    if not isinstance(manager,dict) or set(manager)!={"directory","file","dropins","live"}:
+        raise ValueError("Invalid prepared manager receipt")
+    identity(manager["directory"]);identity(manager["file"])
+    paths=manager["dropins"]
+    if (not isinstance(paths,list) or len(paths)>128 or any(not isinstance(p,str) or not p.startswith("/")
+            or len(p)>4096 or any(c.isspace() for c in p) or "\\" in p or "%" in p for p in paths)
+            or len(set(paths))!=len(paths)):
+        raise ValueError("Invalid original user-manager policies")
+    live=manager["live"]
+    if live is None:return None
+    if not isinstance(live,dict) or set(live)!={"invocation","pid","start","exe","login","manager_login"}:
+        raise ValueError("Invalid live user-manager receipt")
+    process(live);identity(live["exe"])
+    login=owner(live["login"],account,login_services=login_services)
+    manager_login=owner(live["manager_login"],account,manager=True)
+    if manager_login.leader!=live["pid"] or manager_login.id==login.id:
+        raise ValueError("Ambiguous native manager login identity")
+    return login
 
 
 def validate_session(value,account):
@@ -47,27 +69,13 @@ def validate_session(value,account):
     if manager is None:
         if pending!="manager-prepare" or graph is not None:raise ValueError("Missing prepared manager receipt")
         return
-    if not isinstance(manager,dict) or set(manager)!={"directory","file","dropins","live"}:
-        raise ValueError("Invalid prepared manager receipt")
-    identity(manager["directory"]);identity(manager["file"])
-    paths=manager["dropins"]
-    if (not isinstance(paths,list) or len(paths)>128 or any(not isinstance(p,str) or not p.startswith("/")
-            or len(p)>4096 or any(c.isspace() for c in p) or "\\" in p or "%" in p for p in paths)
-            or len(set(paths))!=len(paths)):
-        raise ValueError("Invalid original user-manager policies")
+    login=validate_manager(manager,account)
     if pending=="manager-prepare":raise ValueError("Ambiguous manager preparation receipt")
     live=manager["live"]
     if live is None:
         if graph is not None or pending not in {None,"login-start","manager-close"}:
             raise ValueError("Missing live user-manager receipt")
         return
-    if not isinstance(live,dict) or set(live)!={"invocation","pid","start","exe","login","manager_login"}:
-        raise ValueError("Invalid live user-manager receipt")
-    process(live);identity(live["exe"])
-    login=owner(live["login"],account)
-    manager_login=owner(live["manager_login"],account,manager=True)
-    if manager_login.leader!=live["pid"] or manager_login.id==login.id:
-        raise ValueError("Ambiguous native manager login identity")
     if graph is None:
         if pending!="manager-close":raise ValueError("Missing graphical login receipt")
         return

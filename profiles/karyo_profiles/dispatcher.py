@@ -77,17 +77,19 @@ def operation(packet):
 
 class HostDispatcher:
     def __init__(self, store=None, *, accounts=None, sessions=None, peer=DesktopPeer,
-                 switcher=ExistingSwitcher, guard=host_controller, network_info=None):
+                 switcher=ExistingSwitcher, guard=host_controller, network_info=None, login=None):
         self.store = ConfigStore() if store is None else store
         self.accounts = LocalAccounts() if accounts is None else accounts
         self.sessions = Sessions() if sessions is None else sessions
         self.peer, self.switcher, self.guard = peer, switcher, guard
         self.network_info = network_info
+        self.login = login
 
     def handle(self, connection):
         caller = None
         try:
             self.guard()
+            if self.login is not None and self.login.handle_if_claimed(connection):return
             # Credentials are captured before parsing input. No UID, owner,
             # session ID, path, namespace or program can come from the packet.
             caller = self.peer(connection, accounts=self.accounts, sessions=self.sessions)
@@ -214,6 +216,8 @@ def main():
         with activated_listener(os.environ) as listener, RuntimeJournal() as journal:
             dispatcher = HostDispatcher()
             registry=SessionRegistry(journal,dispatcher.store).restore()
+            from .main_dispatcher import MainDispatcher
+            dispatcher.login=MainDispatcher(registry.main,dispatcher.accounts,dispatcher.sessions)
             from .network_watch import DNSRefreshMonitor
             registry.network_watch=DNSRefreshMonitor()
             from .network_info import describe
