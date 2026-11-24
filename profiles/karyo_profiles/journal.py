@@ -71,18 +71,22 @@ def validate_network(value):
 
 def validate_record(value):
     base={"token","account","source","pending","network"}
-    if (not isinstance(value,dict) or not base<=set(value) or set(value)-base-{"dns","session","forwarding","provider"}
+    if (not isinstance(value,dict) or not base<=set(value) or set(value)-base-{"dns","session","forwarding","provider","entry"}
             or "session" in value and "dns" not in value):
         raise ValueError("Invalid host journal profile record")
     account = validate_account(value["account"])
     NetworkSpec(account.uid, value["token"])
     source = value["source"]
-    if not isinstance(source, dict) or set(source) != {"id", "name", "uid", "vt"}:
-        raise ValueError("Invalid host journal source login")
-    session_id(source["id"]); account_name(source["name"]); ordinary_uid(source["uid"])
-    if (source["name"] == account.name or source["uid"] == account.uid
-            or type(source["vt"]) is not int or not 1 <= source["vt"] <= 63):
-        raise ValueError("Invalid host journal source desktop")
+    if "entry" in value:
+        if value["entry"] != "main" or source is not None:
+            raise ValueError("A main preparation has no originating desktop login")
+    else:
+        if not isinstance(source, dict) or set(source) != {"id", "name", "uid", "vt"}:
+            raise ValueError("Invalid host journal source login")
+        session_id(source["id"]); account_name(source["name"]); ordinary_uid(source["uid"])
+        if (source["name"] == account.name or source["uid"] == account.uid
+                or type(source["vt"]) is not int or not 1 <= source["vt"] <= 63):
+            raise ValueError("Invalid host journal source desktop")
     if value["pending"] is not None and (not isinstance(value["pending"], str) or value["pending"] not in {"create", "remove"}):
         raise ValueError("Invalid host journal mutation state")
     if value["network"] is None:
@@ -187,13 +191,15 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 9 or data["boot"] != self.boot
+                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 10 or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
+            if "entry" in record and data["schema"] < 10:
+                raise ValueError("Main desktop preparation requires journal schema 10")
             if "dns" in record and data["schema"] < 2:
                 raise ValueError("DNS ownership requires journal schema 2 or later")
             if "session" in record and data["schema"] < 3:
@@ -273,6 +279,14 @@ class RuntimeJournal:
         self.data, self.raw, self.file_identity = json.loads(raw), raw, identity
 
     def begin(self, account, source):
+        return self._begin(account, {"id": source.id, "name": source.name,
+                                    "uid": source.uid, "vt": source.vt})
+
+    def begin_main(self, account):
+        """Record offline preparation, not authentication or a live login."""
+        return self._begin(account, None, main=True)
+
+    def _begin(self, account, source, *, main=False):
         data = self.snapshot()
         if any(record["token"] not in self.known or record["pending"] is not None
                 or ("dns" in record and record["dns"]["pending"] is not None)
@@ -285,9 +299,12 @@ class RuntimeJournal:
             # blocks new allocation even when this controller created it.
             raise JournalRetained("Existing profile resources require reconciliation")
         token = uuid.uuid4().hex
-        data["profiles"].append({"token": token, "account": asdict(account),
-            "source": {"id": source.id, "name": source.name, "uid": source.uid, "vt": source.vt},
-            "pending": "create", "network": None})
+        record = {"token": token, "account": asdict(account), "source": source,
+                  "pending": "create", "network": None}
+        if main:
+            record["entry"] = "main"
+            data["schema"] = max(data["schema"], 10)
+        data["profiles"].append(record)
         self.save(data)
         self.known.add(token)
         return token
@@ -321,7 +338,7 @@ class RuntimeJournal:
         if replacement is not None and "refresh" in replacement.get("dns", {}):
             data["schema"] = max(data['schema'],8)
         if replacement is not None and 'refresh' in replacement.get('forwarding',{}):
-            data['schema']=9
+            data['schema']=max(data['schema'],9)
         self.save(data)
         if replacement is None:
             self.known.discard(expected["token"])

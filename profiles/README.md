@@ -6,6 +6,27 @@ unmodified upstream VPNs launched through owned adapters. This is a planned
 extension: the current main session still uses the host network. Historical
 acceptance below describes the existing topology, not this new all-desktop goal.
 
+The first implementation slice adds offline main-account network preparation.
+Journal schema 10 records a main entry without inventing an originating child
+switch/login, while existing child records retain their source login. The same
+network allocation and captured cleanup paths are reused. Preparation refuses a
+live account; a concurrent login leaves an acknowledged receipt for recovery
+instead of being moved or adopted. Main and child receipts can coexist.
+
+Eight selected preparation/recovery model cases pass on native Debian 13 and
+Ubuntu 26.04, including the unchanged child create/remove/recovery path. They
+use temporary journal files and a simulated kernel. This adds no login-manager
+hook, authentication bypass, live main-session migration or installed runtime
+activation. Actual main-session entry, private DNS and VPN acceptance remain.
+
+A subsequent source-native fixture now accepts actual network allocation and
+private DNS for three offline contexts on both independent networking QA copies.
+Ordinary-user DNS/TCP/UDP, separate DNS views and Home stop/recreate pass while
+neighbor namespace/resolver identities stay unchanged. Captured teardown
+restores the host network baseline and clears temporary accounts/receipts.
+See [the precise actors and limits](../docs/VALIDATION_MAIN_NETWORK.md): this is
+not graphical Home/Work, installed-package, uplink, IPv6 or VPN acceptance.
+
 The 0.1.3 source adds read-only current-network inspection through
 `pkexec /usr/libexec/karyo/desktop-network-info` when the optional host is enabled.
 It accepts no arguments and uses the current captured desktop peer. Its JSON

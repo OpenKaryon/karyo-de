@@ -207,6 +207,69 @@ class NetworkJournalTest(JournalFixture,unittest.TestCase):
         lease.close();self.assertEqual(self.journal.snapshot()["profiles"],[])
         self.assertFalse(self.current.present)
 
+    def prepare_main(self):
+        return JournalNetwork.prepare_main(self.journal, self.store, HOME,
+                                           accounts=self.accounts, sessions=self.sessions)
+
+    def test_main_preparation_records_offline_entry_without_a_source_login(self):
+        lease = self.prepare_main()
+        record = self.journal.record(lease.token)
+        self.assertEqual(record["entry"], "main")
+        self.assertIsNone(record["source"])
+        self.assertIsNone(record["pending"])
+        self.assertEqual(self.journal.snapshot()["schema"], 10)
+        self.sessions.get.assert_not_called()
+        lease.close()
+        self.assertEqual(self.journal.snapshot()["profiles"], [])
+
+    def test_main_preparation_recovers_after_controller_restart(self):
+        self.prepare_main()
+        self.crash()
+        self.recover()
+        self.assertFalse(self.current.present)
+        self.assertEqual(self.journal.snapshot()["profiles"], [])
+
+    def test_main_preparation_does_not_migrate_an_existing_login(self):
+        self.sessions.owners.return_value = (SOURCE,)
+        with self.assertRaises(JournalRetained):
+            self.prepare_main()
+        self.assertEqual(self.journal.snapshot()["profiles"], [])
+        self.assertIsNone(self.current)
+
+    def test_main_preparation_retains_receipt_if_a_login_appears(self):
+        self.sessions.owners.side_effect = [(), (SOURCE,)]
+        with self.assertRaises(JournalRetained):
+            self.prepare_main()
+        records = self.journal.snapshot()["profiles"]
+        self.assertEqual(len(records), 1)
+        self.assertIsNotNone(records[0]["network"])
+        self.assertIsNone(records[0]["pending"])
+        self.assertTrue(self.current.present)
+        self.assertTrue(all(lease.fd is None for lease in self.leases))
+        self.sessions.owners.side_effect = None
+        self.sessions.owners.return_value = ()
+        self.crash()
+        self.recover()
+        self.assertEqual(self.journal.snapshot()["profiles"], [])
+
+    def test_main_and_child_receipts_coexist_and_reopen(self):
+        main = self.prepare_main()
+        work = self.start()
+        self.assertNotEqual(main.token, work.token)
+        self.assertEqual(self.journal.record(main.token)["entry"], "main")
+        self.assertNotIn("entry", self.journal.record(work.token))
+        self.assertEqual(self.journal.record(work.token)["source"]["name"], "home")
+        self.crash()
+        self.assertEqual(len(self.journal.snapshot()["profiles"]), 2)
+        self.assertEqual(self.journal.snapshot()["schema"], 10)
+
+    def test_child_preparation_still_requires_a_source_desktop(self):
+        with self.assertRaises(PermissionError):
+            JournalNetwork.prepare_main(self.journal, self.store, WORK,
+                                        accounts=self.accounts, sessions=self.sessions)
+        self.assertEqual(self.journal.snapshot()["profiles"], [])
+        self.assertIsNone(self.current)
+
     def test_controller_crash_recovers_only_exact_offline_network(self):
         self.start();self.crash();self.recover()
         self.assertFalse(self.current.present);self.assertEqual(len(self.deletes()),2)

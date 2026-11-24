@@ -51,6 +51,43 @@ class JournalNetwork:
                 or not hashed or hashed.startswith(("!", "*"))):
             raise PermissionError("The journal desktop is locked or expired")
         token = journal.begin(account, source)
+        return cls._create(journal, store, account, token, command)
+
+    @classmethod
+    def prepare_main(cls, journal, store, account, *, accounts=None, sessions=None, command=None):
+        """Allocate the main account's network before any login or user process.
+
+        This root-controller operation does not enter a namespace, start a
+        graphical session, authorize a login or reconfigure a live user manager.
+        The eventual login entry must separately capture and attach its owner.
+        """
+        if not store._locked:
+            raise PermissionError("Main network preparation requires the configuration lock")
+        accounts = LocalAccounts() if accounts is None else accounts
+        sessions = Sessions() if sessions is None else sessions
+        validate_account(asdict(account))
+        if store.ownership().is_child(account.name):
+            raise PermissionError("A child desktop requires its originating family login")
+        offline(account, accounts, sessions)
+        expiry, hashed = accounts.expiry_day(account.name), accounts.password_hash(account.name)
+        if ((expiry is not None and expiry <= int(time.time() // 86400))
+                or not hashed or hashed.startswith(("!", "*"))):
+            raise PermissionError("The main desktop account is locked or expired")
+        token = journal.begin_main(account)
+        lease = cls._create(journal, store, account, token, command)
+        try:
+            # A concurrent ordinary login is not adopted or moved. Keep the
+            # captured receipt for recovery instead of claiming a ready entry.
+            offline(account, accounts, sessions)
+        except BaseException:
+            if lease.network.fd is not None:
+                os.close(lease.network.fd)
+                lease.network.fd = None
+            raise
+        return lease
+
+    @classmethod
+    def _create(cls, journal, store, account, token, command):
         network = ProfileNetwork(store, NetworkSpec(account.uid, token), command)
         expected = journal.record(token)
         try:
