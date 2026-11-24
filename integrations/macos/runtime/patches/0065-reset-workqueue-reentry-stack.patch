@@ -1,0 +1,34 @@
+--- a/src/external/xnu/darling/src/libsystem_kernel/emulation/src/xnu_syscall/bsd/impl/bsdthread/bsdthread_register.c
++++ b/src/external/xnu/darling/src/libsystem_kernel/emulation/src/xnu_syscall/bsd/impl/bsdthread/bsdthread_register.c
+@@ -142,6 +142,7 @@
+ 	register void* arg4 asm("rcx") = item;
+ 	register int   arg5 asm("r8d") = reuse;
+ 	register int   arg6 asm("r9d") = nevents;
++	register bsdwqthread_entry_t entry asm("r10") = wqueue_entry_point;
+ #elif __i386__
+ 	register void* arg1 asm("eax") = self;
+ 	register int   arg2 asm("ebx") = thread_port;
+@@ -153,14 +154,19 @@
+ 
+ #if __x86_64__
+ 	__asm__ __volatile__ (
+-		// `_start_wqthread` does not expect the stack to be aligned (using the 
+-		// call instruction will add the return address to the stack, causing 
+-		// it to be aligned).
++		// Raw `_start_wqthread` creates its own fake return address and frame.
++		// It expects a kernel-style aligned stack top, not a C call frame.
++		// mldr places the workqueue pthread object immediately above its stack.
++		// Reuse must discard old syscall frames; rdx remains the stack bottom
++		// argument for libpthread, while rdi is the actual aligned stack top.
++		"movq %%rdi, %%rsp\n"
++		"andq $-16, %%rsp\n"
++		"xorq %%rbp, %%rbp\n"
+ 		"jmpq *%[wqueue_entry_point]\n"
+ 		::
+ 		// Arguments follow the usual x86_64 calling conventions.
+ 		"r"(arg1),"r"(arg2),"r"(arg3),"r"(arg4),"r"(arg5),"r"(arg6),
+-		[wqueue_entry_point] "r"(wqueue_entry_point)
++		[wqueue_entry_point] "r"(entry)
+ 	);
+ #elif __i386__
+ 	__asm__ __volatile__ (

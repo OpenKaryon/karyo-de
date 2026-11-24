@@ -258,6 +258,10 @@
     {
       "file": "0064-default-signals-target-current-process.patch",
       "sha256": "4a09adfbc274743b6aaa929b3183bd07ff49f0d9a347f0d8023fc888d1dcad76"
+    },
+    {
+      "file": "0065-reset-workqueue-reentry-stack.patch",
+      "sha256": "3d849ed774c3dfab30571b1f6564343e552a40593a07becbf08a5909a11f7d8e"
     }
   ]
 }

@@ -1171,3 +1171,34 @@ upstream URL independently. Original upstream notices remain in the source
 archive. Source application/reversal and native compilation are separate gates;
 no installed64 behavior or original UGENE GUI compatibility is accepted yet.
 No security/shared suite or deliberate fault-triggering program is required.
+
+## Workqueue stack reentry (candidate0065)
+
+Both complete64 engines build. Installed Ubuntu64 accepts its five targeted
+stages, actual Darwin thread masks, ordinary editor and original MUSCLE53.
+Debian64 accepts four stages but the ordinary nested-layer example naturally
+terminates139 after correct frames. Its original failure is preserved.
+
+Two fresh runs with the original frame observers catch a real SEGV_ACCERR in
+dispatch_queue_wakeup+0x24. The instruction writes into a stack guard page.
+Manual frame-pointer inspection identifies timer cancellation and repeated
+workq_kernreturn/syscall frames below the current pthread workqueue entry.
+Separate debugger runs without frame observers finish normally; they are not
+evidence that the original failure is fixed. Original UGENE GUI remains open.
+
+The reviewed workqueue path says it resets the stack, but its assembly helper
+only jumps to start_wqthread. Every reuse retains the previous syscall frames.
+Patch0065 restores the x86-64 stack top from the workqueue pthread object that
+mldr allocates directly above its stack, aligns it and clears the old frame
+pointer. The low stack-boundary argument in rdx and all six entry arguments stay
+unchanged. The jump target is pinned in r10 before abandoning the old frame.
+The real start_wqthread prologue creates its own fake return address and frame.
+Only the exact bsdthread_register.c source path enters the existing pinned XNU
+footprint; there is no app profile, compiler-flag change or32-bit acceptance.
+
+A bounded positive native ABI replay uses that actual entry prologue and64
+ordinary reentries, with ample stack space and no fault case. On Debian and
+Ubuntu the original helper drifts8064 bytes; the candidate retains one stack
+position and all arguments. This validates the assembly transition, not the
+complete Darwin engine. Source-stack reversal, whole-unit compilation and the
+original installed failure remain subsequent gates. No broad suite is run.

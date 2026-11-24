@@ -811,3 +811,12 @@ darling/src/libsystem_kernel/emulation/src/linux_premigration/signal/sigexc.c.
 Its two default-action replay targets change from process-group0 to the raw
 Linux caller PID. The original source/archive notices and runtime license index
 are retained; Karyo does not replace the upstream file or relicense its contents.
+
+The workqueue reentry follow-up reviews the same darling-xnu revision
+fa29287aa2f0115271e091f1031f53c9e024005d, specifically
+darling/src/libsystem_kernel/emulation/src/xnu_syscall/bsd/impl/bsdthread/bsdthread_register.c.
+Only its x86-64 nonreturning workqueue assembly transition changes. The stack
+layout is cross-checked against root Darling src/startup/mldr/elfcalls/threads.c
+and the actual packaged libpthread start_wqthread prologue. Original notices
+remain intact. The bounded positive native ABI fixture is Karyo QA code, not a
+replacement runtime, an app modification or proof of installed65 acceptance.

@@ -767,3 +767,25 @@ upstream URL independently. Original upstream notices remain in the source
 archive. Source application/reversal and native compilation are separate gates;
 no installed64 behavior or original UGENE GUI compatibility is accepted yet.
 No security/shared suite or deliberate fault-triggering program is required.
+
+## Workqueue stack reentry (candidate0065)
+
+An ordinary Debian64 nested-layer run naturally ends139 despite correct pixels.
+With the original frame observers present, two independent fresh runs catch
+SEGV_ACCERR in dispatch_queue_wakeup+0x24 at a stack guard. Manual frame pointers
+show repeated workq_kernreturn/syscall frames under the active workqueue entry.
+Runs without those frame observers can finish normally; neither those passes
+nor the existing Ubuntu64 passes replace the original failure.
+
+The source's reuse path claims to reset the stack, but the assembly helper only
+jumps.0065 restores the aligned x86-64 stack top from self, clears the previous
+frame pointer and uses a dedicated r10 jump target. mldr places this workqueue
+pthread object directly above its stack. The rdx bottom-boundary argument and
+all six entry arguments remain intact; start_wqthread builds its own frame.
+The existing darling-xnu pin covers the single added bsdthread_register.c path.
+Original notices and the untested32-bit branch remain unchanged.
+
+Positive64-cycle native ABI replays on both bases observe8064 bytes of drift in
+the original helper and zero in the candidate, with all arguments preserved.
+They use no guard/fault case and do not establish installed65 or UGENE GUI
+compatibility. Full patch application/reversal and native runtime gates follow.
