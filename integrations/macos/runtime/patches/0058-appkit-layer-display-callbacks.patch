@@ -1,0 +1,85 @@
+Subject: Dispatch ordinary backing-view and layer display callbacks
+
+Configure implicit backing layers through the public view setter. Respect
+delegate-provided backing contents, fulfill display demand once, and request
+pending layer callbacks before rendering. No application-specific branch.
+
+--- a/src/external/cocotron/AppKit/NSView.m
++++ b/src/external/cocotron/AppKit/NSView.m
+@@ -1872,6 +1872,7 @@
+ }
+ 
+ - (void) _addLayerToSuperlayer {
++    if (_layer == nil) return;
+     [[_superview layer] addSublayer: _layer];
+     [self _createLayerContextIfNeeded];
+ }
+@@ -1902,11 +1903,14 @@
+         return;
+ 
+     if (_layer == nil) {
+-        _layer = [[self makeBackingLayer] retain];
++        // Subclasses configure their backing layer through the public setter.
++        [self setLayer: [self makeBackingLayer]];
++        _darlingHostsLayer = NO;
+         configureLayerGeometry(self);
+-    }
+-
+-    [self _addLayerToSuperlayer];
++        [_layer setNeedsDisplay];
++    } else {
++        [self _addLayerToSuperlayer];
++    }
+ 
+     [_subviews makeObjectsPerformSelector: _cmd];
+ }
+@@ -2457,9 +2461,14 @@
+         return;
+ 
+     const BOOL hostedLayer = _darlingHostsLayer && _wantsLayer && _layer != nil;
+-    BOOL shouldFlush = hostedLayer && [self canDraw];
+-
+-    if ([self canDraw] && !hostedLayer) {
++    const BOOL delegatedLayer = !_darlingHostsLayer && viewBeingPrinted == nil
++        && _layer != nil && [[_layer delegate] respondsToSelector: @selector(displayLayer:)];
++    if (delegatedLayer && [self canDraw])
++        [_layer setNeedsDisplay];
++    BOOL shouldFlush = (hostedLayer || delegatedLayer) && [self canDraw];
++
++    // Delegate-backed views provide their layer contents, rather than drawRect.
++    if ([self canDraw] && !hostedLayer && !delegatedLayer) {
+         // This view must be locked/unlocked prior to drawing subviews otherwise
+         // gState changes may affect subviews.
+         [self lockFocus];
+--- a/src/external/cocotron/QuartzCore/CALayer.m
++++ b/src/external/cocotron/QuartzCore/CALayer.m
+@@ -288,6 +288,7 @@
+ }
+ 
+ - (void) display {
++    _needsDisplay = NO;
+     if ([_delegate respondsToSelector: @selector(displayLayer:)])
+         [_delegate displayLayer: self];
+     else {
+@@ -303,6 +304,11 @@
+ }
+ 
+ - (void) displayIfNeeded {
++    if (_needsDisplay) {
++        // Clear first so a delegate may request another display while drawing.
++        _needsDisplay = NO;
++        [self display];
++    }
+ }
+ 
+ - (void) drawInContext: (CGContextRef) context {
+--- a/src/external/cocotron/QuartzCore/CARenderer.m
++++ b/src/external/cocotron/QuartzCore/CARenderer.m
+@@ -331,6 +331,7 @@
+ - (void) _renderLayer: (CALayer *) layer
+           currentTime: (CFTimeInterval) currentTime
+ {
++    [layer displayIfNeeded];
+     id contents = layer.contents;
+     BOOL surfaceContents = [contents isKindOfClass: [IOSurface class]];
+     uint32_t seed = surfaceContents ? IOSurfaceGetSeed((IOSurfaceRef)contents) : 0;

@@ -48,3 +48,10 @@ later yellow sibling over the nested subtree. Capture all three phases: the
 center must be blue, blue and yellow. This exercises ordinary 2D tree depth
 and sibling painter order without changing runtime methods. Keep the positive
 hierarchy/lifetime report and actual pixel results separately.
+
+`karyo-macos-iosurface-backing-view REPORT` enables ordinary view layer backing.
+Its public setter override installs a delegate which supplies an IOSurface;
+AppKit must dispatch that setter and displayLayer instead of drawRect. Two
+captured phases must show red then cyan. A separate detached layer verifies
+that displayIfNeeded consumes demand once and responds to a later request.
+The callback counters and actual pixels remain distinct acceptance evidence.

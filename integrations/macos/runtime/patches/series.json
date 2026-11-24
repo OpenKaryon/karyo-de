@@ -230,6 +230,10 @@
     {
       "file": "0057-quartzcore-layer-painter-order.patch",
       "sha256": "bab1e9a901e928bf9b2c85859b366c9c843507487de3da354cef54ed9af56bc4"
+    },
+    {
+      "file": "0058-appkit-layer-display-callbacks.patch",
+      "sha256": "ef57014cf5d4548ad2c85dea74f68ae80fdc7f78c4c8358832f9a18585b2971e"
     }
   ]
 }

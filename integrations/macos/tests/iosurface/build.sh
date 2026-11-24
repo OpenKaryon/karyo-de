@@ -19,5 +19,9 @@ o64-clang -arch x86_64 -mmacosx-version-min=10.13 -O2 /input/layer_tree.m \
     -framework Cocoa -framework QuartzCore -framework IOSurface \
     -o /tmp/karyo-iosurface/payload/karyo-macos-iosurface-tree
 
+o64-clang -arch x86_64 -mmacosx-version-min=10.13 -O2 /input/backing_view.m \
+    -framework Cocoa -framework QuartzCore -framework IOSurface \
+    -o /tmp/karyo-iosurface/payload/karyo-macos-iosurface-backing-view
+
 tar -czf /output/probes.tar.gz -C /tmp/karyo-iosurface/payload .
 o64-clang --version > /output/compiler-version.txt

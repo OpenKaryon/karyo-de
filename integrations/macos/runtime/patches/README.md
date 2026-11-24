@@ -608,3 +608,20 @@ for arbitrary 3D transforms or zPosition. The retained positive client checks
 nested content, unchanged flattened content and a later sibling over the nested
 tree. The renderer compiles with Clang19/21 against the exact840-file closure;
 installed changed-runtime pixels remain pending. No security/shared suites ran.
+
+## Backing-layer setter and display callbacks (installed58 pending)
+
+An ordinary public backing-view client on installed Ubuntu56 records one
+makeBackingLayer call but zero setLayer/displayLayer calls and three drawRect
+calls. Its requested red/cyan surface never appears; direct displayIfNeeded
+also does not invoke its delegate. Official Qt5.15.10's Cocoa view uses this
+same public setter/delegate contract; the fix is independent of Qt or UGENE.
+
+Patch0058 dispatches implicit backing creation through setLayer, preserves its
+implicit ownership and avoids adding absent child layers. Delegate-backed view
+display requests layer content instead of replacing it with a rasterized view.
+CALayer consumes display demand before callbacks, allows a later request, and
+the renderer dispatches pending display before reading contents. These units
+compile with Clang19/21 against the exact840-file closure. Installed callback,
+pixel, redraw and unchanged UGENE GUI results remain pending; source compilation
+does not accept those scenarios. No security or shared unit suites ran.
