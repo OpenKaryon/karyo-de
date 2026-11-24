@@ -97,10 +97,10 @@ def recover_closed_session(journal,store,record,*,accounts=None,sessions=None):
     offline(account,accounts,sessions)
     network=restore_network(store,record,require_empty=False)
     if network is None:raise JournalRetained("The closing session lost its namespace")
-    dns=manager=provider=None
+    dns=manager=provider=network_service=None
     try:
         wrapped=JournalNetwork(journal,network)
-        dns,provider=restore_offline_services(journal,wrapped,accounts=accounts)
+        dns,provider,network_service=restore_offline_services(journal,wrapped,accounts=accounts)
         # Check completed graph ownership before removing even an empty policy
         # directory. Constructing this metadata object has no native side effects.
         closed_graph(UserManagerScope(dns.files,netbird=provider is not None,catalog="catalog" in value),value,sessions)
@@ -116,6 +116,7 @@ def recover_closed_session(journal,store,record,*,accounts=None,sessions=None):
         return True
     finally:
         if provider is not None:provider.release_handles()
+        if network_service is not None:network_service.release_handles()
         if manager is not None and manager.fd is not None:os.close(manager.fd);manager.fd=None
         if dns is not None:dns.release_handles()
         if network.fd is not None:os.close(network.fd);network.fd=None

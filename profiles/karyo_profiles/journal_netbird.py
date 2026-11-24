@@ -11,14 +11,9 @@ from .journal_network import JournalNetwork, offline, restore_network
 from .logind import Sessions
 from .netbird import NetBirdScope
 from .services import UnitIdentity
-from .storage import trusted_directory
-
-
-def state_receipt(state):
-    state.verify()
-    info = os.stat("owner.json", dir_fd=state.fd, follow_symlinks=False)
-    return {"directory": list(state.identity), "stamp": [info.st_dev, info.st_ino],
-            "home": list(state.home_identity)}
+from .journal_service_state import state_receipt, restore_state
+from .provider_state import STATE_ROOT
+from .runtime_services import restore_network_service, worker_pids
 
 
 def service_receipt(scope):
@@ -29,19 +24,6 @@ def service_receipt(scope):
             "namespace": list(scope.network.identity),
             "runtime": [runtime_identity(scope.directory, 0, scope.files.plan.gid)]},
             "socket": list(scope.socket_identity), "endpoint": list(scope.endpoint_identity)}
-
-
-def restore_state(state, proof):
-    state.home_identity = tuple(proof["home"])
-    state.owner = state.owner_contents(state.home_identity)
-    try:
-        state.fd = trusted_directory(state.path)
-        state.identity = tuple(proof["directory"])
-        if state_receipt(state) != proof:
-            raise JournalRetained("The captured provider state or ownership stamp changed")
-    except BaseException:
-        state.release_handles()
-        raise
 
 
 class JournalNetBird:
@@ -56,7 +38,8 @@ class JournalNetBird:
     @classmethod
     def start(cls, journal, dns):
         before = journal.record(dns.token)
-        if ("provider" in before or "session" in before or "main_login" in before or before["dns"]["pending"] is not None):
+        if ("provider" in before or "session" in before or "main_login" in before or before["dns"]["pending"] is not None
+                or before.get('network_service', {}).get('pending') is not None):
             raise JournalRetained("Provider startup needs acknowledged DNS before graphical consumers")
         dns.services.verify()
         scope = NetBirdScope(dns)
@@ -141,7 +124,8 @@ class JournalNetBird:
         self.scope.release_handles()
 
 
-def recover_providers(journal, store, *, accounts=None, sessions=None, command=None, exclude=()):
+def recover_providers(journal, store, *, accounts=None, sessions=None, command=None, exclude=(),
+                      network_service_state_root=STATE_ROOT):
     accounts = LocalAccounts() if accounts is None else accounts
     sessions = Sessions() if sessions is None else sessions
     for record in journal.snapshot()["profiles"]:
@@ -155,20 +139,20 @@ def recover_providers(journal, store, *, accounts=None, sessions=None, command=N
             network = restore_network(store, record, command, require_empty=False)
             if network is None:
                 raise JournalRetained("The provider lost its captured namespace")
-            dns = owner = None
+            dns = owner = network_service = None
             try:
                 wrapped = JournalNetwork(journal, network)
                 dns = JournalDNS.restore_observers(journal, wrapped, accounts=accounts)
+                network_service = restore_network_service(journal, dns, state_root=network_service_state_root)
                 owner = JournalNetBird.restore(journal, dns)
-                allowed = {str(dns.services.resolver.identity.pid)}
-                if not owner.scope.unit.closed:
-                    allowed.add(str(owner.scope.unit.identity.pid))
+                allowed = {str(pid) for pid in worker_pids(owner, network_service)} | {str(dns.services.resolver.identity.pid)}
                 consumers = network._ip("netns", "pids", network.name).splitlines()
                 if set(consumers) - allowed:
                     raise JournalRetained("Unknown consumers prevent offline provider cleanup")
                 owner.close()
             finally:
                 if owner is not None: owner.release_handles()
+                if network_service is not None:network_service.release_handles()
                 if dns is not None: dns.release_handles()
                 if network.fd is not None: os.close(network.fd); network.fd = None
 
@@ -187,19 +171,23 @@ def restore_optional(journal, dns):
 
 def restore_offline_services(journal, network, *, accounts=None):
     """Observe a captured provider alongside DNS; never stop a graphical owner."""
-    if "provider" not in journal.record(network.token):
-        return JournalDNS.restore(journal, network, accounts=accounts), None
+    record = journal.record(network.token)
+    if not {'provider', 'network_service'} & record.keys():
+        return JournalDNS.restore(journal, network, accounts=accounts), None, None
     dns = JournalDNS.restore_observers(journal, network, accounts=accounts)
-    provider = None
+    provider = network_service = None
     try:
         provider = restore_optional(journal, dns)
-        allowed = {str(dns.services.resolver.identity.pid), str(provider.scope.unit.identity.pid)}
+        network_service = restore_network_service(journal, dns)
+        allowed = {str(pid) for pid in worker_pids(provider, network_service)} | {str(dns.services.resolver.identity.pid)}
         values = network.network._ip("netns", "pids", network.network.name).splitlines()
         if set(values) - allowed:
             raise JournalRetained("Unknown consumers prevent offline profile reconciliation")
-        dns.services.verify(); provider.verify()
-        return dns, provider
+        dns.services.verify()
+        if provider is not None:provider.verify()
+        return dns, provider, network_service
     except BaseException:
         if provider is not None: provider.release_handles()
+        if network_service is not None:network_service.release_handles()
         dns.release_handles()
         raise

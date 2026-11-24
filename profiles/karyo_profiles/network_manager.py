@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Run an unchanged NetworkManager against one captured desktop network/bus.
 
-Physical hardware belongs to the host's forwarding owner. NetworkManager may
-observe the preconfigured namespace uplink as an external base connection and
+Physical hardware belongs to the host's forwarding owner. NetworkManager uses
+the DE-generated temporary base connection on its captured namespace uplink and
 owns connections explicitly created in this private instance. Its persistent
 and runtime paths are mounts of this instance's own state, not host directories.
 """
@@ -100,6 +100,10 @@ class NetworkManagerScope:
                                     '-/run/nscd/socket -/run/avahi-daemon/socket '
                                     '-/usr/lib/NetworkManager/dispatcher.d',
                 'ProtectSystem=strict', 'PrivateTmp=yes', 'NoNewPrivileges=yes',
+                # Physical device management remains on the host. The stock
+                # NM platform disables udev when sysfs is read-only, allowing
+                # existing namespace-only virtual links to initialize on restart.
+                'ReadOnlyPaths=/sys',
                 # The stock VPN plugin must terminate its child after that
                 # child drops to the distribution's OpenVPN service account.
                 'CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE '
@@ -123,6 +127,13 @@ class NetworkManagerScope:
         program_identity('/usr/sbin/NetworkManager')
         self.state.prepare()
         self.prepare_config()
+        self.start_prepared()
+        from .network_uplink import prepare_uplink
+        prepare_uplink(self)
+        return self
+
+    def start_prepared(self):
+        self.network.verify();self.dns.services.verify();self.verify_config()
         self.unit.start(self.properties(), '--no-daemon', '--config', str(self.config / 'NetworkManager.conf'),
                         '--config-dir', str(self.state.path / 'empty'), '--system-config-dir', str(self.state.path / 'empty'),
                         '--intern-config', str(self.state.path / 'lib/NetworkManager-intern.conf'),
@@ -130,13 +141,16 @@ class NetworkManagerScope:
                         '--pid-file', str(self.directory / 'NetworkManager.pid'))
         deadline = time.monotonic() + 8
         while True:
-            try:self.verify();return self
+            try:self.verify();break
             except (OSError, RuntimeError):
                 if self.unit.process.exited(self.unit.pidfd) or time.monotonic() >= deadline:raise
                 time.sleep(.05)
+        return self
 
     def verify(self):
         self.verify_config();self.dns.services.verify();self.unit.verify()
+        if not os.statvfs('/proc/' + str(self.unit.identity.pid) + '/root/sys').f_flag & os.ST_RDONLY:
+            raise ServiceRetained(self.unit)
         value = self.network.command.run('/usr/bin/busctl', '--address=' + self.files.plan.bus_address,
             '--timeout=2s', 'call', 'org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus',
             'GetConnectionUnixProcessID', 's', 'org.freedesktop.NetworkManager').split()
@@ -166,9 +180,15 @@ class NetworkManagerScope:
         self.dns.services.verify()
         self.unit.close()
         if self.directory.exists():raise ServiceRetained(self.unit)
+        self.remove_config()
+        self.release_handles()
+
+    def remove_config(self, *, partial=False):
+        """Partial removal is used only with a recorded configuration intent."""
         if self.config_fd is not None:
-            self.verify_config()
-            os.unlink('NetworkManager.conf', dir_fd=self.config_fd)
+            if not partial or os.listdir(self.config_fd):
+                self.verify_config()
+                os.unlink('NetworkManager.conf', dir_fd=self.config_fd)
             parent = trusted_directory(self.config.parent)
             try:
                 info = os.stat(self.config.name, dir_fd=parent, follow_symlinks=False)
@@ -176,7 +196,6 @@ class NetworkManagerScope:
                     raise ServiceError('The private NetworkManager configuration changed before removal')
                 os.rmdir(self.config.name, dir_fd=parent)
             finally:os.close(parent)
-        self.release_handles()
 
     def release_handles(self):
         if self.unit.pidfd is not None:self.unit.process.close(self.unit.pidfd);self.unit.pidfd = None

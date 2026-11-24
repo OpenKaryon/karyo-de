@@ -18,11 +18,11 @@ its physical fixture DNS/TCP/UDP; reconnect and normal worker recreation preserv
 the neighboring workers, DNS and payloads. Saved connections survive worker
 recreation through the native keyfile or Netplan backend.
 
-The plugin needs an active private base connection. The fixture creates an
-ordinary static Ethernet profile for the already owned namespace-local eth0 and
-selects it explicitly through nmcli. Physical Wi-Fi/Ethernet hardware stays on
-the host. Production generation and lifetime of this base profile remain part of
-the pending journaled worker integration; the fixture does not enable a new
+The plugin needs an active private base connection. The
+[DE generator](NETWORK_UPLINK.md) now creates an ordinary temporary Ethernet
+profile for the captured namespace-local eth0. The fixture no longer creates a
+special profile or selects an interface when activating OpenVPN. Physical
+Wi-Fi/Ethernet hardware stays on the host. The fixture does not enable a new
 default service in installed graphical sessions.
 
 The standard system-bus socket path inside the worker is a bind of the captured
@@ -39,7 +39,12 @@ temporary accounts and live servers. Root-only generated test certificates,
 server logs and private saved profiles stay on the QA copies as evidence; they
 are never deployment inputs or copied into this report.
 
+The [journal lifecycle gate](NETWORK_SERVICE_LIFECYCLE.md) also passes a fresh
+observer process capturing all three worker processes, forced worker exit,
+interrupted configuration retirement and connection reactivation with neighbors
+still operational.
+
 This is source-native backend acceptance, not installed graphical acceptance or
-public internet egress. Forced worker failure, durable provider adoption,
-production base-profile lifecycle, graphical control-socket views, mixed-provider
-operation, NetBird, IPv6 and physical-carrier changes remain separate gates.
+public internet egress. Production allocation lifecycle, graphical
+control-socket views, mixed-provider operation, NetBird, IPv6 and physical-carrier
+changes remain separate gates.

@@ -23,19 +23,22 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from karyo_profiles.credentials import LocalAccounts
 from karyo_profiles.dispatcher import HostDispatcher
-from karyo_profiles.dns import discover_dns, supported_resolver_layout
+from karyo_profiles.dns import DNSSeed, discover_dns, supported_resolver_layout
 from karyo_profiles.journal import RuntimeJournal
 from karyo_profiles.journal_dns import JournalDNS
 from karyo_profiles.journal_network import JournalNetwork, offline
 from karyo_profiles.journal_main import MainEntry
+from karyo_profiles.journal_network_service import JournalNetworkService
 from karyo_profiles.main_registry import MainRegistry
 from karyo_profiles.main_dispatcher import MainDispatcher
 from karyo_profiles.logind import Sessions
 from karyo_profiles.networks import NetworkCommand
 from karyo_profiles.services import program_identity
+from karyo_profiles.provider_state import STATE_ROOT
 from karyo_profiles.storage import ConfigStore, trusted_directory
 from karyo_profiles.underlay import discover_underlay
 from native_main_network import Endpoints, require, run, host_snapshot
+from native_underlay_fixture import UnderlayAddress
 
 
 def identity(path):
@@ -44,10 +47,13 @@ def identity(path):
 
 
 def main():
-    require(os.getuid() == os.geteuid() == 0 and len(sys.argv) in (2, 3), 'Root QA build directory required')
+    arguments = sys.argv[1:]
+    network_service_mode = '--network-service' in arguments
+    if network_service_mode:arguments.remove('--network-service')
+    require(os.getuid() == os.geteuid() == 0 and len(arguments) in (1, 2), 'Root QA build directory required')
     require(socket.gethostname() in ('karyo-network-debian', 'karyo-network-ubuntu'), 'Use networking QA copies')
-    build = Path(sys.argv[1]).resolve()
-    module = Path(sys.argv[2]).resolve() if len(sys.argv) == 3 else build/'pam_karyo_network.so'
+    build = Path(arguments[0]).resolve()
+    module = Path(arguments[1]).resolve() if len(arguments) == 2 else build/'pam_karyo_network.so'
     harness = build/'karyo-native-pam-harness'
     require(module.is_file() and harness.is_file(), 'Build the native PAM component first')
     program_identity(str(harness))
@@ -63,7 +69,8 @@ def main():
     supported_resolver_layout()
     seed = discover_dns(discover_underlay(command), command)
     occupied = {value.pw_uid for value in pwd.getpwall()} | {value.gr_gid for value in grp.getgrall()}
-    uid = next(value for value in range(16000, 16100) if value not in occupied)
+    uid = next(value for value in range(16000, 16100)
+               if value not in occupied and not (STATE_ROOT/str(value)).exists())
     name = 'karyo-main-' + str(uid)
     home = Path('/home')/name
     require(not home.exists(), 'Fixture account home exists')
@@ -77,6 +84,7 @@ def main():
     unit = 'karyo-main-pam-' + secrets.token_hex(8)
     state = {'prepared': False, 'attached': False, 'closing': False, 'errors': []}
     network = dns = manager = entry = endpoint = listener = thread = None
+    initial_service = physical_address = None
     finished = threading.Event()
     pam_contents = ('auth required pam_unix.so\naccount required pam_unix.so\n'
                     'session requisite ' + str(module) + ' prepare desktop=karyo\n'
@@ -87,12 +95,22 @@ def main():
             with store.locked():
                 network = JournalNetwork.prepare_main(journal, store, account,
                                                       accounts=accounts, sessions=sessions, command=command)
-                dns = JournalDNS.start(journal, network, seed, accounts=accounts)
-                endpoint = Endpoints(network.network.spec.host, 'home', '198.18.0.1')
-                command.run('/usr/bin/busctl', '--address=' + dns.files.plan.bus_address, '--timeout=3s',
-                            'call', 'org.freedesktop.resolve1', '/org/freedesktop/resolve1',
-                            'org.freedesktop.resolve1.Manager', 'SetLinkDNS', 'ia(iay)',
-                            str(network.network.indices[1]), '1', '2', '4', *network.network.spec.host.split('.'))
+                if network_service_mode:
+                    physical_address = UnderlayAddress('192.0.2.20', network.token)
+                    physical_address.create()
+                    endpoint = Endpoints(physical_address.address, 'home', '198.18.0.1')
+                    physical_seed = DNSSeed(seed.physical, (physical_address.address,), seed.search)
+                    dns = JournalDNS.start(journal, network, physical_seed, accounts=accounts,
+                                           service_view='network-manager')
+                    initial_service = JournalNetworkService.start(journal, dns)
+                    state['worker_invocation'] = initial_service.scope.unit.identity.invocation
+                else:
+                    dns = JournalDNS.start(journal, network, seed, accounts=accounts)
+                    endpoint = Endpoints(network.network.spec.host, 'home', '198.18.0.1')
+                    command.run('/usr/bin/busctl', '--address=' + dns.files.plan.bus_address, '--timeout=3s',
+                                'call', 'org.freedesktop.resolve1', '/org/freedesktop/resolve1',
+                                'org.freedesktop.resolve1.Manager', 'SetLinkDNS', 'ia(iay)',
+                                str(network.network.indices[1]), '1', '2', '4', *network.network.spec.host.split('.'))
             directory = trusted_directory(address.parent, create=True)
             os.close(directory)
             listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -108,7 +126,9 @@ def main():
 
             def fixture_prepare(selected_registry, selected, peer, selected_accounts, selected_sessions):
                 require(selected == account, 'Fixture account changed')
-                return MainEntry.prepare(selected_registry.journal, dns, peer)
+                prepared = MainEntry.prepare(selected_registry.journal, dns, peer)
+                if initial_service is not None:initial_service.release_handles()
+                return prepared
 
             login_dispatcher = MainDispatcher(registry, accounts, sessions, users=lambda: (name,),
                                               prepare=fixture_prepare, program=str(harness),
@@ -141,6 +161,9 @@ def main():
                 login_dispatcher.registry = registry
                 entry = next(iter(registry.entries.values()))
                 network, dns, manager = entry.network, entry.dns, entry.manager
+                if network_service_mode:
+                    require(entry.network_service.scope.unit.identity.invocation == state['worker_invocation'],
+                            'Main recovery changed the captured network worker')
                 if state['attached']:
                     with store.locked():entry.verify_consumers()
                     (home/'.karyo_entry_ready').touch(mode=0o644)
@@ -169,7 +192,7 @@ with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as stream:
  stream.settimeout(3);stream.sendto(b'payload',(HOST,UDP));assert stream.recv(64)==b'home'
 print(json.dumps({'network':True,'resolver_mount':True,'dns':True,'tcp':True,'udp':True}))
 """.replace('EXPECTED_NET', repr(list(network.network.identity))).replace('EXPECTED_DNS', repr(list(identity(dns.files.plan.runtime_paths[0]))))
-            probe = probe.replace('HOST', repr(network.network.spec.host)).replace('TCP', str(endpoint.tcp.getsockname()[1])).replace('UDP', str(endpoint.udp.getsockname()[1]))
+            probe = probe.replace('HOST', repr(endpoint.tcp.getsockname()[0])).replace('TCP', str(endpoint.tcp.getsockname()[1])).replace('UDP', str(endpoint.udp.getsockname()[1]))
             client_code = """import time
 from pathlib import Path
 deadline=time.monotonic()+15
@@ -201,6 +224,9 @@ print(json.dumps({'user_manager_activation_same_context':True}))
                         'journal_reopened_after_attach': state['restored_after_attach'],
                         'production_dispatcher_and_registry': True,
                         'preallocated_context_fixture': True, 'real_graphical_login': False}
+            if network_service_mode:
+                evidence['private_network_worker_with_real_pam'] = True
+                evidence['same_worker_across_controller_restoration'] = True
             require(evidence['parent_context_restored'], 'PAM parent did not restore its original context')
         finally:
             (root/'controller_state.json').write_text(json.dumps({key:value for key,value in state.items() if key!='pidfd'}, indent=2) + '\n')
@@ -230,8 +256,12 @@ print(json.dumps({'user_manager_activation_same_context':True}))
                 network = dns = manager = entry = None
             else:
                 with store.locked():
+                    if initial_service is not None:
+                        initial_service.release_handles()
+                        JournalNetworkService.restore(journal, dns).close()
                     if dns is not None:dns.close()
                     if network is not None:network.close()
+            if physical_address is not None:physical_address.close()
             offline(account, accounts, sessions)
             require(identity(home) == home_identity, 'Fixture home changed')
             run('/usr/sbin/userdel', '-r', name)

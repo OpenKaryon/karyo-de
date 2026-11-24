@@ -164,6 +164,34 @@ class PreparedRecoveryTest(unittest.TestCase):
 
 
 class RegistryTest(unittest.TestCase):
+    def test_completed_session_close_can_be_retried_while_network_worker_drains(self):
+        journal=Mock();journal.record.return_value={'token':'ab'*16,'session':active()}
+        manager=Mock();scope=JournalSession(journal,Mock(),manager)
+        scope.token='ab'*16
+        scope.close();scope.close()
+        manager.close.assert_called_once()
+        self.assertEqual(journal.change.call_count,2)
+        self.assertTrue(scope.closed)
+
+    @patch('karyo_profiles.journal_session.recover_prepared_session',return_value=False)
+    def test_same_retiring_worker_defers_child_reconstruction_until_next_poll(self,prepared_recovery):
+        from contextlib import nullcontext
+        from karyo_profiles.journal_network_service import NetworkServicePending
+        journal=Mock();store=Mock();store.locked.side_effect=lambda:nullcontext(store)
+        record={'token':'ab'*16,'session':active()}
+        journal.snapshot.return_value={'profiles':[record]};journal.record.return_value=record
+        owned=Mock();owned.graph.closed=False;owned.graph.process.exited.return_value=False
+        with patch.object(JournalSession,'restore',side_effect=[NetworkServicePending('Stopping'),owned]), \
+             patch('karyo_profiles.journal_session.recover_profiles') as cleanup:
+            registry=SessionRegistry(journal,store).restore()
+            self.assertEqual(registry.deferred,{'ab'*16})
+            self.assertEqual(cleanup.call_args.kwargs['exclude'],{'ab'*16})
+            registry.poll()
+            self.assertFalse(registry.deferred)
+            self.assertIs(registry.profiles['ab'*16],owned)
+            owned.close.assert_not_called()
+            registry.release_handles()
+
     @patch("karyo_profiles.journal_session.recover_prepared_session",return_value=False)
     def test_only_restored_session_tokens_are_excluded_from_legacy_cleanup(self,prepared_recovery):
         journal=Mock();store=Mock()

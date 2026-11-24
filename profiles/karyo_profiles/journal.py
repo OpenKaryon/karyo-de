@@ -71,7 +71,7 @@ def validate_network(value):
 
 def validate_record(value):
     base={"token","account","source","pending","network"}
-    if (not isinstance(value,dict) or not base<=set(value) or set(value)-base-{"dns","session","forwarding","provider","entry","main_login"}
+    if (not isinstance(value,dict) or not base<=set(value) or set(value)-base-{"dns","session","forwarding","provider","entry","main_login","network_service"}
             or "session" in value and "dns" not in value):
         raise ValueError("Invalid host journal profile record")
     account = validate_account(value["account"])
@@ -114,7 +114,22 @@ def validate_record(value):
                 raise ValueError("Forwarding and DNS require the same physical seed or captured transition")
         if carrier is not None and carrier['step']==7:
             raise ValueError('Carrier cleanup requires closed DNS consumers')
+    if 'network_service' in value:
+        if ('dns' not in value or value['dns']['pending'] is not None
+                or value['dns']['bus'] is None or value['dns']['resolver'] is None
+                or value['dns'].get('view') != 'network-manager'
+                or value['network'].get('contents') != 'tunnel'):
+            raise ValueError('A private network service requires its acknowledged service DNS/network view')
+        from .journal_network_service_record import validate_network_service
+        service = value['network_service']
+        validate_network_service(service)
+        if service['unit'] is not None and service['unit']['namespace'] != value['network']['namespace']:
+            raise ValueError('The private network worker belongs to another namespace')
+        if ('session' in value or 'main_login' in value) and service['pending'] is not None:
+            raise ValueError('A login cannot coexist with a private network service mutation')
     if "provider" in value:
+        if 'network_service' in value and value['network_service']['pending'] is not None:
+            raise ValueError('A VPN provider requires its acknowledged base network service')
         if ("dns" not in value or value["dns"]["pending"] is not None
                 or value["dns"]["bus"] is None or value["dns"]["resolver"] is None):
             raise ValueError("A provider requires acknowledged private DNS")
@@ -198,13 +213,15 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 12 or data["boot"] != self.boot
+                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 13 or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
+            if 'network_service' in record and data['schema'] < 13:
+                raise ValueError('Private network workers require journal schema 13')
             if "view" in record.get("dns", {}) and data["schema"] < 12:
                 raise ValueError("Network service views require journal schema 12")
             if "main_login" in record and data["schema"] < 11:
@@ -338,6 +355,8 @@ class RuntimeJournal:
         if replacement is not None and "dns" in replacement:
             data["schema"] = max(data["schema"],2)
             if "view" in replacement["dns"]:data["schema"] = max(data["schema"],12)
+        if replacement is not None and 'network_service' in replacement:
+            data['schema'] = max(data['schema'],13)
         if replacement is not None and "session" in replacement:
             data["schema"] = max(data["schema"],3)
         if replacement is not None and "main_login" in replacement:

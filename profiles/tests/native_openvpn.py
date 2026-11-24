@@ -64,7 +64,7 @@ class OpenVPNPeer:
         ordinary_cli(self.scope, 'connection', 'import', 'type', 'openvpn', 'file', str(self.import_file))
         ordinary_cli(self.scope, 'connection', 'modify', 'openvpn_fixture', 'connection.id', self.connection,
                      'connection.autoconnect', 'no', 'ipv4.dns-priority', '-50', 'ipv4.dns-search', '~.')
-        ordinary_cli(self.scope, 'connection', 'up', self.connection, 'ifname', 'eth0')
+        ordinary_cli(self.scope, 'connection', 'up', self.connection)
         self.probe()
 
     def probe(self):

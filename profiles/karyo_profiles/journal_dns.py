@@ -196,7 +196,7 @@ class JournalDNS:
             raise
 
     def close(self):
-        if {"session", "main_login", "provider"} & self.journal.record(self.token).keys():
+        if {"session", "main_login", "provider", "network_service"} & self.journal.record(self.token).keys():
             raise JournalRetained("The profile session and provider must close before private DNS")
         from .dns_refresh import cancel_refresh
         cancel_refresh(self)
@@ -223,14 +223,20 @@ class JournalDNS:
         if self.files.fd is not None:os.close(self.files.fd);self.files.fd=None
 
 
-def recover_profiles(journal,store,*,accounts=None,sessions=None,command=None,exclude=()):
+def recover_profiles(journal,store,*,accounts=None,sessions=None,command=None,exclude=(),network_service_state_root=None):
     accounts=LocalAccounts() if accounts is None else accounts
     sessions=Sessions() if sessions is None else sessions
     records=[r for r in journal.snapshot()["profiles"] if r["token"] not in exclude]
     if any("session" in r or "main_login" in r for r in records):
         raise JournalRetained("A captured session requires its own controller reconciliation")
     from .journal_netbird import recover_providers
-    recover_providers(journal, store, accounts=accounts, sessions=sessions, command=command, exclude=exclude)
+    from .provider_state import STATE_ROOT
+    from .journal_network_service import recover_network_services
+    state_root = STATE_ROOT if network_service_state_root is None else network_service_state_root
+    recover_providers(journal, store, accounts=accounts, sessions=sessions, command=command, exclude=exclude,
+                      network_service_state_root=state_root)
+    recover_network_services(journal, store, accounts=accounts, sessions=sessions, command=command, exclude=exclude,
+                             state_root=state_root)
     records=[r for r in journal.snapshot()["profiles"] if r["token"] not in exclude]
     for record in records:
         if "dns" not in record:continue

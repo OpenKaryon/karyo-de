@@ -83,7 +83,7 @@ PROGRAMS = {"dns-bus": "/usr/bin/dbus-daemon",
 PROPERTIES = frozenset(("User", "Group", "RuntimeDirectory", "RuntimeDirectoryMode",
     "NoNewPrivileges", "PrivateTmp", "NetworkNamespacePath", "Environment",
     "AmbientCapabilities", "CapabilityBoundingSet", "PrivateDevices", "ProtectSystem",
-    "BindPaths", "BindReadOnlyPaths", "InaccessiblePaths", "ReadWritePaths", "UMask", "ExecStartPre"))
+    "BindPaths", "BindReadOnlyPaths", "InaccessiblePaths", "ReadWritePaths", "ReadOnlyPaths", "UMask", "ExecStartPre"))
 
 
 def program_identity(program):
@@ -212,6 +212,49 @@ class OwnedUnit:
         if self.info() != rows:
             raise ServiceRetained(self)
 
+    def cgroup_pids(self):
+        if self.identity is None:raise ServiceRetained(self)
+        root = Path('/sys/fs/cgroup' + self.identity.cgroup)
+        if not root.exists():return set()
+        values = set()
+        for path in (root/'cgroup.procs', *root.rglob('*/cgroup.procs')):
+            for value in path.read_text().splitlines():
+                if not value.isdecimal() or str(int(value)) != value or int(value) <= 1:
+                    raise ServiceRetained(self)
+                values.add(int(value))
+        return values
+
+    def consumer_pids(self):
+        """Capture the whole owned worker cgroup, including upstream plugins."""
+        for attempt in range(3):
+            self.verify()
+            try:
+                values = self.cgroup_pids()
+                if self.identity.pid not in values:raise ProcessLookupError()
+                for pid in values:
+                    descriptor = os.pidfd_open(pid)
+                    try:
+                        if select.select([descriptor], [], [], 0)[0]:raise ProcessLookupError()
+                        base = Path('/proc', str(pid))
+                        before = (base/'stat').read_text()
+                        groups = (base/'cgroup').read_text().splitlines()
+                        prefix = '0::' + self.identity.cgroup
+                        if len(groups) != 1 or not (groups[0] == prefix or groups[0].startswith(prefix + '/')):
+                            raise ServiceRetained(self)
+                        if self.network is not None:
+                            info = os.stat(base/'ns/net')
+                            if (info.st_dev, info.st_ino) != self.network:raise ServiceRetained(self)
+                        # Only starttime is stable; CPU/scheduling fields may change.
+                        start = before.rpartition(') ')[2].split()[19]
+                        if ((base/'stat').read_text().rpartition(') ')[2].split()[19] != start
+                                or select.select([descriptor], [], [], 0)[0]):raise ProcessLookupError()
+                    finally:os.close(descriptor)
+                self.verify()
+                if self.cgroup_pids() != values:raise ProcessLookupError()
+                return values
+            except (FileNotFoundError, ProcessLookupError):
+                if attempt == 2:raise ServiceRetained(self) from None
+
     def close(self):
         if self.closed:
             return
@@ -236,10 +279,12 @@ class OwnedUnit:
             rows = self.info()
             if rows["LoadState"] != "not-found":
                 if (rows["Transient"] != "yes" or rows["InvocationID"] != identity.invocation
-                        or rows["MainPID"] != "0" or rows["ActiveState"] not in {"inactive", "failed"}):
+                        or rows["MainPID"] != "0" or rows["ActiveState"] not in {"inactive", "failed"}
+                        or rows['ControlGroup']):
                     raise ServiceRetained(self)
         if not self.process.exited(self.pidfd, 5):
             raise ServiceRetained(self)
+        if self.cgroup_pids():raise ServiceRetained(self)
         self.process.close(self.pidfd)
         self.pidfd = None
         self.closed = True

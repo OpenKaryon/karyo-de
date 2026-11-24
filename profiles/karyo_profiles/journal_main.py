@@ -21,6 +21,7 @@ from .logind import Sessions, process_session
 from .main_peer import MainPeer, object_identity
 from .storage import trusted_directory
 from .user_manager import ManagerPending, UserManagerScope
+from .runtime_services import refresh_network_service, restore_network_service
 
 
 class MainEntry:
@@ -34,6 +35,10 @@ class MainEntry:
         from .journal_netbird import restore_optional
         self.forwarding = JournalForwarding.restore(journal, self.network) if "forwarding" in record else None
         self.provider = restore_optional(journal, dns)
+        try:self.network_service = restore_network_service(journal, dns)
+        except BaseException:
+            if self.provider is not None:self.provider.release_handles()
+            raise
 
     def update(self, **values):
         before = self.journal.record(self.token)
@@ -108,7 +113,7 @@ class MainEntry:
         login = self.login()
         self.manager.capture(login)
         self.update(pending=None, manager=manager_receipt(self.manager), login=asdict(login))
-        self.verify()
+        self.verify_consumers()
 
     def verify(self):
         value = self.journal.record(self.token)["main_login"]
@@ -120,6 +125,9 @@ class MainEntry:
         self.dns.services.verify()
         if self.forwarding is not None:self.forwarding.verify()
         if self.provider is not None:self.provider.verify()
+        self.network_service = refresh_network_service(self.journal, self.dns, self.network_service)
+        if self.network_service is not None and not self.network_service.scope.unit.closed:
+            self.network_service.verify()
 
     def verify_consumers(self):
         login = self.login()
@@ -180,7 +188,7 @@ class MainEntry:
                 manager = restore_manager(dns.files, value["manager"], netbird="provider" in record,
                                           login_services=(origin["service"],), allow_starting=True)
             scope = cls(journal, dns, manager, peer)
-            if not gone and value["pending"] is None:scope.verify()
+            if not gone and value["pending"] is None:scope.verify_consumers()
             journal.known.add(record["token"])
             return scope
         except BaseException:
@@ -197,6 +205,7 @@ class MainEntry:
 
     def release_handles(self):
         if self.provider is not None:self.provider.release_handles()
+        if self.network_service is not None:self.network_service.release_handles()
         if self.peer is not None:self.peer.close();self.peer = None
         if self.manager.pidfd is not None:self.manager.process.close(self.manager.pidfd);self.manager.pidfd = None
         if self.manager.fd is not None:os.close(self.manager.fd);self.manager.fd = None

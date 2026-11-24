@@ -31,7 +31,11 @@ the host route/rule/link/namespace/forwarding/resolver baseline. Host
 NetworkManager and Netplan configuration hashes remain unchanged. No generated
 key or complete connection configuration is copied into this report.
 
-The local WireGuard peers establish a real encrypted data path, not public VPN
-internet egress or an exit-node service. The fixture has no IPv6, physical-carrier
-change, forced worker failure, production journal adoption, filtered graphical
-system-bus or GUI acceptance claim. OpenVPN and NetBird remain separate gates.
+The [journal lifecycle gate](NETWORK_SERVICE_LIFECYCLE.md) also passes
+fresh-process reconstruction, forced worker failure, interrupted configuration
+retirement and reactivation while neighbors keep their payload paths.
+
+The local peers establish a real encrypted data path, not public VPN internet
+egress or an exit-node service. IPv6, physical-carrier changes, installed
+allocation, filtered graphical system-bus and GUI acceptance remain pending.
+OpenVPN and NetBird remain separate protocol gates.

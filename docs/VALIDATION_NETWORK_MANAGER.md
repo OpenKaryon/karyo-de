@@ -1,9 +1,10 @@
 # Private NetworkManager feasibility
 
 This source-native gate establishes a service primitive, not a complete desktop
-VPN environment. It does not install a new default system bus in graphical
-sessions, register this worker in the provider lifecycle journal, activate a
-VPN, or establish graphical-client acceptance.
+VPN environment. The worker now has a separate
+[durable lifecycle journal](NETWORK_SERVICE_LIFECYCLE.md); ordinary graphical
+desktop activation and default service-bus selection remain pending. The plain
+manager fixture activates no VPN and makes no graphical-client acceptance claim.
 
 `profiles/tests/native_network_manager.py` runs only as root in the independent
 Debian and Ubuntu networking QA copies. It creates disposable accounts and two
@@ -40,10 +41,13 @@ and [NetworkManager configuration documentation](https://networkmanager.dev/docs
 The separate [WireGuard gate](VALIDATION_PRIVATE_WIREGUARD.md) and
 [OpenVPN gate](VALIDATION_PRIVATE_OPENVPN.md) cover three real simultaneous
 tunnels for each protocol on both native bases. The worker now observes the
-namespace-local eth0 as a managed external connection; the OpenVPN fixture also
-creates a normal static base profile. Neither instance manages host hardware.
+namespace-local eth0 through a [DE-generated temporary base profile](NETWORK_UPLINK.md).
+Neither instance manages host hardware.
 
-Remaining gates: durable worker adoption/retirement, per-desktop graphical
+The protocol fixtures also pass fresh-process journal reconstruction, full
+worker-cgroup retirement after SIGKILL and interrupted configuration cleanup.
+
+Remaining gates: production main/child allocation integration, per-desktop graphical
 system-bus and control-socket views, real NetBird and mixed-provider tunnels,
 simultaneous VPN routes/DNS and neighbor payloads, worker failure, later desktop
 creation, IPv6, carrier changes and installed-package acceptance.

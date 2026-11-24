@@ -13,6 +13,8 @@ from .journal import JournalRetained
 from .journal_dns import JournalDNS,recover_profiles,unit_receipt
 from .journal_network import JournalNetwork,restore_network,offline
 from .journal_netbird import restore_optional,restore_offline_services
+from .runtime_services import refresh_network_service, restore_network_service, retire_network_service
+from .journal_network_service import NetworkServicePending
 from .journal_session_record import owner,validate_session
 from .logind import Sessions
 from .services import UnitIdentity
@@ -111,7 +113,10 @@ def verify_namespace_consumers(scope, roots, verify):
     """Inspect the captured login/manager cgroups without inventing a launcher."""
     verify()
     resolver=scope.dns.services.resolver.identity.pid
-    provider=None if scope.provider is None else scope.provider.scope.unit.identity.pid
+    for observer in (scope.provider, getattr(scope, 'network_service', None)):
+        if observer is not None and not observer.scope.unit.closed:
+            observer.verify()
+            roots += (observer.scope.unit.identity.cgroup,)
     deadline=time.monotonic()+5
     for attempt in range(3):
         try:
@@ -120,7 +125,7 @@ def verify_namespace_consumers(scope, roots, verify):
                 if not value.isdecimal() or str(int(value))!=value or int(value)<=1:
                     raise JournalRetained("Invalid private namespace process inventory")
                 pid=int(value)
-                if pid in (resolver,provider):continue
+                if pid == resolver:continue
                 fd=os.pidfd_open(pid)
                 try:
                     import select
@@ -135,6 +140,8 @@ def verify_namespace_consumers(scope, roots, verify):
                     if stat_start(pid)!=start or select.select([fd],[],[],0)[0]:raise ProcessLookupError()
                 finally:os.close(fd)
             verify()
+            for observer in (scope.provider, getattr(scope, 'network_service', None)):
+                if observer is not None and not observer.scope.unit.closed:observer.verify()
             return
         except (FileNotFoundError,ProcessLookupError):
             if attempt==2 or time.monotonic()>=deadline:raise JournalRetained("Namespace process churn did not settle") from None
@@ -142,10 +149,12 @@ def verify_namespace_consumers(scope, roots, verify):
 
 
 class JournalSession:
-    def __init__(self,journal,dns,manager,graph=None,*,forwarding=None,provider=None):
+    def __init__(self,journal,dns,manager,graph=None,*,forwarding=None,provider=None,network_service=None):
         self.journal,self.dns,self.manager,self.graph=journal,dns,manager,graph
         self.network=dns.network;self.token=dns.token
         self.forwarding,self.provider=forwarding,provider
+        self.network_service = network_service
+        self.closed = False
 
     def update(self,**values):
         before=self.journal.record(self.token)
@@ -163,6 +172,7 @@ class JournalSession:
         scope=cls(journal,dns,manager,forwarding=forwarding)
         try:
             scope.provider=restore_optional(journal,dns)
+            scope.network_service = restore_network_service(journal, dns)
             session={"pending":"manager-prepare","manager":None,"graphical":None}
             if "provider" in record: session["catalog"]="netbird"
             journal.change(record,dict(record,session=session))
@@ -188,16 +198,17 @@ class JournalSession:
             raise JournalRetained("An incomplete session transition requires reconciliation")
         network=restore_network(store,record,require_empty=False)
         if network is None:raise JournalRetained("The live session lost its namespace")
-        dns=None;manager=None;graph=None;provider=None
+        dns=None;manager=None;graph=None;provider=None;network_service=None
         try:
             wrapped=JournalNetwork(journal,network)
             dns=JournalDNS.restore_observers(journal,wrapped,accounts=accounts)
             provider=restore_optional(journal,dns)
+            network_service = restore_network_service(journal, dns)
             manager=restore_manager(dns.files,value["manager"],netbird=provider is not None,catalog="catalog" in value)
             graph=restore_graph(manager,value["graphical"])
             from .journal_forwarding import JournalForwarding
             forwarding=JournalForwarding.restore(journal,wrapped) if "forwarding" in record else None
-            scope=cls(journal,dns,manager,graph,forwarding=forwarding,provider=provider)
+            scope=cls(journal,dns,manager,graph,forwarding=forwarding,provider=provider,network_service=network_service)
             if "refresh" in record["dns"]:
                 from .dns_refresh import refresh_dns
                 refresh_dns(dns,forwarding=forwarding)
@@ -208,6 +219,7 @@ class JournalSession:
             return scope
         except BaseException:
             if provider is not None:provider.release_handles()
+            if network_service is not None:network_service.release_handles()
             if graph is not None and graph.pidfd is not None:graph.process.close(graph.pidfd);graph.pidfd=None
             if manager is not None:
                 if manager.pidfd is not None:manager.process.close(manager.pidfd);manager.pidfd=None
@@ -220,6 +232,8 @@ class JournalSession:
         self.manager.verify();self.graph.verify();self.dns.services.verify()
         if self.forwarding is not None:self.forwarding.verify()
         if self.provider is not None:self.provider.verify()
+        self.network_service = refresh_network_service(self.journal, self.dns, self.network_service)
+        if self.network_service is not None and not self.network_service.scope.unit.closed:self.network_service.verify()
 
     def verify_consumers(self):
         roots = (self.graph.identity.cgroup,
@@ -235,6 +249,7 @@ class JournalSession:
         return result
 
     def close(self):
+        if self.closed:return
         if self.graph is not None and not self.graph.closed:
             self.update(pending="login-close")
             self.graph.close()
@@ -243,9 +258,11 @@ class JournalSession:
         self.manager.close()  # ManagerPending is natural logind lifetime, never user@stop.
         before=self.journal.record(self.token);updated=dict(before);updated.pop("session")
         self.journal.change(before,updated)
+        self.closed = True
 
     def release_handles(self):
         if self.provider is not None:self.provider.release_handles()
+        if self.network_service is not None:self.network_service.release_handles()
         if self.graph is not None and self.graph.pidfd is not None:self.graph.process.close(self.graph.pidfd);self.graph.pidfd=None
         if self.manager.pidfd is not None:self.manager.process.close(self.manager.pidfd);self.manager.pidfd=None
         if self.manager.fd is not None:os.close(self.manager.fd);self.manager.fd=None
@@ -265,20 +282,21 @@ def recover_prepared_session(journal,store,record,*,accounts=None,sessions=None)
     offline(account,accounts,sessions)
     network=restore_network(store,record,require_empty=False)
     if network is None:raise JournalRetained("The prepared session lost its namespace")
-    dns=None;manager=None;provider=None
+    dns=None;manager=None;provider=None;network_service=None
     try:
         wrapped=JournalNetwork(journal,network)
-        dns,provider=restore_offline_services(journal,wrapped,accounts=accounts)
+        dns,provider,network_service=restore_offline_services(journal,wrapped,accounts=accounts)
         manager=restore_manager(dns.files,value["manager"],netbird=provider is not None,catalog="catalog" in value)
         graph=GraphicalSession(manager)
         if graph.info()["LoadState"]!="not-found":
             raise JournalRetained("An unrecorded graphical unit prevents preparation recovery")
         offline(account,accounts,sessions)
-        scope=JournalSession(journal,dns,manager,provider=provider)
+        scope=JournalSession(journal,dns,manager,provider=provider,network_service=network_service)
         scope.close()  # Record close intent before touching the captured policy.
         return True
     finally:
         if provider is not None:provider.release_handles()
+        if network_service is not None:network_service.release_handles()
         if manager is not None:
             if manager.pidfd is not None:manager.process.close(manager.pidfd);manager.pidfd=None
             if manager.fd is not None:os.close(manager.fd);manager.fd=None
@@ -290,32 +308,47 @@ class SessionRegistry:
     def __init__(self,journal,store):
         self.journal,self.store=journal,store
         self.profiles={}
+        self.deferred=set()
         self.returned=set()
         self.network_watch=None
         from .main_registry import MainRegistry
         self.main = MainRegistry(journal, store)
 
     def restore(self):
-        from .journal_session_cleanup import recover_closed_session
         try:
             self.main.restore()
             for record in self.journal.snapshot()["profiles"]:
                 if "session" not in record:continue
                 with self.store.locked():
-                    if recover_closed_session(self.journal,self.store,record):continue
-                    if recover_prepared_session(self.journal,self.store,record):continue
-                    self.profiles[record["token"]]=JournalSession.restore(self.journal,self.store,record)
-            recover_profiles(self.journal,self.store,exclude=set(self.profiles) | self.main.tokens)
+                    try:self.restore_child(record)
+                    except NetworkServicePending:self.deferred.add(record['token'])
+            recover_profiles(self.journal,self.store,exclude=set(self.profiles) | self.deferred | self.main.tokens)
             return self
         except BaseException:
             self.release_handles()
             raise
+
+    def restore_child(self, record):
+        from .journal_session_cleanup import recover_closed_session
+        if recover_closed_session(self.journal,self.store,record):return False
+        if recover_prepared_session(self.journal,self.store,record):return False
+        self.profiles[record['token']]=JournalSession.restore(self.journal,self.store,record)
+        return True
 
     def poll(self):
         from .returning import ReturnAfterExit
         from .graphical import GraphicalPending
         from .user_manager import ManagerPending
         self.main.poll()
+        recovered = False
+        for token in tuple(self.deferred):
+            with self.store.locked():
+                try:live = self.restore_child(self.journal.record(token))
+                except NetworkServicePending:continue
+                self.deferred.remove(token)
+                recovered |= not live
+        if recovered:
+            recover_profiles(self.journal,self.store,exclude=set(self.profiles) | self.deferred | self.main.tokens)
         for token,scope in tuple(self.profiles.items()):
             if not scope.graph.closed and not scope.graph.process.exited(scope.graph.pidfd):continue
             with self.store.locked():
@@ -323,19 +356,26 @@ class SessionRegistry:
                     result=ReturnAfterExit(self.store,scope.dns.files.accounts,scope.graph.sessions).run(scope)
                     print("karyo-profile-host: exited desktop return "+("activated" if result["changed"] else "seat-unchanged"),file=sys.stderr,flush=True)
                     self.returned.add(token)
-                try:scope.close()
-                except (GraphicalPending,ManagerPending):continue
-                if scope.provider is not None:scope.provider.close()
+                try:
+                    scope.close()
+                    if scope.provider is not None:
+                        scope.provider.close();scope.provider.release_handles();scope.provider = None
+                    observer = scope.network_service;scope.network_service = None
+                    retire_network_service(self.journal, scope.dns, observer)
+                except (GraphicalPending,ManagerPending,NetworkServicePending):continue
                 scope.dns.close()
                 if scope.forwarding is not None:scope.forwarding.close()
                 scope.network.close()
                 scope.release_handles()
                 del self.profiles[token];self.returned.discard(token)
         if self.network_watch is not None:
-            self.network_watch.poll(dict(self.profiles, **self.main.entries),self.store)
+            active = {token:scope for token,scope in dict(self.profiles, **self.main.entries).items()
+                      if not scope.closed}
+            self.network_watch.poll(active,self.store)
 
     def release_handles(self):
         self.main.release_handles()
         for profile in self.profiles.values():profile.release_handles()
         self.profiles.clear()
+        self.deferred.clear()
         self.returned.clear()

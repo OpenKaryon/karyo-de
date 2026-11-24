@@ -4,6 +4,8 @@ import time
 
 from .journal_main import MainEntry
 from .user_manager import ManagerPending
+from .journal_network_service import NetworkServicePending
+from .runtime_services import retire_network_service
 
 
 class MainRegistry:
@@ -23,7 +25,7 @@ class MainRegistry:
                 if "main_login" not in record:continue
                 with self.store.locked():
                     try:self.entries[record["token"]] = MainEntry.restore(self.journal, self.store, record)
-                    except ManagerPending:self.deferred.add(record["token"])
+                    except (ManagerPending, NetworkServicePending):self.deferred.add(record["token"])
             return self
         except BaseException:
             self.release_handles()
@@ -35,16 +37,20 @@ class MainRegistry:
             for token in tuple(self.deferred):
                 with self.store.locked():
                     try:self.entries[token] = MainEntry.restore(self.journal, self.store, self.journal.record(token))
-                    except ManagerPending:continue
+                    except (ManagerPending, NetworkServicePending):continue
                     self.deferred.remove(token)
         for token, scope in tuple(self.entries.items()):
             if scope.peer is not None and not scope.peer.process.exited(scope.peer.fd):continue
             with self.store.locked():
-                try:scope.close()
-                except ManagerPending:continue
-                # The main receipt is retired first. Providers, DNS, forwarding
-                # and the namespace then follow their existing captured order.
-                if scope.provider is not None:scope.provider.close()
+                try:
+                    scope.close()
+                    # Retire the login, optional VPN and network worker before
+                    # their DNS/forwarding/namespace dependencies.
+                    if scope.provider is not None:
+                        scope.provider.close();scope.provider.release_handles();scope.provider = None
+                    observer = scope.network_service;scope.network_service = None
+                    retire_network_service(self.journal, scope.dns, observer)
+                except (ManagerPending, NetworkServicePending):continue
                 scope.dns.close()
                 if scope.forwarding is not None:scope.forwarding.close()
                 scope.network.close()
