@@ -208,6 +208,8 @@ def main():
         with activated_listener(os.environ) as listener, RuntimeJournal() as journal:
             dispatcher = HostDispatcher()
             registry=SessionRegistry(journal,dispatcher.store).restore()
+            from .network_watch import DNSRefreshMonitor
+            registry.network_watch=DNSRefreshMonitor()
             dispatcher.switcher = lambda store, **options: RuntimeSwitcher(store, registry=registry, **options)
             try:
                 serve(listener,dispatcher,registry)

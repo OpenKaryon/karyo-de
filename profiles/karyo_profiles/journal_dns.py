@@ -196,6 +196,8 @@ class JournalDNS:
     def close(self):
         if "session" in self.journal.record(self.token) or "provider" in self.journal.record(self.token):
             raise JournalRetained("The profile session and provider must close before private DNS")
+        from .dns_refresh import cancel_refresh
+        cancel_refresh(self)
         dns=self.journal.record(self.token)["dns"]
         if dns["pending"] in {"files-create","bus-start","resolver-start"}:
             raise JournalRetained("An unacknowledged DNS creation requires review")

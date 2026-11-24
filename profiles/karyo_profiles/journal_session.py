@@ -164,6 +164,9 @@ class JournalSession:
             from .journal_forwarding import JournalForwarding
             forwarding=JournalForwarding.restore(journal,wrapped) if "forwarding" in record else None
             scope=cls(journal,dns,manager,graph,forwarding=forwarding,provider=provider)
+            if "refresh" in record["dns"]:
+                from .dns_refresh import refresh_dns
+                refresh_dns(dns,forwarding=forwarding)
             scope.verify_consumers()
             if value["pending"]=="enter" or value["graphical"]["entered"]!=graph.entered:
                 scope.update(pending=None,graphical=graphical_receipt(graph))
@@ -281,6 +284,7 @@ class SessionRegistry:
         self.journal,self.store=journal,store
         self.profiles={}
         self.returned=set()
+        self.network_watch=None
 
     def restore(self):
         from .journal_session_cleanup import recover_closed_session
@@ -316,6 +320,8 @@ class SessionRegistry:
                 scope.network.close()
                 scope.release_handles()
                 del self.profiles[token];self.returned.discard(token)
+        if self.network_watch is not None:
+            self.network_watch.poll(self.profiles,self.store)
 
     def release_handles(self):
         for profile in self.profiles.values():profile.release_handles()

@@ -36,7 +36,8 @@ def validate_unit(value,role):
 
 
 def validate_dns(value,spec,gid):
-    if not isinstance(value,dict) or set(value)!={"seed","service_uid","gid","pending","files","bus","resolver"}:
+    required={"seed","service_uid","gid","pending","files","bus","resolver"}
+    if not isinstance(value,dict) or not required<=set(value) or set(value)-required-{"refresh"}:
         raise ValueError("Invalid DNS journal record")
     # ResolverPlan validates scalar identities without accepting a recorded path.
     ResolverPlan(spec,seed(value["seed"]),value["gid"],value["service_uid"],"/run/karyo/validation-only")
@@ -67,3 +68,8 @@ def validate_dns(value,spec,gid):
             raise ValueError("Ambiguous DNS journal unit mutation")
     if pending=="bus-stop" and value["resolver"] is not None:
         raise ValueError("The resolver must close before its bus")
+    if "refresh" in value:
+        from .dns_refresh import validate_refresh
+        if pending is not None or value["bus"] is None or value["resolver"] is None:
+            raise ValueError("DNS refresh requires its acknowledged live services")
+        validate_refresh(value["refresh"],seed(value["seed"]))

@@ -6,8 +6,25 @@ cannot extend that deadline; expired batches launch no further child, and a
 timed-out child is reaped. The four command-budget cases and twelve existing
 startup cases pass on Debian 13 and Ubuntu 26.04. The same command-budget cases
 and read-only native route/DNS discovery also pass on both QA kernels without
-changing installed files or the host resolver. This does not yet implement live
-address/gateway/DNS reconciliation for an already running desktop.
+changing installed files or the host resolver. Address/gateway reconciliation
+for an already running desktop remains separate from this startup bound.
+
+The host now samples physical DNS at fifteen-second intervals while child
+desktops are running, applying at most one profile update per poll. Discovery
+and each update share a three-second native-command budget. Changed servers
+and search domains update only the captured private `eth0` resolver link;
+VPN-link DNS, namespace clients and private resolver processes stay in place.
+Journal schema 8 records each property acknowledgement and resumes an unfinished
+DNS update. Ordinary profile removal can retire that intent after its consumers
+close. Routing changes are reported for the separate route reconciler, rather
+than being treated as a DNS-only update.
+
+The focused 26-case source group passes on Debian and Ubuntu. Native source
+overlays on both QA guests also pass actual private D-Bus updates, unchanged DNS
+on a real namespace-local WireGuard interface, a live consumer, unchanged
+resolver/bus PIDs and file inodes, journal reopening and return to the original
+seed. All owned temporary resources are removed and the host resolver stays
+unchanged. This is not yet an installed-package or real external-client pass.
 
 These are reviewed account-management slices of the prototype's independent
 desktop sessions. The optional profile-accounts-runtime component packages fixed

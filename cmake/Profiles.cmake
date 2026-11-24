@@ -99,6 +99,11 @@ if(BUILD_TESTING)
     add_test(NAME profile-account-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover
         -s ${profile_source}/tests -v)
     set_tests_properties(profile-account-policy PROPERTIES TIMEOUT 45)
+    add_test(NAME profile-live-dns COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_dns_refresh.py -v)
+    add_test(NAME profile-network-budget COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_network_budget.py -v)
+    set_tests_properties(profile-live-dns profile-network-budget PROPERTIES TIMEOUT 20)
 endif()
 
 
