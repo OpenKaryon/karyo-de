@@ -840,3 +840,13 @@ and replacement rules. Only owned synthetic table/interface/token and address
 identities are normalized for deterministic tests. No private provider code,
 application configuration or user traffic capture is included. Native packet
 and installed-package acceptance are separate from these recorded rule shapes.
+
+## Captured desktop network inspection
+
+The read-only network-info operation, fixed helper, policy metadata and focused
+functional cases are original GPL-3.0-or-later code. They use the independent
+DE's existing captured peer, registry, journal and native namespace descriptors.
+Test session/service identities are explicit models; only descriptor pinning
+uses the real current kernel namespace. No external provider implementation,
+configuration or credentials are imported. Full provider ownership and client
+acceptance remain separate from this diagnostic.

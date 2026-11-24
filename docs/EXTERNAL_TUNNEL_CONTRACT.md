@@ -5,6 +5,25 @@ kernel identities and journal. A provider must integrate with that ownership
 model. An installed client or a successful kernel WireGuard fixture does not
 establish external-provider compatibility.
 
+## Current read-only inspection
+
+The optional profile host provides `network-info`, reached from an active local
+desktop through `pkexec /usr/libexec/karyo/desktop-network-info`. The fixed helper
+accepts no arguments. The host derives the caller from its existing captured
+peer and inspects only that caller's configured family under the ownership lock.
+
+The version 1 response is marked `inspection_only`. It describes the actual
+network namespace, the current child profile's captured resolver object, and
+the family's physical forwarding peers. Namespace descriptors are pinned during
+inspection and closed before returning JSON. A transition or retiring profile
+produces an unavailable result rather than a partially updated context.
+
+This is diagnostic metadata, not a provider lease or a mutation API. It exports
+no descriptor and starts no desktop, resolver or VPN. Its tokens, interface names
+and resolver endpoint must not be turned into provider authority. Descriptor
+transfer, worker registration, revocation and provider cleanup remain required
+before a client can integrate through the ownership contract below.
+
 ## Required ownership contract
 
 The external integration still needs implementation and end-to-end acceptance.

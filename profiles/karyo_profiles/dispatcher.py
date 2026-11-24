@@ -68,8 +68,8 @@ def send(connection, value, limit, seconds):
 def operation(packet):
     if not isinstance(packet, dict) or type(packet.get("version")) is not int or packet["version"] != 1:
         raise ValueError("Unsupported desktop protocol version")
-    if packet.get("operation") == "list" and set(packet) == {"version", "operation"}:
-        return "list", None
+    if packet.get("operation") in ("list", "network-info") and set(packet) == {"version", "operation"}:
+        return packet['operation'], None
     if packet.get("operation") == "switch" and set(packet) == {"version", "operation", "name"}:
         return "switch", account_name(packet["name"])
     raise ValueError("Unsupported desktop operation or fields")
@@ -77,11 +77,12 @@ def operation(packet):
 
 class HostDispatcher:
     def __init__(self, store=None, *, accounts=None, sessions=None, peer=DesktopPeer,
-                 switcher=ExistingSwitcher, guard=host_controller):
+                 switcher=ExistingSwitcher, guard=host_controller, network_info=None):
         self.store = ConfigStore() if store is None else store
         self.accounts = LocalAccounts() if accounts is None else accounts
         self.sessions = Sessions() if sessions is None else sessions
         self.peer, self.switcher, self.guard = peer, switcher, guard
+        self.network_info = network_info
 
     def handle(self, connection):
         caller = None
@@ -95,6 +96,11 @@ class HostDispatcher:
             if name == "list":
                 with self.store.locked():
                     result = listing(caller.verify(), self.store, self.accounts, self.sessions)
+            elif name == 'network-info':
+                if self.network_info is None:
+                    raise DesktopStopped('The desktop network owner is unavailable')
+                with self.store.locked():
+                    result = self.network_info(caller)
             else:
                 result = self.switcher(self.store, accounts=self.accounts,
                                        sessions=self.sessions).switch(caller.verify(), target,
@@ -210,6 +216,8 @@ def main():
             registry=SessionRegistry(journal,dispatcher.store).restore()
             from .network_watch import DNSRefreshMonitor
             registry.network_watch=DNSRefreshMonitor()
+            from .network_info import describe
+            dispatcher.network_info=lambda peer: describe(peer,registry,dispatcher.store,dispatcher.accounts)
             dispatcher.switcher = lambda store, **options: RuntimeSwitcher(store, registry=registry, **options)
             try:
                 serve(listener,dispatcher,registry)

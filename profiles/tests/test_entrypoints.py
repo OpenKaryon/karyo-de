@@ -166,7 +166,7 @@ class DesktopControlEntrypointTest(unittest.TestCase):
         source = Path(__file__).resolve().parents[1]
         actions = ET.parse(source / "org.karyo.desktops.policy.in").getroot().findall("action")
         self.assertEqual({value.attrib["id"] for value in actions},
-                         {"org.karyo.desktops." + role for role in ("add", "list", "switch")})
+                         {"org.karyo.desktops." + role for role in ("add", "list", "switch", "network-info")})
         for action in actions:
             role = action.attrib["id"].rsplit(".", 1)[1]
             paths = [item.text for item in action.findall("annotate")

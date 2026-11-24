@@ -43,4 +43,17 @@
     </defaults>
     <annotate key="org.freedesktop.policykit.exec.path">@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/desktop-switch</annotate>
   </action>
+  <action id="org.karyo.desktops.network-info">
+    <description>Inspect your current desktop network</description>
+    <description xml:lang="ru">Просмотр сети текущего рабочего стола</description>
+    <message>Authorization is required to inspect this desktop network</message>
+    <message xml:lang="ru">Для просмотра сети рабочего стола требуется авторизация</message>
+    <icon_name>network-workgroup</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/desktop-network-info</annotate>
+  </action>
 </policyconfig>

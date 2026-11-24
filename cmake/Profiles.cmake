@@ -1,7 +1,7 @@
 # Low-level optional accounts component. Installing it does not enable PAM,
 # create users, start sessions or replace a display manager.
 get_filename_component(profile_source "${CMAKE_CURRENT_LIST_DIR}/../profiles" ABSOLUTE)
-foreach(operation IN ITEMS add list switch sync password-changed)
+foreach(operation IN ITEMS add list switch network-info sync password-changed)
     set(KARYO_PROFILE_OPERATION "${operation}")
     configure_file("${profile_source}/entrypoint.in" "${CMAKE_CURRENT_BINARY_DIR}/desktop-${operation}" @ONLY)
     install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/desktop-${operation}"
@@ -105,7 +105,10 @@ if(BUILD_TESTING)
         -s ${profile_source}/tests -p test_network_budget.py -v)
     add_test(NAME profile-carrier-refresh COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_route_refresh.py -v)
-    set_tests_properties(profile-live-dns profile-network-budget profile-carrier-refresh PROPERTIES TIMEOUT 20)
+    add_test(NAME profile-network-info COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_network_info.py -v)
+    set_tests_properties(profile-live-dns profile-network-budget profile-carrier-refresh
+        profile-network-info PROPERTIES TIMEOUT 20)
 endif()
 
 

@@ -1,5 +1,14 @@
 # Optional desktop profile integration
 
+The 0.1.3 source adds read-only current-network inspection through
+`pkexec /usr/libexec/karyo/desktop-network-info` when the optional host is enabled.
+It accepts no arguments and uses the current captured desktop peer. Its JSON
+describes the existing namespace, private resolver identity and family physical
+peers; `inspection_only` is always true. It starts no profile or VPN and grants
+no authority to modify routing or DNS. See
+[the external ownership boundary](../docs/EXTERNAL_TUNNEL_CONTRACT.md) for the
+separate provider lifecycle work that remains.
+
 Carrier replacement now has a journaled runtime path in the 0.1.2 source. It
 pauses only the owned profile's forward traffic, retains its namespace and
 policy selectors, replaces physical routes, applies private DNS, and publishes

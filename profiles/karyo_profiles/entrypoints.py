@@ -74,6 +74,16 @@ def switch_existing(arguments, *, environment, store, authorize=authorized_calle
     return switcher(store).switch(caller, args.name)
 
 
+def network_info(arguments, *, environment, authorize=authorized_caller,
+                 runtime=runtime_enabled, request=host_request):
+    if arguments:
+        raise ValueError('Network inspection accepts no user, path or namespace arguments')
+    authorize(environment)
+    if not runtime():
+        raise DesktopStopped('The optional desktop network owner is not enabled')
+    return request({'version': 1, 'operation': 'network-info'})
+
+
 def execute(operation, arguments, *, environment=None, store=None):
     environment = os.environ if environment is None else environment
     store = ConfigStore() if store is None else store
@@ -83,6 +93,8 @@ def execute(operation, arguments, *, environment=None, store=None):
         return list_desktops(arguments, environment=environment, store=store)
     if operation == "switch":
         return switch_existing(arguments, environment=environment, store=store)
+    if operation == 'network-info':
+        return network_info(arguments, environment=environment)
     if operation in {"sync", "password-changed"}:
         if arguments:
             raise ValueError("This system operation accepts no arguments")
