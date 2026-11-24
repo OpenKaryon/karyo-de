@@ -56,7 +56,8 @@ Still required for the complete remaining migration:
   ownership interaction, real host-driven resize and monitor layout, and their
   complete Home/Work integration. HGFS private-mount inheritance does not prove
   the whole graphical channel matrix.
-- Resolve the external ExternalProvider broker/firewall contract and test simultaneous
+- Resolve the [observed external provider contract](EXTERNAL_TUNNEL_CONTRACT.md)
+  and test simultaneous
   physical DHCP/DNS/networkd lifecycle and onward NetBird GUI/tray behavior. The
   accepted kernel WireGuard fixture does not substitute for the external client.
 - Complete joined current-HEAD optional integration/profile lifecycle, full
