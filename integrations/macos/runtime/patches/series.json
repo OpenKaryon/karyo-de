@@ -238,6 +238,10 @@
     {
       "file": "0059-appkit-backing-layer-signatures.patch",
       "sha256": "5b3044d4a670da67676bd03080ed5efbce7ab47f153e08c866f35a327e3cd3db"
+    },
+    {
+      "file": "0060-appkit-lazy-subwindow-backend.patch",
+      "sha256": "69bebda3d250a6cc51f3cd6f3f04eab7352df31faec7cdf31603efab744fdf70"
     }
   ]
 }

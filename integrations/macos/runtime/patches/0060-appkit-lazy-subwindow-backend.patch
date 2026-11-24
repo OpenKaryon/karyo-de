@@ -1,0 +1,17 @@
+Subject: Realize the native backend before creating an ordinary subwindow
+
+A layer configured before the first order-front can request its native child
+before _platformWindow exists. Use the existing lazy private backend accessor
+instead of sending the creation message to the nil storage slot.
+
+--- a/src/external/cocotron/AppKit/NSWindow.m
++++ b/src/external/cocotron/AppKit/NSWindow.m
+@@ -3477,7 +3477,7 @@
+ }
+ 
+ - (CGSubWindow *) _createSubWindowWithFrame: (CGRect) frame {
+-    return [_platformWindow createSubWindowWithFrame: frame];
++    return [[self _darlingPlatformWindow] createSubWindowWithFrame: frame];
+ }
+ 
+ - (NSWindowTabbingMode) tabbingMode {

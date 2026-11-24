@@ -1039,3 +1039,27 @@ header closure on Debian/Clang19 and Ubuntu/Clang21. This is a general layer
 contract fix, without app-specific selection. Its installed59 pixel and original
 UGENE results remain pending; compiler success does not accept them. No shared
 or security unit suite ran.
+
+## Early backing-layer native child (installed60 pending)
+
+Installed Ubuntu59 preserves the corrected inherited return lengths32/16/4,
+public backing setter/display callbacks and ordinary hosted-root/nested pixels.
+Its implicit backing-view frame is still gray. A read-only runtime observer
+finds a shared live view/layer context and texture but no native subwindow;
+public getters and KVC geometry/opacity agree, with no active animations.
+
+The same ordinary backing view configured after initial window realization
+has its native child and actual red/cyan pixels. That diagnostic's original
+zero-draw counter also includes one legitimate pre-layer draw, so its whole
+program result is not relabeled as a pass. It is an order-of-creation diagnosis,
+not original UGENE acceptance. The original before-order-front client remains
+unchanged as the installed-runtime gate.
+
+Patch0060 uses the existing private lazy backend accessor when NSWindow creates
+a native subwindow. It does not require applications to reorder initialization
+or add application-specific settings. The exact changed method expression
+compiles with native Clang19/21 and the captured header closure. The whole
+NSWindow translation unit was not accepted by that reduced closure: it lacks
+NSColorSpace.h. Full-stack/source and installed60 checks remain separate gates.
+No shared/security unit suite ran. Ubuntu59 failure stops the next Debian full
+engine and further original-app retries rather than claiming GUI compatibility.

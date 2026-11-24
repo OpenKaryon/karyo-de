@@ -32,9 +32,13 @@ The complete native Darling56 builds, installed ordinary baseline and hosted
 IOSurface root/lifecycle checks now pass on both bases. Cocoa/static Qt and
 upstream TextEditor open/edit/save have reviewed actual frames. Dynamic Qt's
 layer-backed viewport remains blank, and original UGENE53.1 has no accepted GUI.
-Common layer-tree and backing-view callback patches57/58 pass both native
-compiler/source-stack checks; their installed58 acceptance is separately queued.
-These source checks do not establish a working changed runtime.
+Installed Ubuntu59 accepts hosted-root/nested pixels and inherited backing-layer
+signatures32/16/4 plus display callbacks, but its implicit backing frame is gray.
+An ordinary initialization-order comparison identifies the absent native child
+before first order-front. Common0060 uses the existing lazy backend accessor;
+its changed method expression compiles on both bases. Full source-stack and
+installed60 acceptance remain separate gates. Original UGENE56 windows were
+observed black on both bases after QA readiness recovery; no GUI pass is claimed.
 
 The joined 41-component native package graph has both-base build evidence.
 Separate fresh Xfce installations also accept the tested22-base-package install,
@@ -48,10 +52,10 @@ These are bounded component/session slices, not every optional joined profile.
 
 Still required for the complete remaining migration:
 
-- Complete changed Darling58 installed root/tree/backing-view and ordinary GUI
+- Complete changed Darling60 installed root/tree/backing-view and ordinary GUI
   checks on both bases; diagnose original UGENE GUI without replacing it with a
-  successful CLI or fixture. Debian56's timeout occurred during prefix/bootstrap
-  under observed QA memory pressure, so it is not an established UGENE defect.
+  successful CLI or fixture. The original56 readiness recheck shows black windows
+  on both bases; the earlier Debian bootstrap timeout is retained separately.
 - Establish enabled VMware host clipboard payloads, file drag/drop, other-DE
   ownership interaction, real host-driven resize and monitor layout, and their
   complete Home/Work integration. HGFS private-mount inheritance does not prove
