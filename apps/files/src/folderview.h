@@ -63,6 +63,8 @@ Q_SIGNALS:
 
 private:
     QAbstractItemView *currentView() const;
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    void requestKeyboardMenu(QAbstractItemView *view);
     QModelIndex sourceIndex(const QModelIndex &proxyIndex) const;
     void activate(const QModelIndex &proxyIndex);
 

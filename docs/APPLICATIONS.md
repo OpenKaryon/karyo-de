@@ -6,6 +6,18 @@ selected desktop-integration setting. Applications can build without the shell
 and lock using KARYO_BUILD_SESSION=OFF. Product packaging does not register a
 new display manager or change another desktop's application defaults.
 
+## Files keyboard menus
+
+Shift+F10 and the Menu key open the folder view's context menu in both details
+and icons mode. A selected item's menu is anchored to its visible row or tile;
+with no selection, the folder menu opens inside the view. The shortcuts apply
+only to the focused item view, preserving an inline rename editor's own input.
+Both native Qt bases exercise selected/background menus and rename focus.
+Installed session acceptance is recorded separately by Builder.
+The Menu key uses the platform's native context event, while Shift+F10 has an
+explicit shortcut. Both share the same selection anchor; a later native event
+cannot open another menu over an already active popup.
+
 ## Terminal
 
 karyo-terminal (short command: terminal) uses the distribution's QTermWidget 6,

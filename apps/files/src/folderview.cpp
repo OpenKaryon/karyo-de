@@ -9,6 +9,7 @@
 
 #include <QApplication>
 #include <QCollator>
+#include <QContextMenuEvent>
 #include <QDir>
 #include <QFileSystemModel>
 #include <QHeaderView>
@@ -18,6 +19,7 @@
 #include <QPainter>
 #include <QPersistentModelIndex>
 #include <QSortFilterProxyModel>
+#include <QShortcut>
 #include <QStackedWidget>
 #include <QStyledItemDelegate>
 #include <QTreeView>
@@ -370,6 +372,11 @@ FolderView::FolderView(QWidget *parent)
         connect(view, &QWidget::customContextMenuRequested, this, [this, view](const QPoint &pos) {
             Q_EMIT contextMenuRequested(view->viewport()->mapToGlobal(pos), view->indexAt(pos).isValid());
         });
+        view->installEventFilter(this);
+        view->viewport()->installEventFilter(this);
+        auto *shortcut = new QShortcut(QKeySequence(QKeyCombination(Qt::ShiftModifier, Qt::Key_F10)), view);
+        shortcut->setContext(Qt::WidgetShortcut);
+        connect(shortcut, &QShortcut::activated, this, [this, view] { requestKeyboardMenu(view); });
         m_stack->addWidget(view);
     }
 
@@ -429,6 +436,42 @@ FolderView::FolderView(QWidget *parent)
             selectPaths(target, edit);
         }, Qt::QueuedConnection);
     });
+}
+
+void FolderView::requestKeyboardMenu(QAbstractItemView *view)
+{
+    // Some QPA backends also emit a native context event after the shortcut.
+    if (QApplication::activePopupWidget())
+        return;
+    QModelIndex index = view->currentIndex().siblingAtColumn(NameColumn);
+    const QModelIndexList selected = view->selectionModel()->selectedRows(NameColumn);
+    if (selected.isEmpty())
+        index = {};
+    else if (!view->selectionModel()->isSelected(index))
+        index = selected.first();
+    QPoint position = view->viewport()->rect().center();
+    if (index.isValid()) {
+        view->scrollTo(index);
+        const QRect visible = view->visualRect(index).intersected(view->viewport()->rect());
+        if (!visible.isEmpty())
+            position = visible.bottomLeft();
+    }
+    Q_EMIT contextMenuRequested(view->viewport()->mapToGlobal(position), index.isValid());
+}
+
+bool FolderView::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::ContextMenu
+        && static_cast<QContextMenuEvent *>(event)->reason() == QContextMenuEvent::Keyboard) {
+        for (QAbstractItemView *view : {static_cast<QAbstractItemView *>(m_details),
+                                       static_cast<QAbstractItemView *>(m_icons)}) {
+            if (watched == view || watched == view->viewport()) {
+                requestKeyboardMenu(view);
+                return true;
+            }
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void FolderView::setPath(const QString &path, bool record)
