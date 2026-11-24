@@ -6,6 +6,7 @@ from .children import Child
 from .display import enabled
 from .session import Session
 from .worker import LOCK,drop_privileges,validate_lock
+from .diagnostics import WaitMonitor
 
 DELAYS=(2,5,10,30,60)
 
@@ -32,11 +33,13 @@ def external_vmusr():
     return False
 
 class Agent:
-    def __init__(self,commands,*,clock=time.monotonic,binder=acquire,factory=Child,external=external_vmusr,display=None):
+    def __init__(self,commands,*,clock=time.monotonic,binder=acquire,factory=Child,external=external_vmusr,display=None,monitor=None):
         self.display=display;self.commands=commands;self.clock=clock;self.binder=binder;self.factory=factory;self.external=external
         self.lock=None;self.children=[];self.active=False;self.due=0;self.started=0;self.failures=0
+        self.monitor=monitor
 
     def stop(self):
+        if self.monitor is not None:self.monitor.poll(None,self.clock())
         for child in self.children:child.stop()
         self.children=[]
         if self.lock is not None:os.close(self.lock);self.lock=None
@@ -48,6 +51,7 @@ class Agent:
         self.active=True
         if self.children:
             if all(child.alive() for child in self.children):
+                if self.monitor is not None:self.monitor.poll(self.children[0].process.pid,now)
                 if now-self.started>60:self.failures=0
                 return
             self.stop();self.due=now+DELAYS[min(self.failures,len(DELAYS)-1)];self.failures+=1
@@ -73,7 +77,7 @@ def main():
     try:
         session=Session()
         def display(lock):return Child(['/usr/libexec/karyo/vmware/display-follower',str(lock)],lock)
-        agent=Agent([['/usr/bin/vmtoolsd','-n','vmusr'],['/usr/bin/karyo-xclipboard']],display=display if enabled(os.environ) else None)
+        agent=Agent([['/usr/bin/vmtoolsd','-n','vmusr'],['/usr/bin/karyo-xclipboard']],display=display if enabled(os.environ) else None,monitor=WaitMonitor())
         while True:
             active=session.state()
             if active is None:break

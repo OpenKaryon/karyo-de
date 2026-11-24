@@ -820,3 +820,13 @@ layout is cross-checked against root Darling src/startup/mldr/elfcalls/threads.c
 and the actual packaged libpthread start_wqthread prologue. Original notices
 remain intact. The bounded positive native ABI fixture is Karyo QA code, not a
 replacement runtime, an app modification or proof of installed65 acceptance.
+
+## VMware blocked-transfer shutdown
+
+The optional vmblock shutdown helper and sustained native-wait diagnostics
+review prototype revision `8baf9c1ca87391ada74a747e6f000189d77d9dd5`.
+They are adapted to Karyo's captured worker groups and independent component
+packaging under GPL-3.0-or-later. The system helper pins an existing FUSE control
+directory and rechecks mount metadata without traversing a stalled transfer.
+No private package configuration or author metadata is imported. Ordinary
+source checks and native system/package acceptance are recorded separately.

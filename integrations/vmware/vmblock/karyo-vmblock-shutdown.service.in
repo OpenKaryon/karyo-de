@@ -1,0 +1,14 @@
+[Unit]
+Description=Release VMware file transfers before session shutdown
+ConditionVirtualization=vmware
+After=sys-fs-fuse-connections.mount run-vmblock\x2dfuse.mount open-vm-tools.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/true
+RemainAfterExit=yes
+ExecStop=@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/vmblock-shutdown-guard
+TimeoutStopSec=8s
+
+[Install]
+WantedBy=multi-user.target

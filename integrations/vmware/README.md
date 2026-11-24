@@ -109,3 +109,21 @@ hotplug or a multi-monitor layout. Synthetic DRM topology injection did not
 provide a reliable host event here and is deliberately excluded from acceptance.
 See Builder's VALIDATION-VMWARE-DISPLAY.md for the preserved failed probes,
 strict recovery of the separate networking observation and final evidence.
+
+## Stalled transfer diagnostics and shutdown
+
+The coordinator samples only vmusr processes in its captured foreground group,
+including their kernel start identity. A sustained uninterruptible wait is
+reported once after twenty seconds, with the wait channel when readable.
+Recovery is reported separately; background release resets the observation.
+Messages also reach the journal as `karyo-vmware-agent`, even when session
+autostart discards stderr. Diagnostics do not restart or abort live transfers.
+
+The separate optional [vmblock system component](vmblock/README.md) releases
+blocked file transfers only during system shutdown, before session teardown.
+It is independently packaged as `karyo-vmware-shutdown`; it does not give the
+ordinary coordinator privileges or change the native vendor tools.
+The adapted source checks pass sixteen ordinary cases on Debian and Ubuntu,
+including coordinator ownership behavior, diagnostics and shutdown selection.
+Both native CMake installations and systemd unit verification pass. Actual
+blocked-request shutdown and package lifecycle have separate acceptance records.

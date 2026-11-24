@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(KaryoVMwareSession VERSION 0.1.0 LANGUAGES NONE)
+project(KaryoVMwareSession VERSION 0.1.1 LANGUAGES NONE)
 include(GNUInstallDirs)
 include(CTest)
 include(../../cmake/VMware.cmake)

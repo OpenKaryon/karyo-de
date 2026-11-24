@@ -12,6 +12,9 @@ if(BUILD_TESTING)
     find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
     add_test(NAME vmware-session-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover -s ${vmware_source}/tests -v)
     set_tests_properties(vmware-session-policy PROPERTIES ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME vmware-wait-diagnostics COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${vmware_source}/tests -p test_diagnostics.py -v)
 endif()
 
 add_subdirectory("${vmware_source}/shared-folders" "${CMAKE_CURRENT_BINARY_DIR}/vmware-shared-folders")
+add_subdirectory("${vmware_source}/vmblock" "${CMAKE_CURRENT_BINARY_DIR}/vmware-shutdown")
