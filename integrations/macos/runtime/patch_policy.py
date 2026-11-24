@@ -16,7 +16,7 @@ DYLD_REVISION = '63f667cf06d7ed59553adebb0c8d70a117135ac9'
 LIBSYSTEM_REVISION = '08df454b6eb0df9400aa4c39839a7efd6efd2c3c'
 SCREEN_REVISION = '4bed52587563ede850bf9ff834567478ac1e616b'
 COCOTRON_PREFIX = 'src/external/cocotron/'
-EXPECTED_PATCH_COUNT = 58
+EXPECTED_PATCH_COUNT = 59
 EXACT_ROOT_FILES = {'src/external/cocotron/QuartzCore/include/QuartzCore/CALayerContext.h', 'src/external/iokitd/src/IOObject.cpp', 'src/external/iokitd/src/main.mm', 'src/external/iokitd/src/iokitd.h', 'src/external/iokitd/src/ServiceRegistry.mm', 'src/external/iokitd/src/stubs.c', 'src/external/cocotron/QuartzCore/CALayer.m', 'src/external/cocotron/QuartzCore/CALayerContext.m', 'src/external/cocotron/QuartzCore/CALayerInternal.h', 'src/external/cocotron/QuartzCore/CARenderer.m', 'src/external/cocotron/QuartzCore/CMakeLists.txt', 'src/external/cocotron/QuartzCore/include/QuartzCore/CALayer.h', 'src/external/iokitd/src/IOSurface.h', 'src/external/iokitd/src/IOSurface.mm', 'src/external/iokitd/src/IOSurfaceRoot.h', 'src/frameworks/IOSurface/include/IOSurface/IOSurfacePriv.h', 'src/frameworks/IOSurface/include/IOSurface/IOSurfaceObjC.h', 'src/frameworks/IOSurface/src/IOSurfaceObjC.m', 'src/frameworks/IOSurface/src/api.m', 'src/frameworks/IOSurface/src/stubs.m', 'src/external/iokitd/src/IOSurfaceRoot.mm', 'src/external/corefoundation/CFRunLoop.c', 'src/frameworks/ImageIO/src/CGImageSource.m', 'src/frameworks/ImageIO/include/ImageIO/CGImageSource.h', 'src/external/foundation/src/NSUserDefaults.m', 'src/startup/mldr/elfcalls/threads.c', 'src/libm/CMakeLists.txt', 'src/external/dyld/src/dyldInitialization.cpp', 'src/external/libsystem/init.c', 'src/external/libunwind/CMakeLists.txt', 'src/external/screen/screen/attacher.c', 'src/external/screen/screen/display.c', 'src/external/screen/screen/fileio.c', 'src/external/screen/screen/misc.c', 'src/external/screen/screen/process.c', 'src/external/screen/screen/resize.c', 'src/external/screen/screen/screen.c', 'src/external/screen/screen/socket.c', 'src/external/screen/screen/termcap.c', 'src/external/screen/screen/window.c', 'src/external/screen/screen/ansi.c', 'src/external/ruby/ruby/debug_counter.h', 'src/external/foundation/src/NSConcreteMapTable.m',
                     'src/external/foundation/src/NSConcreteHashTable.m', 'src/startup/darling.c', 'src/CMakeLists.txt', 'CMakeLists.txt', 'cmake/use_ld64.cmake', 'src/external/objc4/runtime/CMakeLists.txt',
                     'src/frameworks/CoreServices/src/FSEvents/CMakeLists.txt',
@@ -29,6 +29,7 @@ EXACT_ROOT_FILES = {'src/external/cocotron/QuartzCore/include/QuartzCore/CALayer
                     'src/external/cocotron/AppKit/NSScreen.m',
                     'src/external/cocotron/AppKit/include/AppKit/NSScreen.h',
                     'src/external/cocotron/AppKit/NSView.m',
+                    'src/external/cocotron/AppKit/NSViewBackingLayer.m',
                     'src/external/cocotron/AppKit/include/AppKit/NSView.h',
                     'src/external/cocotron/AppKit/NSTextInput.m',
                     'src/external/cocotron/AppKit/include/AppKit/NSTextInput.h',

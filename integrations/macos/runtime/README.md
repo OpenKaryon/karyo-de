@@ -1021,3 +1021,21 @@ the renderer dispatches pending display before reading contents. These units
 compile with Clang19/21 against the exact840-file closure. Installed callback,
 pixel, redraw and unchanged UGENE GUI results remain pending; source compilation
 does not accept those scenarios. No security or shared unit suites ran.
+
+## Inherited backing-layer return ABI (installed59 pending)
+
+Installed Ubuntu58 now dispatches the public setter and displayLayer callbacks,
+including coalesced display demand, but the backing-view frame remains blank.
+The same positive client observes methodReturnLength0 for inherited bounds,
+position and opacity, where CGRect, CGPoint and float are required. The backing
+subclass returned a void stub signature even for methods implemented by CALayer;
+the renderer's ordinary NSInvocation interpolation therefore lacks their ABI.
+
+Patch0059 uses the superclass signature for implemented methods and retains the
+existing fallback only when the superclass has none. The positive backing-view
+client now records these inherited return lengths separately from callbacks and
+pixels. The small translation unit compiles against the exact saved native
+header closure on Debian/Clang19 and Ubuntu/Clang21. This is a general layer
+contract fix, without app-specific selection. Its installed59 pixel and original
+UGENE results remain pending; compiler success does not accept them. No shared
+or security unit suite ran.

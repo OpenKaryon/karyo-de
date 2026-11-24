@@ -78,17 +78,29 @@ int main(int argc,char **argv)
         }
         [NSApp updateWindows];
     }
+    CALayer *backing=[view layer];
+    NSMethodSignature *boundsSignature=[backing methodSignatureForSelector:@selector(bounds)];
+    NSMethodSignature *positionSignature=[backing methodSignatureForSelector:@selector(position)];
+    NSMethodSignature *opacitySignature=[backing methodSignatureForSelector:@selector(opacity)];
+    BOOL inheritedSignatures=[boundsSignature methodReturnLength]==sizeof(CGRect)
+        && [positionSignature methodReturnLength]==sizeof(CGPoint)
+        && [opacitySignature methodReturnLength]==sizeof(float);
+    unsigned boundsLength=(unsigned)[boundsSignature methodReturnLength];
+    unsigned positionLength=(unsigned)[positionSignature methodReturnLength];
+    unsigned opacityLength=(unsigned)[opacitySignature methodReturnLength];
     BOOL configured=view->setCalls>0 && view->makeCalls==1 && [[view layer] delegate]==view;
     BOOL delegated=view->displayCalls>=2 && view->drawCalls==0;
     valid=valid && configured && delegated && one && coalesced && repeated
-        && [[view layer] contents]==(id)surface && phase==2;
+        && [[view layer] contents]==(id)surface && phase==2 && inheritedSignatures;
     unsigned setCalls=view->setCalls,makeCalls=view->makeCalls,displays=view->displayCalls,draws=view->drawCalls;
     [view setWantsLayer:NO];[view setLayer:nil];[view release];CFRelease(surface);
     [window orderOut:nil];[window release];[objects drain];
     printf("{\"probe\":\"iosurface-layer\",\"passed\":%s,\"phases\":%u,"
         "\"setLayerCalls\":%u,\"makeBackingLayerCalls\":%u,\"displayLayerCalls\":%u,\"drawRectCalls\":%u,"
+        "\"boundsReturnLength\":%u,\"positionReturnLength\":%u,\"opacityReturnLength\":%u,\"inheritedSignatures\":%s,"
         "\"directDisplay\":%s,\"coalesced\":%s,\"redisplay\":%s,\"visualReviewRequired\":true}\n",
         valid?"true":"false",phase,setCalls,makeCalls,displays,draws,
+        boundsLength,positionLength,opacityLength,inheritedSignatures?"true":"false",
         one?"true":"false",coalesced?"true":"false",repeated?"true":"false");
     fflush(stdout);[pool drain];return valid?0:1;
 }

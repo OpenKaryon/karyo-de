@@ -234,6 +234,10 @@
     {
       "file": "0058-appkit-layer-display-callbacks.patch",
       "sha256": "ef57014cf5d4548ad2c85dea74f68ae80fdc7f78c4c8358832f9a18585b2971e"
+    },
+    {
+      "file": "0059-appkit-backing-layer-signatures.patch",
+      "sha256": "5b3044d4a670da67676bd03080ed5efbce7ab47f153e08c866f35a327e3cd3db"
     }
   ]
 }

@@ -1,0 +1,19 @@
+Subject: Preserve inherited backing-layer method signatures
+
+Use the superclass signature for implemented layer methods before retaining the
+existing fallback for unimplemented calls. The renderer obtains geometry and
+opacity through NSInvocation, which needs the actual inherited return ABI.
+
+--- a/src/external/cocotron/AppKit/NSViewBackingLayer.m
++++ b/src/external/cocotron/AppKit/NSViewBackingLayer.m
+@@ -4,6 +4,10 @@
+ 
+ - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+ {
++    // Preserve inherited getter ABIs used by the layer renderer's invocations.
++    NSMethodSignature *signature = [super methodSignatureForSelector:aSelector];
++    if (signature != nil)
++        return signature;
+     return [NSMethodSignature signatureWithObjCTypes: "v@:"];
+ }
+ 

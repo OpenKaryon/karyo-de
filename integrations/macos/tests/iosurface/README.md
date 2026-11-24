@@ -55,3 +55,8 @@ AppKit must dispatch that setter and displayLayer instead of drawRect. Two
 captured phases must show red then cyan. A separate detached layer verifies
 that displayIfNeeded consumes demand once and responds to a later request.
 The callback counters and actual pixels remain distinct acceptance evidence.
+
+The backing-view client also checks the public inherited method signatures for
+bounds, position and opacity. Their return lengths must preserve CGRect,
+CGPoint and float; successful display callbacks alone do not prove renderable
+geometry or pixels. The reported lengths remain separate evidence.
