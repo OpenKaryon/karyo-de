@@ -1,5 +1,11 @@
 # Optional desktop profile integration
 
+The new [per-desktop networking plan](../docs/NETWORK_ISOLATION.md) requires the
+same private network/DNS boundary for the main account and child desktops, with
+unmodified upstream VPNs launched through owned adapters. This is a planned
+extension: the current main session still uses the host network. Historical
+acceptance below describes the existing topology, not this new all-desktop goal.
+
 The 0.1.3 source adds read-only current-network inspection through
 `pkexec /usr/libexec/karyo/desktop-network-info` when the optional host is enabled.
 It accepts no arguments and uses the current captured desktop peer. Its JSON

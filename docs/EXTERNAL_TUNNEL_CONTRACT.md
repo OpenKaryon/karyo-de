@@ -1,9 +1,17 @@
 # External tunnel integration boundary
 
 The independent DE owns profile namespaces through its captured runtime token,
-kernel identities and journal. A provider must integrate with that ownership
-model. An installed client or a successful kernel WireGuard fixture does not
-establish external-provider compatibility.
+kernel identities and journal. Integration must preserve that ownership model.
+An installed client or a successful kernel WireGuard fixture does not establish
+external-provider compatibility.
+
+The approved [per-desktop networking plan](NETWORK_ISOLATION.md) now requires
+private network and DNS contexts for every managed desktop, including the main
+account. Ordinary upstream VPN clients use DE-owned launch adapters without
+forks or a mandatory new client protocol. The cooperative provider boundary
+below is an optional extension, not the only integration path. The current
+runtime still uses the host context for the main account; this document does
+not claim that the new topology is implemented.
 
 ## Current read-only inspection
 
@@ -26,8 +34,10 @@ before a client can integrate through the ownership contract below.
 
 ## Required ownership contract
 
-The external integration still needs implementation and end-to-end acceptance.
-The following describes the required boundary, not an already shipped API:
+The cooperative external integration still needs implementation and end-to-end
+acceptance. The following describes the required boundary, not an already
+shipped API. For ordinary upstream clients, DE-owned adapters must provide the
+equivalent context and lifecycle without requiring client-side API changes:
 
 - A privileged provider obtains the current context from the DE's owner, rather
   than reconstructing it from a username, interface glob or private journal path.
@@ -37,11 +47,11 @@ The following describes the required boundary, not an already shipped API:
   physical forwarding peers and the existing private resolver object. It must
   not expose application credentials or permit the provider to choose another
   profile's routes or resolver.
-- Home tunnel routing and its guard preserve Work's independently owned physical
-  carrier path. The provider and DE must agree on marking/routing/firewall
+- Every desktop's tunnel routing and guard preserve other desktops' independently
+  owned physical carrier paths. The provider and DE must agree on routing/firewall
   ownership. Adding an accept rule to an unrelated nft base chain does not prove
   that another provider's later chain permits the packet.
-- Work DNS remains attached to the same captured private resolver object. A
+- Each desktop's DNS remains attached to its captured private resolver object. A
   provider must not replace the host resolver or manufacture a legacy path to
   obtain another profile's DNS access.
 - Disconnect and profile shutdown release provider-owned routes and DNS before

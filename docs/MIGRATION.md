@@ -1,5 +1,11 @@
 # DE migration boundary
 
+The approved [per-desktop networking plan](NETWORK_ISOLATION.md) adds a private
+network and DNS context for Home as well as child desktops. Existing upstream
+VPNs use owned launch adapters; a bespoke provider API is optional. The current
+runtime has not yet implemented this main-session topology. The linked plan
+defines the implementation order and installed Debian/Ubuntu acceptance gates.
+
 The first migrated component is the shared theme/paint foundation. It is
 independently buildable and installable as development files, with an exported
 CMake target, the `Karyo::Ui` namespace and compatible user settings keys.
