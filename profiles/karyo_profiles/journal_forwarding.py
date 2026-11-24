@@ -99,6 +99,10 @@ class JournalForwarding:
         gateway=ProfileForwarding(network.network,physical(value["physical"]))
         apply_proof(gateway,value["proof"])
         scope=cls(journal,network,gateway)
+        if 'refresh' in value:
+            from .route_refresh import RouteRefresh
+            RouteRefresh(scope).verify()
+            return scope
         if value["pending"] is None:gateway.verify()
         try:
             if receipt(gateway)!=value["proof"]:raise JournalRetained("The native forwarding receipt changed")
@@ -110,6 +114,10 @@ class JournalForwarding:
 
     def verify(self):
         value=self.journal.record(self.token)["forwarding"]
+        if 'refresh' in value:
+            from .route_refresh import RouteRefresh
+            RouteRefresh(self).verify()
+            return
         if value["pending"] is not None or value["proof"]!=receipt(self.gateway):
             raise JournalRetained("The forwarding journal is not an acknowledged live lease")
         self.gateway.verify()
@@ -119,6 +127,10 @@ class JournalForwarding:
         if "dns" in before or "session" in before:
             raise JournalRetained("Profile consumers and DNS must close before forwarding")
         value=before["forwarding"]
+        if 'refresh' in value:
+            from .route_refresh import RouteRefresh
+            RouteRefresh(self).close()
+            return
         if value["pending"] not in {None,"remove"} or value["proof"]!=receipt(self.gateway):
             raise JournalRetained("The forwarding cleanup receipt changed")
         self.journal.change(before,dict(before,forwarding=dict(value,pending="remove")))

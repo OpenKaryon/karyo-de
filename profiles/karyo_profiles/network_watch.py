@@ -5,6 +5,7 @@ import time
 
 from .dns import discover_dns
 from .dns_refresh import refresh_dns
+from .route_refresh import refresh_routes
 from .underlay import discover_underlay
 
 
@@ -14,8 +15,10 @@ def discover(command):
 
 
 class DNSRefreshMonitor:
-    def __init__(self, *, clock=time.monotonic, read=discover, apply=refresh_dns, report=None):
+    def __init__(self, *, clock=time.monotonic, read=discover, apply=refresh_dns,
+                 routes=refresh_routes, report=None):
         self.clock, self.read, self.apply = clock, read, apply
+        self.routes = routes
         self.report = report if report is not None else self.log
         self.next_read = 0
         self.target = None
@@ -57,15 +60,19 @@ class DNSRefreshMonitor:
         scope = live.get(token)
         if scope is None:
             return
-        if self.target.physical.routing_identity != scope.dns.files.plan.seed.physical.routing_identity:
+        routing = self.target.physical.routing_identity != scope.dns.files.plan.seed.physical.routing_identity
+        if routing and scope.forwarding is None:
             self.state(token, "routing changed; route reconciliation required")
             return
         try:
             with store.locked(), scope.dns.files.network.command.bounded(3):
                 record = scope.journal.record(token)
-                if "refresh" in record["dns"]:
-                    self.apply(scope.dns, forwarding=scope.forwarding)
-                changed = self.apply(scope.dns, self.target, forwarding=scope.forwarding)
+                if routing or 'refresh' in record.get('forwarding',{}):
+                    changed = self.routes(scope.forwarding,scope.dns,self.target)
+                else:
+                    if "refresh" in record["dns"]:
+                        self.apply(scope.dns, forwarding=scope.forwarding)
+                    changed = self.apply(scope.dns, self.target, forwarding=scope.forwarding)
             self.state(token, "updated" if changed else "current")
         except (OSError, RuntimeError, ValueError):
             self.state(token, "update retained; retry deferred")

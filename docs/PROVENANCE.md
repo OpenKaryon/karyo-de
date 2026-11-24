@@ -830,3 +830,13 @@ packaging under GPL-3.0-or-later. The system helper pins an existing FUSE contro
 directory and rechecks mount metadata without traversing a stalled transfer.
 No private package configuration or author metadata is imported. Ordinary
 source checks and native system/package acceptance are recorded separately.
+
+## Live profile carrier replacement
+
+The carrier-transition controller, DNS/journal integration and functional tests
+are original GPL-3.0-or-later code. The forwarding-native JSON fixture records
+Linux nftables output from our generated QA policies, including atomic pause
+and replacement rules. Only owned synthetic table/interface/token and address
+identities are normalized for deterministic tests. No private provider code,
+application configuration or user traffic capture is included. Native packet
+and installed-package acceptance are separate from these recorded rule shapes.

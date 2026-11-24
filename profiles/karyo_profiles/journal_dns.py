@@ -166,7 +166,8 @@ class JournalDNS:
     @classmethod
     def restore_observers(cls,journal,network,*,accounts=None):
         record=journal.record(network.token);dns=record["dns"]
-        validate_dns(dns,network.network.spec,record["account"]["gid"])
+        validate_dns(dns,network.network.spec,record["account"]["gid"],
+                     routing='refresh' in record.get('forwarding',{}))
         if dns["pending"] in {"files-create","bus-start","resolver-start"}:
             raise JournalRetained("An unacknowledged DNS creation requires review")
         files=restore_files(network.network,dns,LocalAccounts() if accounts is None else accounts)

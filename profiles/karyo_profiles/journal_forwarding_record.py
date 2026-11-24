@@ -29,7 +29,8 @@ def native_json(value,depth=0):
 
 
 def validate_forwarding(value,spec):
-    if not isinstance(value,dict) or set(value)!={"physical","pending","proof"}:
+    required={'physical','pending','proof'}
+    if not isinstance(value,dict) or not required<=set(value) or set(value)-required-{'refresh'}:
         raise ValueError("Invalid forwarding journal record")
     underlay=physical(value["physical"])
     if ipaddress.IPv4Network(underlay.subnet).overlaps(PRIVATE_POOL):raise ValueError("Physical underlay overlaps profile addresses")
@@ -97,3 +98,8 @@ def validate_forwarding(value,spec):
     if ((len(rules)>0 or firewall is not None) and len(routes)!=4
             or len(rules)>0 and firewall is None or pending is None and (len(routes)!=4 or len(rules)!=2 or firewall is None)):
         raise ValueError("Forwarding removal is out of dependency order")
+    if 'refresh' in value:
+        from .route_refresh import validate_refresh
+        if pending is not None or len(routes)!=4 or len(rules)!=2 or firewall is None:
+            raise ValueError('Carrier refresh requires its captured complete forwarding graph')
+        validate_refresh(value['refresh'])

@@ -103,7 +103,9 @@ if(BUILD_TESTING)
         -s ${profile_source}/tests -p test_dns_refresh.py -v)
     add_test(NAME profile-network-budget COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_network_budget.py -v)
-    set_tests_properties(profile-live-dns profile-network-budget PROPERTIES TIMEOUT 20)
+    add_test(NAME profile-carrier-refresh COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_route_refresh.py -v)
+    set_tests_properties(profile-live-dns profile-network-budget profile-carrier-refresh PROPERTIES TIMEOUT 20)
 endif()
 
 

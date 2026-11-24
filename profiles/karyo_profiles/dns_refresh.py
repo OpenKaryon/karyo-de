@@ -20,12 +20,12 @@ def wire(value):
     }
 
 
-def validate_refresh(value, original):
+def validate_refresh(value, original, *, routing=False):
     if (not isinstance(value, dict) or set(value) != {"target", "step"}
             or type(value["step"]) is not int or not 0 <= value["step"] <= 2):
         raise ValueError("Invalid private DNS refresh intent")
     target = seed(value["target"])
-    if target.physical.routing_identity != original.physical.routing_identity:
+    if not routing and target.physical.routing_identity != original.physical.routing_identity:
         raise ValueError("DNS refresh cannot change physical routing")
     return target
 
@@ -84,6 +84,7 @@ def refresh_dns(dns, target=None, *, forwarding=None, link_factory=PrivateLink):
     dns.files._guard()
     record = dns.journal.record(dns.token)
     value = record["dns"]
+    carrier = record.get('forwarding', {}).get('refresh')
     original = seed(value["seed"])
     if value["pending"] is not None or dns.files.plan.seed != original:
         raise NetworkError("DNS refresh requires its acknowledged resolver configuration")
@@ -94,14 +95,16 @@ def refresh_dns(dns, target=None, *, forwarding=None, link_factory=PrivateLink):
     dns.services.verify()
     intent = value.get("refresh")
     if intent is not None:
-        desired = validate_refresh(intent, original)
+        desired = validate_refresh(intent, original, routing=carrier is not None)
         if target is not None and target != desired:
             raise NetworkError("Finish the captured DNS update before selecting another seed")
     else:
         if not isinstance(target, DNSSeed):
             raise ValueError("DNS refresh requires a discovered physical seed")
         intent = {"target": encoded(target), "step": 0}
-        desired = validate_refresh(intent, original)
+        desired = validate_refresh(intent, original, routing=carrier is not None)
+        if carrier is not None and intent['target'] != carrier['target']:
+            raise NetworkError('The DNS target differs from the owned carrier transition')
         if desired == original:
             return False
     link = link_factory(dns)
@@ -133,11 +136,11 @@ def refresh_dns(dns, target=None, *, forwarding=None, link_factory=PrivateLink):
     updated_dns = dict(record["dns"], seed=encoded(desired))
     updated_dns.pop("refresh")
     updated = dict(record, dns=updated_dns)
-    if forwarding is not None:
+    if forwarding is not None and carrier is None:
         updated["forwarding"] = dict(record["forwarding"], physical=encoded(desired)["physical"])
     dns.journal.change(record, updated)
     dns.files.plan = replace(dns.files.plan, seed=desired)
-    if forwarding is not None:
+    if forwarding is not None and carrier is None:
         forwarding.gateway.physical = desired.physical
     return True
 

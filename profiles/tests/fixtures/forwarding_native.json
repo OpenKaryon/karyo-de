@@ -1,0 +1,1745 @@
+{
+  "schema": 1,
+  "origin": "Native nftables JSON from owned QA policies; synthetic identities normalized",
+  "snapshots": {
+    "original": [
+      {
+        "table": {
+          "family": "inet",
+          "name": "karyo_fwd_abababababababababababababababab",
+          "handle": 8,
+          "comment": "karyo:abababababababababababababababab"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "name": "forward",
+          "handle": 1,
+          "type": "filter",
+          "hook": "forward",
+          "prio": 0,
+          "policy": "accept"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "name": "source_nat",
+          "handle": 2,
+          "type": "nat",
+          "hook": "postrouting",
+          "prio": 100,
+          "policy": "accept"
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 3,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 4,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "daddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 5,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": {
+                  "prefix": {
+                    "addr": "10.231.0.0",
+                    "len": 16
+                  }
+                }
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 6,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 7,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 9,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "ct": {
+                    "key": "state"
+                  }
+                },
+                "right": {
+                  "set": [
+                    "established",
+                    "related"
+                  ]
+                }
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 10,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 12,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "ct": {
+                    "key": "state"
+                  }
+                },
+                "right": {
+                  "set": [
+                    "established",
+                    "related"
+                  ]
+                }
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "source_nat",
+          "handle": 13,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "masquerade": null
+            }
+          ]
+        }
+      }
+    ],
+    "paused": [
+      {
+        "table": {
+          "family": "inet",
+          "name": "karyo_fwd_abababababababababababababababab",
+          "handle": 8,
+          "comment": "karyo:abababababababababababababababab"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "name": "forward",
+          "handle": 1,
+          "type": "filter",
+          "hook": "forward",
+          "prio": 0,
+          "policy": "accept"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "name": "source_nat",
+          "handle": 2,
+          "type": "nat",
+          "hook": "postrouting",
+          "prio": 100,
+          "policy": "accept"
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 14,
+          "comment": "karyo:abababababababababababababababab:refresh",
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 15,
+          "comment": "karyo:abababababababababababababababab:refresh",
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "source_nat",
+          "handle": 13,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "masquerade": null
+            }
+          ]
+        }
+      }
+    ],
+    "eth0": [
+      {
+        "table": {
+          "family": "inet",
+          "name": "karyo_fwd_abababababababababababababababab",
+          "handle": 8,
+          "comment": "karyo:abababababababababababababababab"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "name": "forward",
+          "handle": 1,
+          "type": "filter",
+          "hook": "forward",
+          "prio": 0,
+          "policy": "accept"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "name": "source_nat",
+          "handle": 2,
+          "type": "nat",
+          "hook": "postrouting",
+          "prio": 100,
+          "policy": "accept"
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 16,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 17,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "daddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 18,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": {
+                  "prefix": {
+                    "addr": "10.231.0.0",
+                    "len": 16
+                  }
+                }
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 19,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 20,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 22,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "ct": {
+                    "key": "state"
+                  }
+                },
+                "right": {
+                  "set": [
+                    "established",
+                    "related"
+                  ]
+                }
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 23,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 25,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "ct": {
+                    "key": "state"
+                  }
+                },
+                "right": {
+                  "set": [
+                    "established",
+                    "related"
+                  ]
+                }
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "source_nat",
+          "handle": 26,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth0"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "masquerade": null
+            }
+          ]
+        }
+      }
+    ],
+    "eth1": [
+      {
+        "table": {
+          "family": "inet",
+          "name": "karyo_fwd_abababababababababababababababab",
+          "handle": 8,
+          "comment": "karyo:abababababababababababababababab"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "name": "forward",
+          "handle": 1,
+          "type": "filter",
+          "hook": "forward",
+          "prio": 0,
+          "policy": "accept"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "name": "source_nat",
+          "handle": 2,
+          "type": "nat",
+          "hook": "postrouting",
+          "prio": 100,
+          "policy": "accept"
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 27,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 28,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "daddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 29,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": {
+                  "prefix": {
+                    "addr": "10.231.0.0",
+                    "len": 16
+                  }
+                }
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 30,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth1"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 31,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "eth1"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 33,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "ct": {
+                    "key": "state"
+                  }
+                },
+                "right": {
+                  "set": [
+                    "established",
+                    "related"
+                  ]
+                }
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 34,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth1"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 36,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "eth1"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "ct": {
+                    "key": "state"
+                  }
+                },
+                "right": {
+                  "set": [
+                    "established",
+                    "related"
+                  ]
+                }
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "source_nat",
+          "handle": 37,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth1"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "masquerade": null
+            }
+          ]
+        }
+      }
+    ],
+    "eth2": [
+      {
+        "table": {
+          "family": "inet",
+          "name": "karyo_fwd_abababababababababababababababab",
+          "handle": 8,
+          "comment": "karyo:abababababababababababababababab"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "name": "forward",
+          "handle": 1,
+          "type": "filter",
+          "hook": "forward",
+          "prio": 0,
+          "policy": "accept"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "name": "source_nat",
+          "handle": 2,
+          "type": "nat",
+          "hook": "postrouting",
+          "prio": 100,
+          "policy": "accept"
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 38,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 39,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "daddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 40,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": {
+                  "prefix": {
+                    "addr": "10.231.0.0",
+                    "len": 16
+                  }
+                }
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 41,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth2"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 42,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "eth2"
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 44,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "!=",
+                "left": {
+                  "ct": {
+                    "key": "state"
+                  }
+                },
+                "right": {
+                  "set": [
+                    "established",
+                    "related"
+                  ]
+                }
+              }
+            },
+            {
+              "drop": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 45,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth2"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "forward",
+          "handle": 47,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "eth2"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "ct": {
+                    "key": "state"
+                  }
+                },
+                "right": {
+                  "set": [
+                    "established",
+                    "related"
+                  ]
+                }
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "karyo_fwd_abababababababababababababababab",
+          "chain": "source_nat",
+          "handle": 48,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "iifname"
+                  }
+                },
+                "right": "kpabababababab"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "eth2"
+              }
+            },
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "saddr"
+                  }
+                },
+                "right": "10.231.0.10"
+              }
+            },
+            {
+              "masquerade": null
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,5 +1,19 @@
 # Optional desktop profile integration
 
+Carrier replacement now has a journaled runtime path in the 0.1.2 source. It
+pauses only the owned profile's forward traffic, retains its namespace and
+policy selectors, replaces physical routes, applies private DNS, and publishes
+the new carrier policy atomically. Journal schema 9 can reattach an unfinished
+transition, select another carrier, or clean up an offline closed profile.
+Disappeared old-address routes and native link-down flags are reconciled without
+adopting unrelated routing rows. Table and chain identities stay captured.
+
+The focused source group passes 34 cases on Debian and Ubuntu, including eight
+carrier cases. Their firewall fixtures are actual nftables snapshots from owned
+QA policies with synthetic identities normalized. These checks do not yet prove
+native packet delivery through a changed carrier, installed 0.1.2 packages,
+physical DHCP/hardware or a complete graphical profile transition.
+
 The current startup inventory uses one eight-second budget for physical-route
 and DNS discovery before allocating a profile. Nested native-command budgets
 cannot extend that deadline; expired batches launch no further child, and a

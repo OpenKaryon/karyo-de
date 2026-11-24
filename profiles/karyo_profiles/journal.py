@@ -103,9 +103,13 @@ def validate_record(value):
         if value["pending"] is not None or value["network"] is None:
             raise ValueError("DNS requires an acknowledged live network receipt")
         from .journal_dns_record import validate_dns
-        validate_dns(value["dns"], NetworkSpec(account.uid,value["token"]),account.gid)
+        carrier=value.get('forwarding',{}).get('refresh')
+        validate_dns(value["dns"], NetworkSpec(account.uid,value["token"]),account.gid,routing=carrier is not None)
         if "forwarding" in value and value["dns"]["seed"]["physical"]!=value["forwarding"]["physical"]:
-            raise ValueError("Forwarding and DNS require the same physical seed")
+            if carrier is None or value['dns']['seed'] not in (carrier['source_dns'],carrier['target']):
+                raise ValueError("Forwarding and DNS require the same physical seed or captured transition")
+        if carrier is not None and carrier['step']==7:
+            raise ValueError('Carrier cleanup requires closed DNS consumers')
     if "provider" in value:
         if ("dns" not in value or value["dns"]["pending"] is not None
                 or value["dns"]["bus"] is None or value["dns"]["resolver"] is None):
@@ -183,7 +187,7 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 8 or data["boot"] != self.boot
+                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 9 or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
@@ -204,6 +208,8 @@ class RuntimeJournal:
                 raise ValueError("Scoped catalog ownership requires journal schema 7")
             if "refresh" in record.get("dns", {}) and data["schema"] < 8:
                 raise ValueError("Live DNS refresh requires journal schema 8")
+            if 'refresh' in record.get('forwarding',{}) and data['schema']<9:
+                raise ValueError('Live carrier refresh requires journal schema 9')
             account = record["account"]
             if account["name"] in names or account["uid"] in uids or record["token"] in tokens:
                 raise ValueError("Duplicate host journal profile identity")
@@ -273,6 +279,7 @@ class RuntimeJournal:
                 or "refresh" in record.get("dns", {})
                 or ("session" in record and record["session"]["pending"] is not None)
                 or ("forwarding" in record and record["forwarding"]["pending"] is not None)
+                or 'refresh' in record.get('forwarding',{})
                 or ("provider" in record and record["provider"]["pending"] is not None) for record in data["profiles"]):
             # Complete current leases may coexist; unresolved mutation intent
             # blocks new allocation even when this controller created it.
@@ -312,7 +319,9 @@ class RuntimeJournal:
         if replacement is not None and "catalog" in replacement.get("session", {}):
             data["schema"] = max(data["schema"], 7)
         if replacement is not None and "refresh" in replacement.get("dns", {}):
-            data["schema"] = 8
+            data["schema"] = max(data['schema'],8)
+        if replacement is not None and 'refresh' in replacement.get('forwarding',{}):
+            data['schema']=9
         self.save(data)
         if replacement is None:
             self.known.discard(expected["token"])

@@ -35,7 +35,7 @@ def validate_unit(value,role):
     for item in value["runtime"]:identity(item)
 
 
-def validate_dns(value,spec,gid):
+def validate_dns(value,spec,gid,*,routing=False):
     required={"seed","service_uid","gid","pending","files","bus","resolver"}
     if not isinstance(value,dict) or not required<=set(value) or set(value)-required-{"refresh"}:
         raise ValueError("Invalid DNS journal record")
@@ -72,4 +72,4 @@ def validate_dns(value,spec,gid):
         from .dns_refresh import validate_refresh
         if pending is not None or value["bus"] is None or value["resolver"] is None:
             raise ValueError("DNS refresh requires its acknowledged live services")
-        validate_refresh(value["refresh"],seed(value["seed"]))
+        validate_refresh(value["refresh"],seed(value["seed"]),routing=routing)

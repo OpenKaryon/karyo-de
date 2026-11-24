@@ -184,6 +184,30 @@ class ProfileForwarding:
                 f'  iifname {host} oifname {device} ip saddr {guest} masquerade\n'
                 ' }\n}\n').encode("ascii")
 
+    def replacement_script(self, *, paused=False):
+        """Replace owned chain rules atomically, retaining table/chain identities."""
+        if paused:
+            host, comment = map(json.dumps, (self.network.spec.interface,
+                                             self.network.spec.alias + ':refresh'))
+            return (f'flush chain inet {self.name} forward\n'
+                    f'add rule inet {self.name} forward iifname {host} drop comment {comment}\n'
+                    f'add rule inet {self.name} forward oifname {host} drop comment {comment}\n').encode('ascii')
+        # The declaration is our fixed generated policy, never native/user input.
+        # Reuse its rules so creation and carrier replacement cannot drift.
+        lines = self._script().decode('ascii').splitlines()
+        result = [f'flush chain inet {self.name} forward',
+                  f'flush chain inet {self.name} source_nat']
+        chain = None
+        for line in lines:
+            text = line.strip()
+            if text.startswith('chain '):
+                chain = text.split()[1]
+            elif text == '}':
+                chain = None
+            elif chain is not None:
+                result.append(f'add rule inet {self.name} {chain} {text}')
+        return ('\n'.join(result) + '\n').encode('ascii')
+
     def route_plan(self):
         return (
             (("unreachable","default","metric","32767"),{"type":"unreachable","dst":"default","metric":32767}),
