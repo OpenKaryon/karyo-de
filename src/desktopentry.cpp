@@ -19,18 +19,31 @@
 
 namespace {
 
-// Keep the caller alive as the direct parent: authorization brokers validate it.
+// Keep a live parent: authorization brokers validate native login ancestry.
 // The observer owns itself until process exit. It is deliberately not parented
 // to qApp, so shutting down the launcher does not kill ordinary applications.
 bool startApplication(const QString &program, const QStringList &args, qint64 *pid = nullptr)
 {
     if (pid)
         *pid = 0;
+    QString executable = program;
+    QStringList parameters = args;
+#ifdef Q_OS_LINUX
+    // This routing hint selects ordinary-user dispatch; it grants no worker
+    // authority. The native worker producer still validates the actual GUI.
+    if (!qEnvironmentVariableIsEmpty("KARYO_NETWORK_ENDPOINT")) {
+        const QString launcher = QStandardPaths::findExecutable(QStringLiteral("karyo-launch"));
+        if (launcher.isEmpty() || QStandardPaths::findExecutable(program).isEmpty())
+            return false;
+        executable = launcher;
+        parameters = QStringList{QStringLiteral("--"), program} + args;
+    }
+#endif
     if (!QCoreApplication::instance())
-        return QProcess::startDetached(program, args, QDir::homePath(), pid);
+        return QProcess::startDetached(executable, parameters, QDir::homePath(), pid);
     auto *process = new QProcess;
-    process->setProgram(program);
-    process->setArguments(args);
+    process->setProgram(executable);
+    process->setArguments(parameters);
     process->setWorkingDirectory(QDir::homePath());
     process->setProcessChannelMode(QProcess::ForwardedChannels);
     QObject::connect(process, &QProcess::finished, process, &QObject::deleteLater);
@@ -368,6 +381,11 @@ QStringList DesktopEntry::command() const
         out.append(arg);
     }
     return out;
+}
+
+bool DesktopEntry::launchProgram(const QString &program, const QStringList &arguments, qint64 *pid)
+{
+    return startApplication(program, arguments, pid);
 }
 
 bool DesktopEntry::launch() const

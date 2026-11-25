@@ -40,6 +40,9 @@ public:
     bool matchesAppId(const QString &appId) const;
     // Exec with field codes removed, split into program and arguments.
     QStringList command() const;
+    // Ordinary application dispatch shared by menu, file and terminal launches.
+    static bool launchProgram(const QString &program, const QStringList &arguments,
+                              qint64 *pid = nullptr);
     bool launch() const;
     // Launches with files: %f/%F/%u/%U receive the paths or URLs.
     bool launchWith(const QStringList &paths, qint64 *pid = nullptr) const;

@@ -75,6 +75,11 @@ install(FILES "${profile_source}/karyo-profile-host.socket"
 install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-host COMPONENT profile-host-runtime)
 
+# Application scopes preserve the invoking desktop's native service view.
+configure_file("${profile_source}/application-launch.in" "${CMAKE_CURRENT_BINARY_DIR}/karyo-launch" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-launch"
+    DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-runtime)
+
 # A distinct, inactive payload: only an explicit administrator command enables
 # private desktop forwarding and the host socket. Base DE installation is inert.
 configure_file("${profile_source}/runtime.in"

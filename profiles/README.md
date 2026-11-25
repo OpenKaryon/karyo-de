@@ -1616,3 +1616,41 @@ postchecks restore both original Home sessions and host network snapshots. This
 supersedes only the selected-exit DNS/HTTPS limit above; external ExternalProvider client,
 physical network lifecycle and NetBird GUI/tray acceptance remain separate.
 Builder `docs/VALIDATION-HOME-VPN-EXIT-DNS.md` records the exact executed actors.
+
+
+### Launching applications inside an isolated desktop
+
+The common desktop-entry launcher dispatches ordinary menu commands and file
+handlers through `karyo-launch -- PROGRAM [ARGUMENT ...]` when the session has
+an isolated network endpoint. The helper is installed by `profile-runtime`.
+It creates a unique user-manager application scope, preserving the invoking
+process's actual network and mount namespaces, mounted resolver and bus,
+display credentials, arguments, working directory and standard input. A new
+user-manager service can have a different mount namespace even when its network
+and resolver match; the scope does not silently substitute that service view.
+The endpoint environment hint selects unprivileged dispatch and grants no
+worker authority. Failure to dispatch is reported instead of launching in a
+host context. Ordinary sessions without this hint retain direct launching.
+
+The small shell helper remains in its source graphical login until the scoped
+application exits. It is independent of the panel, so restarting the panel does
+not stop the application. Separate application scopes also let worker retirement
+stop the captured application without terminating the whole desktop. Session
+power, lock and logout operations retain their existing direct paths.
+
+Native logind does not identify an application scope as a login session.
+Administrative desktop helpers therefore support a captured process ancestry
+back to their active graphical login, alongside the original direct-session
+path. Each process is pinned with a pidfd; native UID, parent, start time,
+executable and cgroup identities are rechecked. The owner independently captures
+the real root helper and repeats this verification. A supplied session name or
+PID is not used as authority. Worker-origin validation remains unchanged.
+
+On native Debian and Ubuntu, menu-launched applications retain their exact
+network, mount and resolver views in independent scopes. The ordinary desktop
+frontend still lists and switches desktops from scoped applications. Existing
+application PIDs and scopes survive a panel restart. A separately maintained
+application's real worker and packet engine also activate from the menu with
+native authorization, carry digest-checked TCP/UDP from a separate Home scope,
+and retire without changing Work's private DNS, payloads or captured context.
+These observations do not claim application enrollment or host UI integration.

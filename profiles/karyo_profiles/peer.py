@@ -27,6 +27,7 @@ class DesktopPeer:
         self.process = NativeProcess() if process is None else process
         self.identify = identify
         self.fd = None
+        self.lineage = None
         self.identity = None
         pid, uid, gid = struct.unpack("3i", connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
         if pid <= 1 or uid != 0 or gid != 0:
@@ -34,14 +35,21 @@ class DesktopPeer:
         try:
             self.fd = self.process.open(pid)
             self.executable = program_identity("/usr/bin/python3")
-            identifier = self.identify(pid)
-            current = self.sessions.get(identifier)
+            try:
+                identifier = self.identify(pid)
+                current = self.sessions.get(identifier)
+                cgroup = None
+            except PermissionError:
+                from .login_lineage import LoginLineage
+                self.lineage = LoginLineage(pid, self.sessions)
+                current = self.lineage.verify()
+                cgroup = self.lineage.processes[0].cgroup
             if current is None or not current.active:
                 raise PermissionError("The helper has no active local graphical session")
             account = self.accounts.by_uid(current.uid)
             if account.name != current.name:
                 raise PermissionError("The helper login account is inconsistent")
-            cgroup = "/user.slice/user-" + str(account.uid) + ".slice/session-" + current.id + ".scope"
+            cgroup = cgroup or "/user.slice/user-" + str(account.uid) + ".slice/session-" + current.id + ".scope"
             self.host_user_namespace(pid)
             start = self.process.read(pid, self.executable, 0, cgroup, None)
             self.identity = PeerIdentity(pid, start, self.session_identity(current), account, cgroup)
@@ -64,7 +72,7 @@ class DesktopPeer:
         identity = self.identity
         if identity is None or self.fd is None or self.process.exited(self.fd):
             raise PermissionError("The desktop helper process has ended")
-        if self.identify(identity.pid) != identity.session[0]:
+        if (self.lineage.verify().id if self.lineage is not None else self.identify(identity.pid)) != identity.session[0]:
             raise PermissionError("The desktop helper moved to another login scope")
         self.host_user_namespace(identity.pid)
         if self.process.read(identity.pid, self.executable, 0, identity.cgroup, None) != identity.start:
@@ -77,6 +85,9 @@ class DesktopPeer:
         return identity.account
 
     def close(self):
+        if self.lineage is not None:
+            self.lineage.close()
+            self.lineage = None
         if self.fd is not None:
             self.process.close(self.fd)
             self.fd = None

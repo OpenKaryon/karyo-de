@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# A scope inherits the caller's namespaces, mounted resolver/bus, display
+# credentials, cwd and standard input. Keep this small parent in its source
+# login scope until the application ends, including when the shell restarts.
+if [ "$#" -lt 2 ] || [ "$1" != -- ]; then
+    echo 'Usage: karyo-launch -- PROGRAM [ARGUMENT ...]' >&2
+    exit 2
+fi
+shift
+if [ "$(id -u)" -eq 0 ] || ! command -v "$1" >/dev/null 2>&1; then
+    echo 'karyo-launch: An ordinary user and an executable application are required.' >&2
+    exit 1
+fi
+if ! read -r instance < /proc/sys/kernel/random/uuid; then
+    echo 'karyo-launch: Could not identify the application scope.' >&2
+    exit 1
+fi
+/usr/bin/systemd-run --user --scope --quiet --collect "--unit=app-karyo-$instance.scope" -- "$@"
+result=$?
+exit "$result"

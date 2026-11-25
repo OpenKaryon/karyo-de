@@ -1151,7 +1151,7 @@ QString toolCommandLine(const AppInfo &tool, const QString &arguments)
 
 void showInAppCenter(const QString &toolId)
 {
-    QProcess::startDetached(QStringLiteral("openkaryon-appcenter"), {QStringLiteral("--app"), toolId});
+    DesktopEntry::launchProgram(QStringLiteral("openkaryon-appcenter"), {QStringLiteral("--app"), toolId});
 }
 
 void launch(const AppInfo &app)
@@ -1173,7 +1173,7 @@ void openFile(const QString &path)
                                       : QMimeDatabase().mimeTypeForFile(info).name();
     if (const auto entry = DesktopEntry::defaultFor(mime); entry && entry->launchWith({path}))
         return;
-    QProcess::startDetached(QStringLiteral("xdg-open"), {path});
+    DesktopEntry::launchProgram(QStringLiteral("xdg-open"), {path});
 }
 
 void openLocation(const QString &path)
@@ -1185,22 +1185,20 @@ void openLocation(const QString &path)
                                : QFileInfo(path).absolutePath();
     if (entry && entry->launchWith({target}))
         return;
-    QProcess::startDetached(QStringLiteral("xdg-open"), {QFileInfo(path).absolutePath()});
+    DesktopEntry::launchProgram(QStringLiteral("xdg-open"), {QFileInfo(path).absolutePath()});
 }
 
 void runInTerminal(const QString &commandLine)
 {
     // The shell stays open after the command, so its output can be read.
-    QProcess::startDetached(terminalProgram(),
+    DesktopEntry::launchProgram(terminalProgram(),
                             {QStringLiteral("-e"), QStringLiteral("sh"), QStringLiteral("-c"),
-                             commandLine + QStringLiteral("; exec \"${SHELL:-/bin/bash}\"")},
-                            QDir::homePath());
+                             commandLine + QStringLiteral("; exec \"${SHELL:-/bin/bash}\"")});
 }
 
 void readManual(const QString &command)
 {
-    QProcess::startDetached(terminalProgram(), {QStringLiteral("-e"), QStringLiteral("man"), command},
-                            QDir::homePath());
+    DesktopEntry::launchProgram(terminalProgram(), {QStringLiteral("-e"), QStringLiteral("man"), command});
 }
 
 bool hasManual(const QString &command)

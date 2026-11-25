@@ -306,7 +306,19 @@ def authorized_caller(environment, *, accounts=None, sessions=None, identify=pro
     accounts = accounts if accounts is not None else LocalAccounts()
     sessions = sessions if sessions is not None else Sessions()
     caller = accounts.by_uid(int(value))
-    current = sessions.get(identify())
+    try:
+        current = sessions.get(identify())
+    except PermissionError:
+        from .login_lineage import LoginLineage
+        lineage = None
+        try:
+            lineage = LoginLineage(os.getpid(), sessions, expected_uid=caller.uid)
+            current = lineage.verify()
+        except OSError:
+            raise PermissionError("The scoped desktop operation has no native source login") from None
+        finally:
+            if lineage is not None:
+                lineage.close()
     if current is None or not current.active or current.uid != caller.uid or current.name != caller.name:
         raise PermissionError("Only the active local graphical desktop may perform this operation")
     return caller
