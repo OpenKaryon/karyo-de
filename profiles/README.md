@@ -22,10 +22,11 @@ The new [per-desktop networking plan](../docs/NETWORK_ISOLATION.md) requires the
 same private network/DNS boundary for the main account and child desktops, with
 unmodified upstream VPNs launched through owned adapters. The explicitly enabled
 runtime now allocates a private NetworkManager and DNS view before both main and
-child entry. Real installed LightDM Home/Work and mixed WireGuard/OpenVPN pass on
-Debian and Ubuntu, including captured NetworkManager failure/recovery. NetBird,
-physical connectivity controls and the remaining provider lifecycle still need
-joined acceptance. See the [current installed
+child entry. Real installed LightDM Home/Work and the supported IPv4 pair matrix
+of WireGuard, OpenVPN and NetBird pass on Debian and Ubuntu, including selected
+exits, later desktops and captured worker failure/recovery. Physical inventory
+and the shared Settings panel also have installed observations; hardware Wi-Fi
+and remaining browser/tray/retirement checks keep their own boundaries. See the [current installed
 checkpoint](../docs/VALIDATION_INSTALLED_FAMILY_NETWORKS.md). Historical evidence
 below describes its own actors and topology rather than completing this goal.
 

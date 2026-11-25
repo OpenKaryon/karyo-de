@@ -16,7 +16,7 @@ from karyo_profiles.journal_dns import JournalDNS
 from karyo_profiles.journal_forwarding import JournalForwarding
 from karyo_profiles.journal_network import JournalNetwork
 from karyo_profiles.networks import NetworkError, NetworkSpec
-from karyo_profiles.route_refresh import refresh_routes
+from karyo_profiles.route_refresh import refresh_routes,lost_physical_routes
 from test_dns_refresh import Journal as DNSJournal, Link
 from test_forwarding import Kernel as BaseKernel, PHYSICAL
 from test_journal_forwarding import Journal, base_record
@@ -148,6 +148,15 @@ class CarrierTests(unittest.TestCase):
             if row.get('dev') != PHYSICAL.interface]
         self.assertTrue(self.apply())
         self.assertEqual(len(self.kernel.routes), 4)
+        self.forwarding.verify()
+
+    def test_reacquired_same_address_restores_only_missing_physical_routes(self):
+        original_rules=deepcopy(self.kernel.rules)
+        self.kernel.routes=[row for row in self.kernel.routes if row.get('dev')!=PHYSICAL.interface]
+        self.assertTrue(lost_physical_routes(self.forwarding))
+        self.assertTrue(self.apply(OLD))
+        self.assertEqual(self.kernel.rules,original_rules)
+        self.assertFalse(lost_physical_routes(self.forwarding))
         self.forwarding.verify()
 
     def test_transient_route_error_reattaches_without_recreating_the_graph(self):

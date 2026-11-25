@@ -99,6 +99,17 @@ class JournalForwarding:
         gateway=ProfileForwarding(network.network,physical(value["physical"]))
         apply_proof(gateway,value["proof"])
         scope=cls(journal,network,gateway)
+        live = any(record.get(key,{}).get('pending','absent') is None for key in ('session','main_login'))
+        if 'refresh' not in value and value['pending'] is None and live:
+            from .route_refresh import lost_physical_routes,validate_refresh
+            current=discover_underlay(gateway.command)
+            if current.routing_identity!=gateway.physical.routing_identity or lost_physical_routes(scope):
+                from .dns import discover_dns
+                from .dns_refresh import encoded
+                intent={'target':encoded(discover_dns(current,gateway.command)),'source_dns':record['dns']['seed'],'step':0}
+                validate_refresh(intent)
+                journal.change(record,dict(record,forwarding=dict(value,refresh=intent)))
+                value=journal.record(network.token)['forwarding']
         if 'refresh' in value:
             from .route_refresh import RouteRefresh
             RouteRefresh(scope).verify()

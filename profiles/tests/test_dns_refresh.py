@@ -167,9 +167,11 @@ class MonitorTests(unittest.TestCase):
         self.scope.peer = object()
         self.scope.token = SPEC.token
         self.scope.verify = Mock()
+        self.scope.verify_context = Mock()
         self.scope.journal.value['main_login'] = {'pending': None}
         self.monitor.poll(self.profiles, self.store)
         self.scope.verify.assert_called_once()
+        self.scope.verify_context.assert_called_once()
         self.apply.assert_called_once()
         self.scope.journal.value['main_login']['pending'] = 'login-close'
         self.now = 15
@@ -181,6 +183,15 @@ class MonitorTests(unittest.TestCase):
         self.monitor.poll(self.profiles, self.store)
         self.apply.assert_not_called()
         self.assertIn('route reconciliation required', self.messages[0])
+
+    def test_same_carrier_with_lost_physical_routes_uses_the_route_reconciler(self):
+        self.scope.forwarding = object()
+        routes=Mock(return_value=True)
+        self.monitor.routes=routes
+        self.monitor.repair=Mock(return_value=True)
+        self.monitor.poll(self.profiles,self.store)
+        routes.assert_called_once_with(self.scope.forwarding,self.scope.dns,NEW)
+        self.apply.assert_not_called()
 
 
 if __name__ == '__main__':

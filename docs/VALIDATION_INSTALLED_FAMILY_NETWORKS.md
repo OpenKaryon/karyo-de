@@ -1,5 +1,70 @@
 # Installed family networking checkpoint
 
+Current native scope includes all supported IPv4 provider pair combinations,
+selected NetBird exits, main logout/re-entry, later Experiments and live worker
+recovery. The physical panel and networkd/same-address DHCP results follow here.
+Earlier sections preserve their original narrower actors and package cohorts.
+Final family/realm retirement, remaining browser/tray flows, hardware Wi-Fi and
+a different physical interface/gateway are still open.
+
+## Physical controls and networkd coordination
+
+DE `39c68b9` and `1bd81a5` add an original-caller physical mediator and one
+asynchronous Shell/Settings panel. Builder `c6b32d9` supplies standard Python
+D-Bus/GLib dependencies. The installed service autoactivates with no capabilities
+on both native bases. Home user-manager inventory retains the real system-bus
+UID/PID. Each QA guest's physical ens160 is managed by networkd and shown read-only;
+the mediator does not take over a host connection. Native Shell/Settings builds,
+both targeted Qt tests and actual installed Home Wayland windows pass. The normal
+session autostart replaces an outdated Shell while preserving the live desktops.
+Post-upgrade Home/Work again pass managed DNS, verified external HTTPS and peer
+encrypted TCP/UDP. These observations do not establish real Wi-Fi association or
+a graphical physical-network authorization challenge.
+
+An ordinary networkd reconfigure exposed two real coordination failures. Default
+foreign-resource cleanup removed DE-owned routes and policy rules; the controller
+retained the differing graph instead of adopting it. DE `184e07c` and Builder
+`4b3565c` provide a separate optional cooperation package. It changes networkd's
+documented global foreign-routing cleanup policy only after explicit installation
+and a carrier service restart. A startup marker and the actual standard daemon
+identity/lifetime confirm that the configuration took effect. Networkd continues
+managing its own declarations while retaining foreign resources of other stacks.
+Package installation itself does not restart a carrier or enable networking.
+
+Kernel address removal also retires address-dependent routes when DHCP returns
+the same address/gateway. DE `9910703` recognizes this gap only while the captured
+private base, unreachable fallback, selectors and nft identity remain intact.
+The existing journaled carrier transition restores physical rows and republishes
+its fixed policy. Main login identity is verified before reconciliation and the
+complete graph afterward. The actual Ubuntu controller also reopens that gap
+without replacing a desktop, resolver, worker or provider lifetime. The selected
+functional set passes 131 cases on each base. Retained-update diagnostics now
+include a bounded, deduplicated journal cause.
+
+`profiles/tests/installed_uplink_dns.py` changes a captured runtime networkd
+drop-in, reloads/reconfigures and retires only that own file. Direct resolved
+SetLinkDomains was correctly rejected for the managed link; the fixture respects
+its actual owner. It waits for DHCP search-domain convergence before comparing
+complete private DNS lists. Physical reconfiguration may briefly pause a shared
+carrier: existing TCP sockets have a bounded pause allowance, without a claim
+of zero packet loss or zero latency.
+
+An initial complete run on each guest passes search-domain update and restoration with two live
+NetBird desktops. The same Home/Work encrypted TCP connections carry further
+payloads, managed DNS and UDP pass, and private VPN DNS link properties remain
+identical. Namespace, resolver, worker and provider lifetimes are unchanged.
+Owned routes match their proofs and final logical receipts match baseline;
+atomic nft republication can assign new rule handles while keeping table/chain
+identities. Only captured fixture invocations are stopped. Unsuccessful initial
+native logs are retained separately from acceptance. A subsequent Debian repeat
+restores DNS and routing but times out one existing encrypted stream during the
+carrier pause. This repeated-flow gate is therefore not stable or complete;
+further work needs stage-specific DNS/TCP/UDP observations rather than repeated
+unqualified runs. Steady-state inter-desktop VPN isolation is separately proved.
+This is same-address
+DHCP/DNS acceptance, not a native different-interface/gateway test. Own QA
+families and the temporary realm remain live for final observation and retirement.
+
 The current explicitly enabled runtime prepares a private NetworkManager,
 resolver and direct-host UID policy before starting a main login or a stopped
 child. Package installation alone remains inactive. Ordinary session startup

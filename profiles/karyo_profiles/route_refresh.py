@@ -31,6 +31,34 @@ def route_key(row):
     return json.dumps(value, sort_keys=True, separators=(',', ':'))
 
 
+def lost_physical_routes(forwarding):
+    """Recognize only lost address-dependent rows with the captured base intact.
+
+    Reacquiring the same DHCP address need not change routing_identity. Kernel
+    address removal still retires routes using its preferred source. Never
+    repair a replaced table, selector, firewall or the unreachable fallback.
+    """
+    gateway = forwarding.gateway
+    gateway._guard()
+    value = forwarding.journal.record(forwarding.token)['forwarding']
+    if value['pending'] is not None or 'refresh' in value:return False
+    proof = value['proof'];expected = list(map(route_key,proof['routes']))
+    current = list(map(route_key,gateway._routes()))
+    if len(current)!=len(set(current)) or set(current)-set(expected):
+        raise JournalRetained('The carrier routing table contains an unexpected row')
+    if set(current)==set(expected):return False
+    if not {expected[index] for index in (0,2)}<=set(current):
+        raise JournalRetained('The captured private routing base is unavailable')
+    rules = [row for row in gateway._rules() if row.get('priority') in proof['priorities']
+             or str(row.get('table'))==str(gateway.table)]
+    if _canonical(rules)!=_canonical(proof['rules']):
+        raise JournalRetained('The carrier routing selectors changed')
+    rows,handle = gateway._firewall()
+    if rows!=proof['firewall']['snapshot'] or handle!=proof['firewall']['handle']:
+        raise JournalRetained('The carrier firewall identity changed')
+    return True
+
+
 def policy(rows):
     result = deepcopy(rows)
     for row in result:

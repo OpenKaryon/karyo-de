@@ -44,6 +44,23 @@ activation recheck the active caller before proceeding. The ordinary NetworkMana
 and polkit interfaces are documented in the [NM API](https://networkmanager.dev/docs/api/latest/)
 and [polkit authority API](https://www.freedesktop.org/software/polkit/docs/latest/eggdbus-interface-org.freedesktop.PolicyKit1.Authority.html).
 
-The initial functional models pass on Debian and Ubuntu for physical inventory,
-saved Ethernet, personal Wi-Fi plans, radio changes and activation/error states.
-Installed D-Bus, real UI and hardware acceptance remain separate gates.
+Functional models pass on Debian and Ubuntu for physical inventory, saved
+Ethernet, personal Wi-Fi plans, radio changes and activation/error states. The
+installed mediator also passes an actual system-bus inventory call from the
+ordinary Home user manager on both native bases. It autoactivates without
+capabilities, retaining the original caller identity and desktop receipts.
+
+Shell and Settings share one asynchronous physical-connection panel. Native Qt
+D-Bus tests cover activation, short passwords, failed-password retry, external
+Ethernet and a service update mismatch. Both applications compile on Debian
+Qt 6.8 and Ubuntu Qt 6.10; installed Settings pages were captured from real Home
+Wayland sessions. The QA Ethernet is managed by networkd, so the panel reports
+it read-only and keeps private desktop connections separate. The normal session
+autostart loop replaces an outdated Shell without retiring either desktop.
+Post-upgrade Home/Work checks again pass managed DNS, verified external HTTPS
+and encrypted peer TCP/UDP on both bases.
+
+Real Wi-Fi radio, association, hardware password entry and a normal physical
+connection authorization challenge are not claimed by this Ethernet-only gate.
+The laboratory has no hardware Wi-Fi adapter. Physical DNS/DHCP coordination has
+its own [installed family result](VALIDATION_INSTALLED_FAMILY_NETWORKS.md).

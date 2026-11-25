@@ -5,7 +5,7 @@ import time
 
 from .dns import discover_dns
 from .dns_refresh import refresh_dns
-from .route_refresh import refresh_routes
+from .route_refresh import refresh_routes, lost_physical_routes
 from .underlay import discover_underlay
 
 
@@ -16,9 +16,10 @@ def discover(command):
 
 class DNSRefreshMonitor:
     def __init__(self, *, clock=time.monotonic, read=discover, apply=refresh_dns,
-                 routes=refresh_routes, report=None):
+                 routes=refresh_routes, repair=lost_physical_routes, report=None):
         self.clock, self.read, self.apply = clock, read, apply
         self.routes = routes
+        self.repair = repair
         self.report = report if report is not None else self.log
         self.next_read = 0
         self.target = None
@@ -70,17 +71,20 @@ class DNSRefreshMonitor:
             return
         try:
             with store.locked():
-                if getattr(scope, 'is_main', False) is True:scope.verify()
+                main = getattr(scope, 'is_main', False) is True
+                if main:scope.verify_context()
                 # Worker restoration has its own startup bound. Do not launch
                 # it with the carrier/DNS update's shorter command deadline.
                 with scope.dns.files.network.command.bounded(3):
                     record = scope.journal.record(token)
-                    if routing or 'refresh' in record.get('forwarding',{}):
+                    repair = scope.forwarding is not None and self.repair(scope.forwarding)
+                    if routing or repair or 'refresh' in record.get('forwarding',{}):
                         changed = self.routes(scope.forwarding,scope.dns,self.target)
                     else:
                         if "refresh" in record["dns"]:
                             self.apply(scope.dns, forwarding=scope.forwarding)
                         changed = self.apply(scope.dns, self.target, forwarding=scope.forwarding)
+                if main:scope.verify()
             self.state(token, "updated" if changed else "current")
         except (OSError, RuntimeError, ValueError) as error:
             # Preserve a bounded, single-line cause in the journal. A retained

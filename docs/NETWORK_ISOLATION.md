@@ -5,8 +5,10 @@ Main-account login is implemented and tested as described in
 [main entry validation](VALIDATION_MAIN_ENTRY.md). The independent
 [NetworkManager primitive](VALIDATION_NETWORK_MANAGER.md) passes its native
 service gate. The [installed family checkpoint](VALIDATION_INSTALLED_FAMILY_NETWORKS.md)
-now accepts automatic private Home/Work entry and mixed stock WireGuard/OpenVPN,
-while the full all-provider/service matrix remains incomplete.
+now accepts automatic private Home/Work entry, the supported IPv4 pair matrix
+of stock WireGuard, OpenVPN and NetBird, selected exit routing, late desktops
+and live worker recovery. Hardware Wi-Fi, remaining browser/tray observations
+and final family retirement still have separate acceptance boundaries.
 This plan supersedes the earlier target in which
 the main desktop used the host network and external clients needed a bespoke
 provider lease before any integration could work.

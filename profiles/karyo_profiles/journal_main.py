@@ -143,7 +143,7 @@ class MainEntry:
         self.update(pending=None, manager=manager_receipt(self.manager), login=asdict(login))
         self.verify_consumers()
 
-    def verify(self):
+    def verify_context(self):
         value = self.journal.record(self.token)["main_login"]
         if (value["pending"] is not None
                 or self.login().identity != owner(value["login"], self.manager.account,
@@ -153,8 +153,11 @@ class MainEntry:
         self.dns.services.verify()
         verify_host_network_policy(self.journal,self.network.network,
             accounts=self.dns.files.accounts,sessions=self.manager.sessions)
-        if self.forwarding is not None:self.forwarding.verify()
         if self.host_bus is not None:self.host_bus.verify()
+
+    def verify(self):
+        self.verify_context()
+        if self.forwarding is not None:self.forwarding.verify()
         self.network_service = refresh_network_service(self.journal, self.dns, self.network_service)
         if self.network_service is not None and not self.network_service.scope.unit.closed:
             self.network_service.verify()
