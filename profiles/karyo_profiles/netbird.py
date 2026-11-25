@@ -25,7 +25,7 @@ def netbird_ready():
     from .catalog import require_netbird_catalog
     try:
         for program in ("/usr/bin/netbird", "/usr/bin/netbird-ui",
-                        "/usr/bin/karyo-netbird-cli", "/usr/bin/karyo-netbird-gui",
+                        "/usr/bin/karyo-netbird-cli", "/usr/bin/karyo-netbird-gui", "/usr/bin/karyo-netbird-context",
                         "/usr/libexec/karyo/netbird-opener/xdg-open"):
             program_identity(program)
         require_netbird_catalog()

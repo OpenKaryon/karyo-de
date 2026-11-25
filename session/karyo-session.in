@@ -65,6 +65,17 @@ if command -v karyo-network-context >/dev/null 2>&1; then
         export XDG_DATA_DIRS="$network_catalog:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
     fi
 fi
+if command -v karyo-netbird-context >/dev/null 2>&1; then
+    if ! provider_context=$(karyo-netbird-context); then
+        echo "karyo-session: provider context is invalid" >&2
+        exit 1
+    fi
+    if [ -n "$provider_context" ]; then
+        export KARYO_NETBIRD_ENDPOINT="$provider_context"
+        provider_catalog='@CMAKE_INSTALL_FULL_DATADIR@/karyo/profile-catalog/netbird'
+        export XDG_DATA_DIRS="$provider_catalog:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+    fi
+fi
 if [ -z "${TERMINAL:-}" ] && command -v karyo-terminal >/dev/null 2>&1; then
     export TERMINAL=karyo-terminal
 fi

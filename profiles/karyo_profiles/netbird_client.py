@@ -122,8 +122,30 @@ def command(kind, arguments, environment, *, read=capture):
     return args, env
 
 
+def session_context(environment, *, query=None):
+    """Recover only the provider routing hint from this user's native manager."""
+    value = environment.get('KARYO_NETBIRD_ENDPOINT')
+    if value is None:
+        from .network_client import manager_environment
+        from .networks import NetworkError
+        try:values = (manager_environment if query is None else query)()
+        except (OSError, NetworkError):return ''
+        matches = [item.split('=', 1)[1] for item in values if item.startswith('KARYO_NETBIRD_ENDPOINT=')]
+        if not matches:return ''
+        if len(matches) != 1:raise ValueError('Ambiguous private provider routing hint')
+        value = matches[0]
+    if not isinstance(value, str) or ENDPOINT.fullmatch(value) is None:
+        raise ValueError('Invalid private provider routing hint')
+    return value
+
+
 def main(kind):
     try:
+        if kind == 'context':
+            if sys.argv[1:]:raise ValueError('The provider context helper accepts no arguments')
+            path = session_context(os.environ)
+            if path:print(path)
+            return 0
         args, env = command(kind, sys.argv[1:], os.environ)
         os.execve(args[0], args, env)
     except (OSError, ValueError):

@@ -15,10 +15,12 @@ from .journal_forwarding import JournalForwarding
 from .journal_main import MainEntry
 from .journal_network import JournalNetwork
 from .journal_network_service import JournalNetworkService
+from .journal_netbird import JournalNetBird
 from .host_network_policy import HostNetworkPolicy,policy_loader_ready
 from .main_peer import MainPeer, object_identity
 from .model import account_name, root_file
 from .networks import NetworkCommand
+from .netbird import netbird_ready
 from .runtime_policy import enabled, forwarding_ready
 from .services import program_identity
 from .storage import trusted_directory
@@ -58,11 +60,13 @@ def prepare_entry(registry, account, peer, accounts, sessions):
     forwarding_ready()
     supported_resolver_layout()
     program_identity('/usr/sbin/NetworkManager');policy_loader_ready()
+    provider_requested = registry.store.settings(account.name).vpn == 'netbird'
+    if provider_requested:netbird_ready()
     command = NetworkCommand()
     with command.bounded(8):
         physical = discover_underlay(command)
         seed = discover_dns(physical, command)
-    network = dns = service = policy = None
+    network = dns = service = policy = provider = None
     try:
         network = JournalNetwork.prepare_main(registry.journal, registry.store, account,
                                              accounts=accounts, sessions=sessions, command=command)
@@ -70,6 +74,7 @@ def prepare_entry(registry, account, peer, accounts, sessions):
         dns = JournalDNS.start(registry.journal, network, seed, accounts=accounts,service_view='network-manager')
         service=JournalNetworkService.start(registry.journal,dns)
         policy=HostNetworkPolicy.start(registry.journal,dns)
+        provider = JournalNetBird.start(registry.journal, dns) if provider_requested else None
         return MainEntry.prepare(registry.journal, dns, peer)
     except BaseException:
         if dns is not None:dns.release_handles()
@@ -77,6 +82,7 @@ def prepare_entry(registry, account, peer, accounts, sessions):
             os.close(network.network.fd);network.network.fd = None
         raise
     finally:
+        if provider is not None:provider.release_handles()
         if policy is not None:policy.release_handles()
         if service is not None:service.release_handles()
 

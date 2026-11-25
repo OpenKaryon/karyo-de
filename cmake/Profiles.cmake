@@ -104,12 +104,26 @@ install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/network-clients/nmcli"
 install(FILES "${profile_source}/network_connections.desktop"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/karyo/profile-catalog/network/applications
     RENAME nm-connection-editor.desktop COMPONENT profile-accounts-runtime)
-foreach(KARYO_NETBIRD_CLIENT IN ITEMS cli gui)
+foreach(KARYO_NETBIRD_CLIENT IN ITEMS cli gui context)
     configure_file("${profile_source}/netbird-client.in"
         "${CMAKE_CURRENT_BINARY_DIR}/karyo-netbird-${KARYO_NETBIRD_CLIENT}" @ONLY)
     install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-netbird-${KARYO_NETBIRD_CLIENT}"
         DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-netbird-client)
 endforeach()
+foreach(KARYO_NETBIRD_CLIENT IN ITEMS cli gui)
+    if(KARYO_NETBIRD_CLIENT STREQUAL "cli")
+        set(netbird_alias netbird)
+    else()
+        set(netbird_alias netbird-ui)
+    endif()
+    configure_file("${profile_source}/netbird-client.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/network-clients/${netbird_alias}" @ONLY)
+    install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/network-clients/${netbird_alias}"
+        DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo/network-clients COMPONENT profile-accounts-runtime)
+endforeach()
+install(FILES "${profile_source}/netbird_host_guard.conf"
+    DESTINATION ${KARYO_SYSTEMD_SYSTEM_UNIT_DIR}/netbird.service.d
+    RENAME 50-karyo-private-desktops.conf COMPONENT profile-netbird-client)
 configure_file("${profile_source}/netbird.desktop.in"
     "${CMAKE_CURRENT_BINARY_DIR}/org.wails.netbird.desktop" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.wails.netbird.desktop"
@@ -142,8 +156,11 @@ if(BUILD_TESTING)
         -s ${profile_source}/tests -p test_main_activation.py -v)
     add_test(NAME profile-network-service-recovery COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_network_service_recovery.py -v)
+    add_test(NAME profile-main-network-startup COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_main_network_startup.py -v)
     set_tests_properties(profile-live-dns profile-network-budget profile-carrier-refresh
-        profile-network-info profile-main-entry profile-main-activation profile-network-service-recovery PROPERTIES TIMEOUT 20)
+        profile-network-info profile-main-entry profile-main-activation profile-network-service-recovery
+        profile-main-network-startup PROPERTIES TIMEOUT 20)
 endif()
 
 

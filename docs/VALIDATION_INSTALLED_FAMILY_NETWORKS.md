@@ -9,7 +9,7 @@ host system bus preserves caller UID/PID and ordinary authorization semantics.
 
 ## Executed actors
 
-Debian 13 and Ubuntu 26.04 independent QEMU guests installed six native profile
+Debian 13 and Ubuntu 26.04 independent VMware guests installed six native profile
 and session packages built from DE `c4b30f0` with Builder `269daa7`. LightDM
 autologin started temporary Home accounts through the installed main entry.
 The ordinary graphical Start command path invoked the installed public frontend
@@ -49,6 +49,43 @@ incorrectly counted the transient `tun0` connection as another import; it was
 corrected without changing production behavior and the full gate rerun.
 
 ## Remaining acceptance
+
+Main entry now reads the same optional `VPN=netbird` administrator setting as a
+child. Its payload preflight happens before allocation; the captured provider
+starts after private NetworkManager/DNS and before PAM entry. Plain Home needs
+no vendor payload. The optional client package installs a vendor-unit drop-in:
+while the explicit isolated-runtime policy exists, starting `netbird.service`
+is skipped by systemd. This preserves the upstream package and avoids its
+post-install script starting a shared daemon. It does not stop or migrate an
+already running host daemon or import any existing credentials.
+
+## Stock NetBird in real Work sessions
+
+Both guests installed seven DE packages from `953a7a6`, preserving live Home/Work
+contexts and administrator/PAM configuration. They then installed the original
+NetBird and NetBird UI 0.82.1 packages, with the distribution WebKit dependency.
+Vendor package integrity checks pass. The vendor post-install service start is
+skipped by the packaged DE condition on both bases; the shared daemon/socket,
+host routes, rules and resolver remain inactive or unchanged as appropriate.
+
+Ordinary compositor logout retires the earlier Work context without replacing
+Home. The administrator selects the optional provider and the ordinary graphical
+public switcher starts Work again. A temporary self-hosted test realm enrolls
+each private worker through the unchanged ordinary CLI; admission files are
+deleted and no user credentials or profiles are imported.
+
+The two real Work sessions resolve each other's private managed name and exchange
+nonce-bound TCP and UDP payloads over `wt0`. Their ordinary user-manager processes
+retain their captured namespace/resolver. Plain Home cannot resolve the Work
+private name; external DNS, certificate-verified HTTPS and physical TCP/UDP keep
+working in both desktops. The vendor GUI runs as the ordinary Work UID in the
+same network/resolver, and native Wayland captures visibly show Connected after
+its normal welcome flow on Debian and Ubuntu. This observes an actual window,
+not only a live process or an offscreen launch.
+
+This checkpoint does not yet accept simultaneous Home/Work NetBird instances,
+selected exit-node routing, browser authentication, complete tray interaction or
+the final provider teardown. Those remain part of the all-desktop matrix.
 
 Schema 19 adds journaled replacement of a captured, fully retired NetworkManager
 while the graphical owner stays live. Namespace, resolver, private configuration
