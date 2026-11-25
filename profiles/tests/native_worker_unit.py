@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Own native QA placement probe; not a production activation implementation."""
 import json
+from dataclasses import asdict
+import dbus
 import os
 from pathlib import Path
 import socket
@@ -12,9 +14,10 @@ from karyo_profiles.worker_entry import process_start
 from karyo_profiles.worker_files import WorkerFiles
 from karyo_profiles.worker_origin import node
 from karyo_profiles.worker_unit import DeclaredUnit, ENTRY
+from karyo_profiles.worker_record import validate_workers
 
 
-def probe(context):
+def probe(context, request):
     assert socket.gethostname() in ('karyo-network-debian', 'karyo-network-ubuntu')
     assert os.getuid() == 0
     folder = Path(__file__).resolve().parent
@@ -92,6 +95,23 @@ def probe(context):
                 assert ready['bus'] == value['context']['bus']['socket']
                 assert ready['mount'] != list(node('/proc/self/ns/mnt'))
                 assert unit.consumer_pids() == {pid}
+                native_receipt = unit.receipt(files)
+                daemon = dbus.Interface(context.origin.bus.get_object('org.freedesktop.DBus',
+                    '/org/freedesktop/DBus'),'org.freedesktop.DBus')
+                stored = {'version':1,'request':request,'source':{'bus':str(daemon.GetId()),
+                    'sender':context.origin.sender,'owner':str(context.origin.bus.get_unique_name()),
+                    'epoch':value['owner']['epoch'],'pid':os.getpid(),'start':process_start(os.getpid())},
+                    'origin':asdict(context.origin.identity),'declaration':installed.receipt(),
+                    'phase':'ready-wait','files':files.receipt(),'unit':native_receipt,
+                    'endpoint':None,'recovery':None}
+                stored = json.loads(json.dumps(stored))
+                validate_workers({instance:stored},context.origin.identity.uid,plan.gid,
+                                 list(context.scope.network.network.identity))
+                observer = DeclaredUnit.restore(context.scope,installed,instance,native_receipt)
+                observer.verify()
+                observer.process.close(observer.pidfd)
+                observer.pidfd = None
+
                 channel.send(json.dumps({'version': 1, 'operation': 'retire',
                                         'instance': instance, 'generation': 1}).encode())
                 assert json.loads(channel.recv(4096)) == {'version':1,'event':'link_closed'}
@@ -103,6 +123,8 @@ def probe(context):
                 assert retired == {'version': 1, 'event': 'retired', 'state': 'clean'}
             assert unit.process.exited(unit.pidfd, 5)
             unit.close()
+            completed_observer = DeclaredUnit.restore(context.scope,installed,instance,native_receipt)
+            assert completed_observer.closed
             assert context.scope.network.network._ip('-j', 'link', 'show', inside=True) == baseline
             context.verify()
             installed.declaration.resources.absent(context.scope.network.network)
@@ -112,7 +134,8 @@ def probe(context):
                 'owner_control_fd4': True, 'temporary_tun_created_and_retired': True,
                 'original_links_preserved': True, 'declared_resource_cleanup_checked': True,
                 'ipv4_ipv6_routes_rules_and_nft_observed_after_tun_close': True, 'owned_cgroup_retired': True,
-                'production_broker_or_journal_implemented': False}
+                'production_broker_or_journal_implemented': False, 'typed_record_roundtrip': True,
+                'live_and_retired_unit_observers_reattached':True}
             intent.write_text(json.dumps({'instance':instance,'desktop':context.desktop_token,
                 'unit':unit.name,'invocation':unit.identity.invocation,'phase':'accepted'})+'\n')
             completed = True

@@ -83,7 +83,7 @@ class Fixture(dbus.service.Object):
             if self.managed_entry:
                 sys.path.insert(0, str(Path(__file__).resolve().parent))
                 from native_worker_unit import probe
-                placement = probe(context)
+                placement = probe(context, str(request))
             endpoint = self.folder / ('endpoint-' + str(request))
             process = subprocess.Popen([sys.executable, '-B', __file__, '--worker',
                 str(endpoint), str(caller['pid']), str(caller['uid']), str(caller['start'])])

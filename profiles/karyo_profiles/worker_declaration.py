@@ -104,3 +104,23 @@ class InstalledDeclaration:
         if type(self).capture(self.declaration.identifier, directory=self.directory) != self:
             raise PermissionError('The installed worker declaration or executable changed')
         return self
+
+    def receipt(self):
+        parent = trusted_directory(self.directory)
+        try:
+            text = root_file(self.declaration.identifier+'.json',dir_fd=parent)
+        finally:
+            os.close(parent)
+        if (hashlib.sha256(text.encode('utf-8')).hexdigest() != self.digest
+                or Declaration.parse(text) != self.declaration):
+            raise PermissionError('The package declaration changed before capture')
+        self.verify()
+        return {'text':text,'sha256':self.digest,'exe':list(self.executable),
+                'recover_exe':list(self.recovery_executable)}
+
+    @classmethod
+    def from_receipt(cls, value):
+        # Used to observe/stop the already captured old unit. A new serving
+        # or recovery launch must still verify the current installed package.
+        return cls(Declaration.parse(value['text']), value['sha256'], tuple(value['exe']),
+                   tuple(value['recover_exe']), DIRECTORY)

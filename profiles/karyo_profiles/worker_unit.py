@@ -6,6 +6,8 @@ import time
 
 from .services import NativeProcess, OwnedUnit, ServiceError, program_identity, host_controller
 from .worker_declaration import InstalledDeclaration
+from .worker_origin import node
+from .worker_errors import WorkerPending, WorkerRetained
 
 ENTRY = '/usr/libexec/karyo/desktop-worker-entry'
 
@@ -109,3 +111,66 @@ class DeclaredUnit(OwnedUnit):
             'RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6',
             'DevicePolicy=closed', 'DeviceAllow=/dev/net/tun rw',
             'MemoryMax=128M', 'TasksMax=32')
+
+    def receipt(self, files):
+        self.verify()
+        proof = self.identity
+        return {'native': {'invocation':proof.invocation,'pid':proof.pid,'start':proof.start,
+                    'exe':list(self.executable),'namespace':list(self.network),
+                    'runtime':[list(files.identities[files.runtime][:2])]},
+                'mount':list(node('/proc/'+str(proof.pid)+'/ns/mnt')),
+                'cgroup':list(node('/sys/fs/cgroup'+proof.cgroup)), 'entry':list(self.entry_identity)}
+
+    @classmethod
+    def restore(cls, scope, declaration, instance, value, *, recovery=False):
+        from types import SimpleNamespace
+        from .services import UnitIdentity
+        obj = cls.__new__(cls)
+        network = scope.network.network
+        obj.context = SimpleNamespace(scope=scope)
+        obj.declaration, obj.instance, obj.recovery = declaration, instance, recovery
+        obj.arguments = declaration.declaration.recovery_arguments if recovery else declaration.declaration.arguments
+        obj.store, obj.spec, obj.role, obj.uid = network.store, network.spec, 'desktop-worker', 0
+        obj.name = 'karyo-desktop-worker-'+instance+'.service'
+        obj.program, obj.command, obj.network = obj.arguments[0], network.command, network.identity
+        obj.process = EnteredProcess(instance,declaration.declaration.ready_seconds,obj.arguments)
+        obj.process.entered = True
+        obj.host_guard = host_controller
+        obj.entry_identity = tuple(value['entry'])
+        proof = value['native']
+        obj.executable = tuple(proof['exe'])
+        obj.identity = UnitIdentity(proof['invocation'],proof['pid'],'/system.slice/'+obj.name,proof['start'])
+        obj.attempted, obj.closed, obj.pidfd = True, False, None
+        from .journal_dns import process_gone
+        try:
+            if not process_gone(proof['pid'],proof['start']):
+                try:obj.pidfd = obj.process.open(proof['pid'])
+                except ProcessLookupError:pass
+                else:
+                    if obj.process.exited(obj.pidfd):
+                        obj.process.close(obj.pidfd)
+                        obj.pidfd = None
+            rows = obj.info()
+            if obj.pidfd is not None:
+                obj.verify()
+                if (node('/proc/'+str(proof['pid'])+'/ns/mnt') != tuple(value['mount'])
+                        or node('/sys/fs/cgroup'+obj.identity.cgroup) != tuple(value['cgroup'])):
+                    raise WorkerRetained('The captured worker mount/cgroup lifetime changed')
+            else:
+                if rows['LoadState'] != 'not-found':
+                    if (rows['Transient'] != 'yes' or rows['InvocationID'] != proof['invocation']
+                            or rows['MainPID'] not in {'0',str(proof['pid'])}
+                            or rows['ControlGroup'] not in {'',obj.identity.cgroup}):
+                        raise WorkerRetained('The dead worker service identity changed')
+                    if (rows['ActiveState'] not in {'inactive','failed'} or rows['ControlGroup']
+                            or rows['MainPID'] != '0'):
+                        raise WorkerPending('The same worker is still completing its native stop')
+                if obj.cgroup_pids():
+                    raise WorkerRetained('The completed worker still has cgroup consumers')
+                obj.closed = True
+            return obj
+        except BaseException:
+            if obj.pidfd is not None:
+                obj.process.close(obj.pidfd)
+                obj.pidfd = None
+            raise
