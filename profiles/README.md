@@ -11,6 +11,15 @@ joined acceptance. See the [current installed
 checkpoint](../docs/VALIDATION_INSTALLED_FAMILY_NETWORKS.md). Historical evidence
 below describes its own actors and topology rather than completing this goal.
 
+With LightDM, install the separate optional `profile-lightdm-runtime` component
+(`karyo-profile-lightdm` in Builder) before starting child desktops. It partitions
+the display manager onto VT13 and above, outside the child VT8..12 pool, and wraps
+the unchanged daemon with an observed startup-range marker. Restart LightDM
+explicitly after installing it; installation itself does not stop sessions or
+enable PAM/networking. An active legacy LightDM fails child-allocation preflight
+until that restart. See the current checkpoint for the native collision found
+during main logout and the corresponding coordinated-lifetime acceptance.
+
 The first implementation slice adds offline main-account network preparation.
 Journal schema 10 records a main entry without inventing an originating child
 switch/login, while existing child records retain their source login. The same

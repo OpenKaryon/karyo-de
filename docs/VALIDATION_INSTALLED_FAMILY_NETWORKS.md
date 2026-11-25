@@ -48,7 +48,25 @@ the host NetworkManager PID stays unchanged. An initial QA cleanup assertion
 incorrectly counted the transient `tun0` connection as another import; it was
 corrected without changing production behavior and the full gate rerun.
 
-## Remaining acceptance
+## Subsequent display-manager integration
+
+### Display-manager console coordination
+
+The first Ubuntu main re-entry exposed a real collision: after main logout,
+LightDM started its replacement X greeter on VT8 already used by Work, whose
+compositor then crashed. The upstream [LightDM allocator](https://github.com/ubuntu/lightdm/blob/main/src/vt.c)
+tracks its own display list rather than external desktop reservations. Kernel
+VT reservation alone cannot coordinate that allocator.
+
+The optional `profile-lightdm-runtime` component provides a separate LightDM
+range starting at VT13 while children retain their VT8..12 pool. Its systemd
+entry wraps the unchanged distribution daemon and records the effective range
+in that same process's environment before exec. New child allocation verifies
+the actual active daemon PID, executable, cgroup and lifetime marker. A legacy
+running daemon requires an explicit restart before new child startup. Installing
+this component changes the next LightDM invocation/configuration but does not
+restart it, enable isolated networking or enable PAM automatically. Existing
+administrator command overrides need to preserve this integration.
 
 Main entry now reads the same optional `VPN=netbird` administrator setting as a
 child. Its payload preflight happens before allocation; the captured provider
@@ -83,9 +101,51 @@ same network/resolver, and native Wayland captures visibly show Connected after
 its normal welcome flow on Debian and Ubuntu. This observes an actual window,
 not only a live process or an offscreen launch.
 
-This checkpoint does not yet accept simultaneous Home/Work NetBird instances,
+That Work-only checkpoint did not yet accept simultaneous Home/Work NetBird instances,
 selected exit-node routing, browser authentication, complete tray interaction or
 the final provider teardown. Those remain part of the all-desktop matrix.
+
+## Main logout with simultaneous stock NetBird instances
+
+Both guests subsequently installed eight DE packages from `b53de86`, built with
+Builder `4b816c8`, including the optional LightDM console integration. The actual
+daemon reports its effective VT13 minimum through the exec-preserved marker;
+Home enters on VT13 and Work retains VT8. Ninety-three selected profile
+regressions pass on each base, including a real configuration-query child that
+writes LightDM's annotated diagnostic output to stderr.
+
+Home and Work both run separate unchanged NetBird workers in their captured
+network namespaces, resolver objects and persistent account stores. Their
+credentials and assigned addresses differ. Ordinary `netbird` command lookup
+selects the calling desktop's worker, and the actual main graphical shell has
+its provider hint and catalog. Both desktops resolve external and managed peer
+names, complete certificate-verified HTTPS, and exchange nonce-bound TCP/UDP
+with the other guest over `wt0`. Because both intentionally join the same
+temporary realm, resolving that realm's peer names in both is expected.
+
+`profiles/tests/installed_main_survival.py` exercises ordinary compositor logout
+of the real Home login, observes complete retirement of its old network, and
+waits for a fresh installed main entry. A fallback greeter stays in the separate
+LightDM range (observed VT14). Throughout the cycle, one already-open Work TCP
+stream carries repeated payloads over its encrypted peer connection; managed
+DNS and UDP also continue. Work's entire captured journal record, including its
+graphical owner and provider, remains identical. Debian passes with 3 payloads
+before logout, 63 at retirement and 78 after re-entry; Ubuntu passes with
+3, 61 and 77. These are counters on one stream, not successful reconnects.
+
+The next ordinary-client probe confirms Home reconnects with its saved
+temporary realm registration on both bases, while Work remains connected.
+No new admission is needed for this replay. The temporary Home admissions are
+non-ephemeral: an earlier ephemeral QA admission was correctly removed by the
+realm on disconnect and therefore required re-registration. That test-realm
+policy must not be mistaken for lost persistent client configuration.
+
+The initial Ubuntu VT collision remains a recorded failed gate; its old Work
+lifetime was retired and replaced before this passing replay. These results
+prove survival after the console fix, rather than claiming an uninterrupted
+Work lifetime across the earlier failure. Selected exit nodes, browser
+authentication, complete tray behavior, provider failure/recovery, physical
+carrier changes, IPv6 and final family/realm retirement remain open.
 
 Schema 19 adds journaled replacement of a captured, fully retired NetworkManager
 while the graphical owner stays live. Namespace, resolver, private configuration

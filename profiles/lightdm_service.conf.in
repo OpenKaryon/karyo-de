@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Service]
+ExecStart=
+ExecStart=@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/lightdm-entry

@@ -69,6 +69,8 @@ class KernelConsoles:
             raise ValueError("A desktop console must be in the fixed native pool")
         if vt in self.state().busy:
             raise SessionError("The selected virtual console became busy")
+        from .display_manager import require_partition
+        require_partition()
         return self._open(vt)
 
     @staticmethod

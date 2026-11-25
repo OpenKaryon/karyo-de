@@ -52,6 +52,16 @@ install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
 # Inactive opt-in host transport. System units use lib, not the architecture
 # library directory (lib/x86_64-linux-gnu is not a systemd unit search path).
 set(KARYO_SYSTEMD_SYSTEM_UNIT_DIR "lib/systemd/system" CACHE STRING "systemd system unit installation directory")
+configure_file("${profile_source}/lightdm_entry.in" "${CMAKE_CURRENT_BINARY_DIR}/lightdm-entry" @ONLY)
+configure_file("${profile_source}/lightdm_service.conf.in" "${CMAKE_CURRENT_BINARY_DIR}/lightdm-service.conf" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/lightdm-entry"
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo COMPONENT profile-lightdm-runtime)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/lightdm-service.conf"
+    DESTINATION ${KARYO_SYSTEMD_SYSTEM_UNIT_DIR}/lightdm.service.d
+    RENAME 60-karyo-desktops.conf COMPONENT profile-lightdm-runtime)
+install(FILES "${profile_source}/lightdm_console.conf"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/lightdm/lightdm.conf.d
+    RENAME 90-karyo-desktops.conf COMPONENT profile-lightdm-runtime)
 # The socket is root-only; installation does not enable it.
 configure_file("${profile_source}/host.in"
     "${CMAKE_CURRENT_BINARY_DIR}/profile-host" @ONLY)
@@ -158,9 +168,11 @@ if(BUILD_TESTING)
         -s ${profile_source}/tests -p test_network_service_recovery.py -v)
     add_test(NAME profile-main-network-startup COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_main_network_startup.py -v)
+    add_test(NAME profile-display-manager-partition COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_display_manager.py -v)
     set_tests_properties(profile-live-dns profile-network-budget profile-carrier-refresh
         profile-network-info profile-main-entry profile-main-activation profile-network-service-recovery
-        profile-main-network-startup PROPERTIES TIMEOUT 20)
+        profile-main-network-startup profile-display-manager-partition PROPERTIES TIMEOUT 20)
 endif()
 
 
