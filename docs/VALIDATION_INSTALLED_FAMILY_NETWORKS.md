@@ -147,6 +147,32 @@ Work lifetime across the earlier failure. Selected exit nodes, browser
 authentication, complete tray behavior, provider failure/recovery, physical
 carrier changes, IPv6 and final family/realm retirement remain open.
 
+## Selected upstream exit nodes
+
+`profiles/tests/installed_exit_networks.py` uses the same installed family and
+ordinary upstream CLI. The own temporary realm offers one manually selected
+default route to each Home, through the other guest's Work worker. Distribution
+groups contain only the intended Home and auto-application is disabled using
+the documented [NetBird route API](https://docs.netbird.io/api/resources/routes).
+The remote target echoes each nonce digest and the TCP/UDP source it actually
+observes, so a local route lookup alone cannot satisfy the gate.
+
+Both bases pass: Home's target-observed source changes from its own guest to the
+other guest while the selected route uses `wt0`. Its neighboring Work retains
+the original direct source and uplink route. External DNS, certificate-verified
+HTTPS and nonce TCP/UDP work before selection, during exit-node use and after
+ordinary deselection. Both desktop journal records and host IPv4 routes/rules,
+resolver target and forwarding flag remain unchanged. This checks IPv4 exit
+selection and removal; it does not claim IPv6 or carrier-change acceptance.
+
+An initial fixture invoked a bare executable as systemd's `ExecStart` and
+therefore bypassed session PATH lookup. Its daemon connection failed before
+selection. The fixture now uses `env netbird` inside the actual user-manager
+context, matching ordinary inherited-PATH command lookup; no production or
+upstream client change was needed. The passing gate deselects its route in a
+finally block. Own realm route/group and target receipts remain captured for
+subsequent combined checks and final retirement.
+
 Schema 19 adds journaled replacement of a captured, fully retired NetworkManager
 while the graphical owner stays live. Namespace, resolver, private configuration
 and account state are retained. The ordinary host polling loop checks failed
