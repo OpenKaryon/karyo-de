@@ -1,10 +1,34 @@
 # DE migration boundary
 
-The approved [per-desktop networking plan](NETWORK_ISOLATION.md) adds a private
-network and DNS context for Home as well as child desktops. Existing upstream
-VPNs use owned launch adapters; a bespoke provider API is optional. The current
-runtime has not yet implemented this main-session topology. The linked plan
-defines the implementation order and installed Debian/Ubuntu acceptance gates.
+The approved [per-desktop networking plan](NETWORK_ISOLATION.md) is implemented
+for Home and child desktops, with separately owned network, DNS and service
+contexts. Unchanged upstream VPNs use owned launch adapters; the optional worker
+producer adds scoped application integration without replacing those protocols.
+The [installed IPv4 matrix](VALIDATION_INSTALLED_FAMILY_NETWORKS.md) accepts all
+nine ordered Home/Work pairs of WireGuard, OpenVPN and NetBird on Debian and
+Ubuntu. IPv6 remains disabled; physical Wi-Fi and a different interface/gateway
+retain their explicitly documented limits.
+
+The general application launcher now preserves the actual desktop service view
+in independent application scopes. Native menu-to-worker activation and
+packet-engine payloads, separate Work DNS, cancellation, recovery and cleanup
+have their own installed acceptance. See [worker integration](DESKTOP_WORKERS.md)
+and Builder's `docs/VALIDATION_DESKTOP_WORKERS.md` for the observed boundaries.
+
+The [final joined acceptance](https://github.com/OpenKaryon/karyo-builder/blob/main/docs/VALIDATION_FINAL_JOINED.md)
+now covers 42 built packages per native base, core desktop coexistence,
+optional runtime upgrade and clean package removal. Protected Experiments
+requires the Home password on first and repeated entry, including after a real
+populated reboot. Ordinary external GUI import/enrollment, native authorization,
+connect/disconnect/reconnect and independent Home/Work traffic also pass on
+Debian and Ubuntu. Dedicated test credentials remain outside public inputs and
+are removed from the QA guests after acceptance.
+
+Actual VMware Windows-host clipboard, DnD and display events remain an external
+acceptance gate because Windows Computer Use cannot initialize. Physical
+hardware/carrier and IPv6 limitations remain explicit in the linked reports.
+Distribution images and Forge are outside this DE/Builder stage; existing
+compatibility engine boundaries remain frozen.
 
 The first migrated component is the shared theme/paint foundation. It is
 independently buildable and installable as development files, with an exported
