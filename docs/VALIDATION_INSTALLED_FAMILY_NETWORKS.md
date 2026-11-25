@@ -105,6 +105,60 @@ restores DNS and routing but times out one existing encrypted stream during the
 carrier pause. This repeated-flow gate is therefore not stable or complete;
 further work needs stage-specific DNS/TCP/UDP observations rather than repeated
 unqualified runs. Steady-state inter-desktop VPN isolation is separately proved.
+A later stage-labelled Debian run completes both update and restoration on the
+original Home/Work TCP sockets, advancing counts 3 to 4/7 and then 5/14. A further
+planned timed series stops at its first failed cycle: Home times out specifically
+at encrypted TCP after an earlier successful exchange took 10.32 seconds; Work
+completes an exchange in 27.92 seconds and continues. UDP requires one transmission
+per completed exchange in that failed cycle. This establishes a TCP delay in that
+observation; the older unlabelled timeout alone did not distinguish TCP from UDP.
+
+The carrier probe now publishes its current DNS/TCP/UDP stage before blocking,
+records longest per-transport durations, and retains its one original TCP socket.
+Only datagrams receive bounded retries, because a single lost UDP request during
+physical reconfiguration does not prove a broken stream. Stale nonce responses
+cannot satisfy a later request or extend its deadline. Three actual loopback tests
+cover loss plus a delayed response, a nonresponding peer and wrong-payload traffic;
+all pass on both native bases. Every physical invocation uses a fresh result label
+instead of overwriting earlier acceptance. The planned series does not retry to
+obtain a green result after failure.
+
+After that failure, the own physical drop-in is absent, complete logical desktop
+receipts match baseline, route/DNS refresh intents are gone, and ordinary new
+managed DNS/TCP/UDP plus external DNS/HTTPS pass again in both guests. No runtime
+NAT or timeout workaround is presented as a fix. A possible next diagnostic is
+address-removal cleanup of masqueraded connections; it remains a hypothesis until
+native observation distinguishes it from route pauses and TCP retransmission.
+
+The subsequent read-only observer uses conntrack filters for exactly the two
+captured private source addresses and ss for their one encrypted peer connection.
+Its first invocation inherited a private trace umask into the networkd drop-in:
+the ordinary daemon could not read the resulting file and unmanaged the link.
+That invocation is invalid as a carrier experiment. The own QA guest was recovered
+through its existing guest-tools account, with no VM or VPN-worker restart. The
+fixture now gives its public service configuration explicit 0755/0644 modes and
+can restore the same captured MAC/index/configuration when IPv4 is temporarily
+absent. Two native functional file-mode cases join the three datagram tests; all
+five pass on Debian and Ubuntu.
+
+The Debian clone also shared a DHCP client ID with another own clone. Its own QA
+configuration now uses the unique NIC MAC, independently of the permission error.
+The resulting real physical change from .172 to .173 converges in both existing
+profile route/DNS receipts without replacing their worker, namespace or resolver;
+normal private DNS/TCP/UDP and external HTTPS pass afterward.
+
+The corrected observer completes update/restoration under the restrictive trace
+umask: 72 samples in 27 seconds. Both original TCP sockets resume, with maximum
+individual exchanges approximately 20 seconds. Their original NAT IDs disappear
+at 1.407 seconds, conntrack records DESTROY/NEW events, captured routing tables
+briefly lose their two address-dependent rows, and ss records TCP backoff and up
+to thirteen retransmissions. UDP does not retransmit in the completed exchanges.
+These observations establish simultaneous NAT retirement, route gaps and TCP
+retransmission during physical reconfiguration; they do not isolate one of those
+mechanisms as the sole cause of the earlier timeout. Runtime NAT and application
+timeouts are unchanged, and transparent or zero-latency physical outages are not
+claimed. The native trace is distinct from steady-state inter-desktop isolation.
+
 This is same-address
 DHCP/DNS acceptance, not a native different-interface/gateway test. Own QA
 families and the temporary realm remain live for final observation and retirement.

@@ -6,6 +6,7 @@ Use only the named disposable native QA guests with their captured temporary
 family and remote nonce endpoint. Keep the production controller running; read
 its journal snapshots without opening a second journal owner. Restore only the
 captured physical link domains, and stop only matching fixture invocations.
+Pass the temporary peer JSON and a fresh eight-hex-digit result label.
 """
 from pathlib import Path
 from copy import deepcopy
@@ -13,19 +14,13 @@ import ast,hashlib,json,os,secrets,socket,subprocess,sys,time
 
 assert os.getuid()==0 and socket.gethostname() in ('karyo-network-debian','karyo-network-ubuntu')
 assert len(sys.argv)==3
-peer=json.loads(sys.argv[1]);continuity=Path(sys.argv[2]).read_text()
-tree=ast.parse(continuity)
-continuity=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign)
-                and any(isinstance(t,ast.Name) and t.id=='CONTINUITY_CODE' for t in n.targets))
-# Physical DHCP reconfiguration can briefly interrupt the shared carrier. Keep
-# the same TCP connection alive through a bounded pause; this is not a promise
-# that a physical outage has zero packet loss or zero latency.
-assert 'timeout=6' in continuity and 'settimeout(6)' in continuity
-continuity=continuity.replace('timeout=6','timeout=30').replace('settimeout(6)','settimeout(30)')
-continuity=continuity.replace('error=type(error).__name__','error=type(error).__name__+": "+str(error)[:180]')
-continuity=continuity.replace("values={v[4][0]", "value['stage']='managed-dns'\n   values={v[4][0]")
-continuity=continuity.replace('data=os.urandom(512)',"value['stage']='encrypted-tcp'\n   data=os.urandom(512)")
-continuity=continuity.replace('udp.sendto(data,',"value['stage']='encrypted-udp'\n   udp.sendto(data,")
+peer=json.loads(sys.argv[1]);label=sys.argv[2]
+assert len(label)==8 and all(c in '0123456789abcdef' for c in label)
+# Keep the original socket across the carrier transition. UDP has its own
+# finite retry budget: a dropped datagram does not prove a broken TCP stream.
+import inspect
+from network_probe_support import udp_exchange, write_networkd_dropin, CARRIER_CONTINUITY_CODE
+continuity=inspect.getsource(udp_exchange)+'\n'+CARRIER_CONTINUITY_CODE
 ast.parse(continuity)
 sys.path.insert(0,'/usr/libexec/karyo/profiles')
 from karyo_profiles.underlay import discover_underlay
@@ -34,7 +29,7 @@ from karyo_profiles.journal_dns_record import seed
 from karyo_profiles.networks import NetworkSpec
 
 root=Path(Path('/run/karyo-qa-main/root').read_text().strip())
-assert not (root/'uplink-dns-result.json').exists()
+result_file=root/('uplink-dns-result-'+label+'.json');assert not result_file.exists()
 state=json.loads((root/'state.json').read_text())
 def records():return json.loads(Path('/run/karyo/profile-host/state.json').read_text())['profiles']
 before=records();assert len(before)==2
@@ -63,15 +58,18 @@ network_file=Path('/run/systemd/network')/('10-netplan-qa.network' if socket.get
                                          else 'zzzz-dracut-default.network')
 assert network_file.is_file() and network_file.stat().st_uid==0
 network_hash=hashlib.sha256(network_file.read_bytes()).hexdigest()
-drop_directory=network_file.with_name(network_file.name+'.d');created_directory=not drop_directory.exists()
-drop_directory.mkdir(exist_ok=True)
+drop_directory=network_file.with_name(network_file.name+'.d');created_directory=False
 drop=drop_directory/'95-karyo-qa-uplink-dns.conf';assert not drop.exists()
 drop_text='[Network]\nDomains='+marker+'\n';drop_identity=None
 serial=secrets.token_hex(4)
 (root/('uplink-dns-before-'+serial+'.json')).write_text(json.dumps(before,indent=2)+'\n')
 
-def reconfigure():
-    assert discover_underlay()==physical
+physical_link=json.loads(subprocess.check_output(['ip','-j','link','show','dev',physical.interface],text=True))[0]
+
+def reconfigure(*,restoring=False):
+    if not restoring:assert discover_underlay()==physical
+    live=json.loads(subprocess.check_output(['ip','-j','link','show','dev',physical.interface],text=True))[0]
+    assert (live['ifindex'],live['address'])==(physical_link['ifindex'],physical_link['address'])
     assert call(host,('call','org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','GetNameOwner'),
                 's','org.freedesktop.resolve1')[0]==owner
     assert hashlib.sha256(network_file.read_bytes()).hexdigest()==network_hash
@@ -161,7 +159,7 @@ def wait_for_domains(expected,present):
         time.sleep(.2)
 
 def advancing(previous):
-    deadline=time.monotonic()+20
+    deadline=time.monotonic()+35
     while True:
         current=flows()
         if all(current[r]>previous[r] for r in contexts):return current
@@ -183,7 +181,7 @@ try:
     deadline=time.monotonic()+10
     while not all(v[3].exists() for v in units.values()) or min(flows().values())<3:
         assert time.monotonic()<deadline;time.sleep(.1)
-    counts['before']=flows();drop.write_text(drop_text);node=drop.stat();drop_identity=(node.st_dev,node.st_ino)
+    counts['before']=flows();created_directory,drop_identity=write_networkd_dropin(drop,drop_text)
     reconfigure();target=wait_host(True,original+[[marker,False]])
     wait_for_domains([p for p in target if not p[1]],True)
     counts['updated']=advancing(counts['before'])
@@ -194,7 +192,7 @@ finally:
             node=drop.stat();assert (node.st_dev,node.st_ino)==drop_identity and drop.read_text()==drop_text
             drop.unlink()
             if created_directory:drop_directory.rmdir()
-            reconfigure()
+            reconfigure(restoring=True)
         assert wait_host(False,original)==original
         if drop_identity is not None and units and all(v[3].exists() for v in units.values()):
             wait_for_domains(private_before['home']['eth0']['Domains'],False)
@@ -217,5 +215,7 @@ assert all(counts['restored'][r]>counts['updated'][r] for r in contexts)
 proof={'physical_dns_update_and_restore':True,'private_vpn_dns_links_unchanged':True,
        'same_namespaces_resolvers_workers':True,'existing_home_work_encrypted_tcp_dns_udp_survived':True,
        'physical_route_and_final_journal_unchanged':True,'payloads':counts,
+       'transport_observations':{role:json.loads(path.read_text()) for role,(_,_,_,path) in units.items()},
+       'udp_retried_within_finite_budget':True,
        'scope':'Networkd reconfigure and same-address DHCP reacquisition with a bounded carrier pause; a different interface/gateway is a separate test'}
-(root/'uplink-dns-result.json').write_text(json.dumps(proof,indent=2)+'\n');print(json.dumps(proof,indent=2))
+result_file.write_text(json.dumps(proof,indent=2)+'\n');print(json.dumps(proof,indent=2))

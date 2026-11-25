@@ -166,6 +166,9 @@ if(BUILD_TESTING)
     add_test(NAME profile-networkd-cooperation COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_networkd_cooperation.py -v)
     set_tests_properties(profile-networkd-cooperation PROPERTIES TIMEOUT 20)
+    add_test(NAME profile-carrier-probe COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_network_probe_support.py -v)
+    set_tests_properties(profile-carrier-probe PROPERTIES TIMEOUT 10)
     add_test(NAME profile-account-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover
         -s ${profile_source}/tests -v)
     set_tests_properties(profile-account-policy PROPERTIES TIMEOUT 45)
