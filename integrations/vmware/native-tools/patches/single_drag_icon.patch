@@ -1,0 +1,70 @@
+Description: Suppress the duplicate GTK drag image in VMware Wayland sessions
+ The host supplies cursor feedback, while the extra GTK X11 icon can stay
+ beside the detection window at the top-left under Xwayland. Replace only
+ that image with an alpha-zero pixbuf. Do not change cursor negotiation,
+ detection window input, drag context, actions or selection contents.
+Author: Karyo Developers <developers@openkaryon.invalid>
+Forwarded: no
+Last-Update: 2026-11-19
+
+--- a/open-vm-tools/services/plugins/dndcp/dndUIX11.cpp
++++ b/open-vm-tools/services/plugins/dndcp/dndUIX11.cpp
+@@ -62,6 +62,20 @@
+ #endif
+ 
+ #include "copyPasteDnDWrapper.h"
++
++#ifdef GTK3
++static gboolean
++ClearDragImage(GtkWidget *, cairo_t *context, gpointer)
++{
++   cairo_save(context);
++   cairo_set_operator(context, CAIRO_OPERATOR_SOURCE);
++   cairo_set_source_rgba(context, 0, 0, 0, 0);
++   cairo_paint(context);
++   cairo_restore(context);
++   return TRUE;
++}
++#endif
++
+ 
+ 
+ /*
+@@ -1060,6 +1074,37 @@
+    g_debug("%s: enter dc %p, mDragCtx %p\n", __FUNCTION__,
+          context ? context->gobj() : NULL, mDragCtx ? mDragCtx : NULL);
+    mDragCtx = context->gobj();
++#ifdef GTK3
++   const char *sessionType = g_getenv("XDG_SESSION_TYPE");
++   if (sessionType != NULL && strstr(sessionType, "wayland") != NULL) {
++      /* The VMware host already renders drag/copy feedback at the cursor.
++       * GTK's extra X11 drag icon can remain at the detection window's
++       * coordinates under Xwayland. Keep the drag context and its cursor,
++       * but replace only this duplicate image with transparent pixels.
++       */
++      GdkPixbuf *icon = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, 1, 1);
++      if (icon != NULL) {
++         gdk_pixbuf_fill(icon, 0);
++         gtk_drag_set_icon_pixbuf(mDragCtx, icon, 0, 0);
++         g_object_unref(icon);
++         /* GTK adds an opaque themed popup when Xwayland does not advertise
++          * an X11 compositing manager, even with a transparent pixbuf.
++          * These are this process's drag popups, never application windows.
++          */
++         GList *windows = gtk_window_list_toplevels();
++         for (GList *entry = windows; entry != NULL; entry = entry->next) {
++            GtkWidget *popup = GTK_WIDGET(entry->data);
++            if (gtk_window_get_type_hint(GTK_WINDOW(popup)) != GDK_WINDOW_TYPE_HINT_DND) {
++               continue;
++            }
++            gtk_widget_set_app_paintable(popup, TRUE);
++            g_signal_connect(popup, "draw", G_CALLBACK(ClearDragImage), NULL);
++            gtk_widget_queue_draw(popup);
++         }
++         g_list_free(windows);
++      }
++   }
++#endif
+ }
+ 
+ 

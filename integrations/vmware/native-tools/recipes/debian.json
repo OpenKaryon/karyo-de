@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "source": {
+    "name": "open-vm-tools",
+    "version": "2:12.5.0-2+deb13u1",
+    "dsc": {
+      "path": "../../../../out/vmware/debian/inputs/open-vm-tools_12.5.0-2+deb13u1.dsc",
+      "sha256": "a3c73199737b76d3866e027009da5e61240347d75793cde6c2ca1a2671bccded"
+    },
+    "archives": [
+      {
+        "path": "../../../../out/vmware/debian/inputs/open-vm-tools_12.5.0.orig.tar.gz",
+        "sha256": "a52182c7e6b5df41bb317625e9d8592ecdb9db814d1c2c9b7cdb91a77f8c0640"
+      },
+      {
+        "path": "../../../../out/vmware/debian/inputs/open-vm-tools_12.5.0-2+deb13u1.debian.tar.xz",
+        "sha256": "af760e56cebb7348bc91502da3549c6c014e6379157a7b440c1ed661ac5d3c4b"
+      }
+    ]
+  },
+  "patches": [
+    {
+      "path": "../patches/transparent_drag_window.patch",
+      "sha256": "dd39c640216bd0439cb255a5a7ae2b41428ed7063fc50fe228d7a2e698f3f642"
+    },
+    {
+      "path": "../patches/single_drag_icon.patch",
+      "sha256": "19d2369fd8fad651b63e87922e7db99055849af48e1fb3026dd01d4a992f1d6e"
+    }
+  ],
+  "build": {
+    "revision": "karyo1",
+    "distribution": "trixie",
+    "maintainer": "Karyo Developers <developers@openkaryon.invalid>",
+    "message": "Keep Wayland drag detection and duplicate feedback transparent.",
+    "binaries": [
+      "open-vm-tools",
+      "open-vm-tools-desktop"
+    ],
+    "source_date_epoch": 1795608000
+  }
+}

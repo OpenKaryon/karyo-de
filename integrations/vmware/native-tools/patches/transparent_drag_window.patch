@@ -1,0 +1,52 @@
+Description: Paint VMware Wayland drag detection windows with real transparency
+ The GTK3 detection window must stay mapped and receive pointer events. Its
+ one-percent X11 opacity does not hide an RGB window under labwc/Xwayland.
+ Select an RGBA visual before realizing it, and clear the detection surface
+ without modifying the input region or the separate GTK drag icon.
+Author: Karyo Developers <developers@openkaryon.invalid>
+Forwarded: no
+Last-Update: 2026-11-19
+
+--- a/open-vm-tools/services/plugins/dndcp/dragDetWndX11.cpp
++++ b/open-vm-tools/services/plugins/dndcp/dragDetWndX11.cpp
+@@ -28,6 +28,20 @@
+ #include "dragDetWndX11.h"
+ #include "dndUIX11.h"
+ #include <list>
++
++#ifdef GTK3
++/* Keep the input window mapped, but never paint the detection surface. */
++static bool
++ClearDetectionWindow(const Cairo::RefPtr<Cairo::Context>& context)
++{
++   context->save();
++   context->set_operator(Cairo::OPERATOR_SOURCE);
++   context->set_source_rgba(0, 0, 0, 0);
++   context->paint();
++   context->restore();
++   return true;
++}
++#endif
+ 
+ /**
+  *
+@@ -55,6 +69,19 @@
+       mWnd = new DragDetWndImpl<Gtk::Invisible>();
+    } else {
+       DragDetWndImpl<Gtk::Window> *win = new DragDetWndImpl<Gtk::Window>();
++#ifdef GTK3
++      /* Xwayland compositors need actual ARGB pixels: the X11 opacity
++       * property is not necessarily implemented by the Wayland compositor.
++       * Select the visual before show() realizes the window. Leave its
++       * input region intact, since vmusr uses it to start the host drag.
++       */
++      Glib::RefPtr<Gdk::Visual> visual = win->get_screen()->get_rgba_visual();
++      if (visual) {
++         gtk_widget_set_visual(GTK_WIDGET(win->gobj()), visual->gobj());
++         win->set_app_paintable(true);
++         win->signal_draw().connect(sigc::ptr_fun(ClearDetectionWindow), false);
++      }
++#endif
+       win->set_accept_focus(false);
+       win->set_decorated(false);
+       win->set_keep_above();
