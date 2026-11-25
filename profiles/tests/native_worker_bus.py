@@ -50,13 +50,14 @@ class Cancelled(dbus.DBusException):
 
 
 class Fixture(dbus.service.Object):
-    def __init__(self, bus, folder, registry=None):
+    def __init__(self, bus, folder, registry=None, managed_entry=False):
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
         from karyo_profiles.worker_origin import WorkerOrigin
         self.capture = WorkerOrigin
         self.bus, self.folder = bus, folder
         self.requests = {}
         self.registry = registry
+        self.managed_entry = managed_entry
         self.name = dbus.service.BusName(NAME, bus, do_not_queue=True)
         super().__init__(self.name, OBJECT)
         bus.add_signal_receiver(self.owner_changed, signal_name='NameOwnerChanged',
@@ -78,13 +79,18 @@ class Fixture(dbus.service.Object):
                 from karyo_profiles.worker_context import WorkerContext
                 with self.registry.store.locked():
                     context = WorkerContext.capture(origin, self.registry)
+            placement = None
+            if self.managed_entry:
+                sys.path.insert(0, str(Path(__file__).resolve().parent))
+                from native_worker_unit import probe
+                placement = probe(context)
             endpoint = self.folder / ('endpoint-' + str(request))
             process = subprocess.Popen([sys.executable, '-B', __file__, '--worker',
                 str(endpoint), str(caller['pid']), str(caller['uid']), str(caller['start'])])
         except BaseException:
             origin.close()
             raise
-        self.requests[key] = {'origin': origin, 'context': context, 'caller': caller, 'process': process, 'endpoint': endpoint,
+        self.requests[key] = {'origin': origin, 'context': context, 'placement': placement, 'caller': caller, 'process': process, 'endpoint': endpoint,
                               'reply': reply, 'error': error, 'pending': True, 'cancelled': False, 'deadline': time.monotonic() + 5}
         GLib.timeout_add(400, self.ready, key)
 
@@ -114,7 +120,8 @@ class Fixture(dbus.service.Object):
                  'bus': bus_id(self.bus), 'owner': str(self.bus.get_unique_name()),
                  'gui': request['caller'], 'worker': identity(process.pid),
                  'endpoint': str(request['endpoint']), 'socket': [node.st_dev, node.st_ino],
-                 'desktop': None if request['context'] is None else request['context'].desktop_token}
+                 'desktop': None if request['context'] is None else request['context'].desktop_token,
+                 'placement': request['placement']}
         fd = os.memfd_create('karyo-fixture-activation', os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
         try:
             os.write(fd, json.dumps(value).encode())
@@ -175,7 +182,7 @@ def worker(endpoint, pid, uid, start):
     listener.close()
 
 
-def client(address, cancel):
+def client(address, cancel, managed_entry=False):
     bus = dbus.bus.BusConnection(address)
     remote = dbus.Interface(bus.get_object(NAME, OBJECT), NAME)
     loop = GLib.MainLoop()
@@ -202,7 +209,7 @@ def client(address, cancel):
         assert peer[0] == record['worker']['pid'] and peer[1] == 0
         actual = json.loads(channel.recv(1024))
         assert actual['pid'] == os.getpid() and actual['uid'] == os.getuid()
-        result.update(direct_gui_peer=True, sealed_fd=True, root_worker_peer=True, desktop_context_bound=record['desktop'] is not None)
+        result.update(direct_gui_peer=True, sealed_fd=True, root_worker_peer=True, desktop_context_bound=record['desktop'] is not None, managed_placement=record['placement'])
         channel.close()
         remote.Release(request)
         loop.quit()
@@ -215,14 +222,14 @@ def client(address, cancel):
     remote.Activate('org.karyo.Fixture', request, reply_handler=accepted, error_handler=rejected)
     if cancel:
         GLib.timeout_add(150, lambda: (remote.Cancel(request), False)[1])
-    GLib.timeout_add(5000, lambda: (loop.quit(), False)[1])
+    GLib.timeout_add(30000 if managed_entry else 5000, lambda: (loop.quit(), False)[1])
     loop.run()
     assert result, 'Own IPC experiment timed out'
     bus.close()
     print(json.dumps(result))
 
 
-def experiment(user, desktop_context):
+def experiment(user, desktop_context, managed_entry):
     if desktop_context:
         assert socket.gethostname() in ('karyo-network-debian', 'karyo-network-ubuntu')
     assert os.getuid() == 0 and sys.platform == 'linux'
@@ -245,7 +252,8 @@ def experiment(user, desktop_context):
                 assert daemon.poll() is None and time.monotonic() < deadline
                 time.sleep(.02)
             service = subprocess.Popen([sys.executable, '-B', __file__, '--service', address, str(folder)]
-                + (['--desktop-context'] if desktop_context else []))
+                + (['--desktop-context'] if desktop_context else [])
+                + (['--managed-entry'] if managed_entry else []))
             bus = dbus.bus.BusConnection(address)
             while not bus.name_has_owner(NAME):
                 assert service.poll() is None and time.monotonic() < deadline
@@ -254,7 +262,7 @@ def experiment(user, desktop_context):
             observations = []
             for cancel in (False, True):
                 command = ['/usr/sbin/runuser', '-u', user, '--', sys.executable, '-B', '-c',
-                           source, '--client', address] + (['--cancel'] if cancel else [])
+                           source, '--client', address] + (['--cancel'] if cancel else []) + (['--managed-entry'] if managed_entry else [])
                 if desktop_context:
                     import pwd
                     uid = pwd.getpwnam(user).pw_uid
@@ -263,7 +271,7 @@ def experiment(user, desktop_context):
                         '/usr/bin/systemd-run', '--user', '--wait', '--pipe', '--collect', '--quiet',
                         '--slice=app.slice', '--unit=app-karyo-worker-probe-'+uuid.uuid4().hex+'.service',
                         '--', *command[4:]]
-                result = subprocess.run(command, text=True, capture_output=True, timeout=18)
+                result = subprocess.run(command, text=True, capture_output=True, timeout=35)
                 assert result.returncode == 0, result.stdout + result.stderr
                 observations.append(json.loads(result.stdout))
             time.sleep(.6)
@@ -271,7 +279,8 @@ def experiment(user, desktop_context):
             print(json.dumps({'observations': observations, 'endpoints_retired': True,
                 'scope': 'direct D-Bus, optional captured GUI context and listener/cancel lifecycle only',
                 'desktop_context_bound': desktop_context,
-                'authorization_or_worker_network_integration': False}))
+                'worker_placement_fixture': managed_entry,
+                'production_authorization_or_registered_broker': False}))
             bus.close()
         finally:
             if service is not None:
@@ -289,6 +298,7 @@ def main():
     parser.add_argument('--cancel', action='store_true')
     parser.add_argument('--user')
     parser.add_argument('--desktop-context', action='store_true')
+    parser.add_argument('--managed-entry', action='store_true')
     args = parser.parse_args()
     DBusGMainLoop(set_as_default=True)
     if args.worker:
@@ -305,7 +315,7 @@ def main():
                 journal = stack.enter_context(RuntimeJournal())
                 registry = SessionRegistry(journal, ConfigStore()).restore()
                 stack.callback(registry.release_handles)
-            fixture = Fixture(bus, Path(args.service[1]), registry)
+            fixture = Fixture(bus, Path(args.service[1]), registry, args.managed_entry)
             loop = GLib.MainLoop()
             signal.signal(signal.SIGTERM, lambda *unused: loop.quit())
             try:
@@ -314,11 +324,13 @@ def main():
                 for key in fixture.requests:
                     fixture.cancel(key)
     elif args.client:
-        client(args.client, args.cancel)
+        client(args.client, args.cancel, args.managed_entry)
     else:
         if not args.user:
             parser.error("The experiment needs --user for its disposable ordinary account")
-        experiment(args.user, args.desktop_context)
+        if args.managed_entry and not args.desktop_context:
+            parser.error('--managed-entry requires the isolated desktop-context fixture')
+        experiment(args.user, args.desktop_context, args.managed_entry)
 
 
 if __name__ == '__main__':

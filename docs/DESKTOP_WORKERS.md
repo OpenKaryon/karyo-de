@@ -236,3 +236,31 @@ The fixture's root echo worker still uses the experiment's own host context.
 Successful GUI binding is not evidence of worker placement, production polkit,
 package declaration launch, journal retirement or real provider compatibility.
 Those gates remain open; there is still no production activation service.
+
+
+### Native worker-entry checkpoint
+
+The optional --managed-entry isolated fixture now exercises a fixed DE same-PID
+entry and an InstalledDeclaration-bound transient unit. It publishes an immutable
+root-only prepared file, verifies the captured network/resolver/bus/runtime
+objects, creates sealed bootstrap FD3 and connects owner lifecycle FD4 before
+exec. Native UID0 workers use the captured desktop GID to read private resolver
+files without granting DAC override. Their /run is a private read-only tmpfs
+with only the current resolver/bus, prepared/control and instance runtime binds;
+/dev/net/tun is explicitly passed and cgroup/device limits remain scoped.
+
+On Debian and Ubuntu the real neutral worker reads the sealed bootstrap, verifies
+its owner peer, observes its private network and distinct mount namespace,
+reads the private libc resolver, calls stock resolvectl, and creates a temporary
+TUN link. A scoped retire request closes it. The owner independently observes
+process/cgroup completion and the original link inventory before removing only
+its captured empty instance objects. Existing native-unit behavior passes its
+14 regression checks on each base; three ordinary publication checks include
+the new read-only metadata mode. No security/fuzz suite is required by this gate.
+
+The fixture creates its own temporary root entry/declaration in named QA guests;
+it is not the installed production D-Bus service. Production broker/polkit,
+durable multi-worker collection, owned network-resource receipts and recovery,
+real GUI TUN/transport retirement and Home/Work provider payload acceptance remain
+open. The bootstrap used by this fixture is an implementation subset, not the
+final adapter schema. External adapters must still retain unsupported mode.

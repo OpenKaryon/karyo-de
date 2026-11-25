@@ -85,7 +85,7 @@ PROPERTIES = frozenset(("User", "Group", "RuntimeDirectory", "RuntimeDirectoryMo
     "NoNewPrivileges", "PrivateTmp", "NetworkNamespacePath", "Environment",
     "AmbientCapabilities", "CapabilityBoundingSet", "PrivateDevices", "ProtectSystem",
     "BindPaths", "BindReadOnlyPaths", "InaccessiblePaths", "ReadWritePaths", "ReadOnlyPaths", "UMask", "ExecStartPre",
-    "RestrictAddressFamilies"))
+    "RestrictAddressFamilies", "DevicePolicy", "DeviceAllow", "MemoryMax", "TasksMax", "ProtectHome", "TemporaryFileSystem"))
 
 
 def program_identity(program):
@@ -169,6 +169,12 @@ class OwnedUnit:
     def capture_executable(self):
         return program_identity(self.program)
 
+    def execution_command(self, arguments):
+        return (self.program, *arguments)
+
+    def stop_seconds(self):
+        return 5
+
     def start(self, properties, *arguments):
         self.guard()
         if self.attempted:
@@ -182,11 +188,11 @@ class OwnedUnit:
         self.executable = self.capture_executable()
         options = ["/usr/bin/systemd-run", "--quiet", "--collect", "--unit=" + self.name,
             "--property=Type=exec", "--property=Restart=no", "--property=KillMode=control-group",
-            "--property=TimeoutStopSec=5s"]
+            "--property=TimeoutStopSec=" + str(self.stop_seconds()) + "s"]
         options.extend("--property=" + value for value in properties)
         self.attempted = True
         try:
-            self.command.run(*options, "--", self.program, *arguments)
+            self.command.run(*options, "--", *self.execution_command(arguments))
             rows = self.info()
             if (rows["Transient"] != "yes" or rows["ActiveState"] != "active"
                     or re.fullmatch("[a-f0-9]{32}", rows["InvocationID"]) is None

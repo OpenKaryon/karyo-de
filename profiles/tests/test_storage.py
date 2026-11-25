@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from karyo_profiles.model import DesktopSettings, Ownership
-from karyo_profiles.storage import ConfigStore, trusted_directory
+from karyo_profiles.storage import ConfigStore, trusted_directory, atomic_write
 
 
 @unittest.skipUnless(os.geteuid() == 0, "root-only storage lifecycle fixtures")
@@ -40,6 +40,16 @@ class StoreTest(unittest.TestCase):
         self.assertEqual((self.config / "desktops.conf").stat().st_mode & 0o777, 0o644)
         self.assertEqual((self.runtime / "desktops.lock").stat().st_mode & 0o777, 0o600)
         self.assertEqual(self.store.settings("missing"), DesktopSettings())
+
+    def test_read_only_prepared_metadata_is_atomically_published(self):
+        descriptor = trusted_directory(self.root)
+        try:
+            atomic_write(descriptor, "prepared.json", b'{"version":1}\n', mode=0o400)
+        finally:
+            os.close(descriptor)
+        self.assertEqual((self.root / "prepared.json").read_bytes(), b'{"version":1}\n')
+        self.assertEqual((self.root / "prepared.json").stat().st_mode & 0o777, 0o400)
+        self.assertFalse(list(self.root.glob(".karyo-*.tmp")))
 
     def test_restrictive_umask_does_not_hide_new_public_metadata(self):
         old = os.umask(0o077)
