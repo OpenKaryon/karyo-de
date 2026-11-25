@@ -21,6 +21,7 @@ from .logind import Sessions
 from .services import UnitIdentity, program_identity
 from .storage import trusted_directory
 from .user_manager import UserManagerScope, ManagerPending
+from .worker_errors import WorkerPending
 
 
 def manager_receipt(manager):
@@ -160,6 +161,8 @@ class JournalSession:
         self.network_service = network_service
         self.host_bus = host_bus
         self.closed = False
+        from .worker_collection import WorkerCollection
+        self.workers = WorkerCollection(self).restore()
 
     def update(self,**values):
         before=self.journal.record(self.token)
@@ -292,6 +295,7 @@ class JournalSession:
             self.host_bus=JournalHostBus.restore(self.journal,self.dns)
             self.host_bus.close(sessions=self.manager.sessions)
             self.host_bus.release_handles();self.host_bus=None
+        self.workers.close()
         self.manager.close()  # ManagerPending is natural logind lifetime, never user@stop.
         before=self.journal.record(self.token);updated=dict(before);updated.pop("session")
         self.journal.change(before,updated)
@@ -300,6 +304,7 @@ class JournalSession:
         self.closed = True
 
     def release_handles(self):
+        self.workers.release_handles()
         if self.provider is not None:self.provider.release_handles()
         if self.network_service is not None:self.network_service.release_handles()
         if self.host_bus is not None:self.host_bus.release_handles()
@@ -370,7 +375,7 @@ class SessionRegistry:
                 if "session" not in record:continue
                 with self.store.locked():
                     try:self.restore_child(record)
-                    except (NetworkServicePending,HostBusPending,ManagerPending):self.deferred.add(record['token'])
+                    except (NetworkServicePending,HostBusPending,ManagerPending,WorkerPending):self.deferred.add(record['token'])
             recover_profiles(self.journal,self.store,exclude=set(self.profiles) | self.deferred | self.main.tokens)
             return self
         except BaseException:
@@ -396,7 +401,7 @@ class SessionRegistry:
         for token in tuple(self.deferred):
             with self.store.locked():
                 try:live = self.restore_child(self.journal.record(token))
-                except (NetworkServicePending,HostBusPending,ManagerPending):continue
+                except (NetworkServicePending,HostBusPending,ManagerPending,WorkerPending):continue
                 self.deferred.remove(token)
                 recovered |= not live
         if recovered:
@@ -414,7 +419,7 @@ class SessionRegistry:
                         scope.provider.close();scope.provider.release_handles();scope.provider = None
                     observer = scope.network_service;scope.network_service = None
                     retire_network_service(self.journal, scope.dns, observer)
-                except (GraphicalPending,ManagerPending,NetworkServicePending,HostBusPending):continue
+                except (GraphicalPending,ManagerPending,NetworkServicePending,HostBusPending,WorkerPending):continue
                 scope.dns.close()
                 if scope.forwarding is not None:scope.forwarding.close()
                 scope.network.close()

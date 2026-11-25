@@ -30,11 +30,10 @@ class EnteredProcess(NativeProcess):
             except ServiceError:
                 if self.entered or time.monotonic() >= deadline:
                     raise
-                expected = [b'/usr/bin/python3', b'-I', ENTRY.encode(), self.instance.encode(), b'']
-                if arguments not in (expected, self.arguments):
-                    raise ServiceError('The prepared worker changed its fixed command')
-                # argv and exe are separate proc reads. The same-PID exec can
-                # occur between them; no intermediate observation is published.
+                # systemd may still be entering the fixed command, and argv
+                # and exe are separate proc reads across same-PID exec. Wait
+                # within the declaration bound; publish only the final exact
+                # argv/executable/credentials/cgroup/namespace observation.
                 time.sleep(.02)
                 continue
             self.entered = True

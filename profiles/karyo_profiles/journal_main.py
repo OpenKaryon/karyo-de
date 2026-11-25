@@ -57,12 +57,14 @@ class MainEntry:
         from .journal_netbird import restore_optional
         self.forwarding = JournalForwarding.restore(journal, self.network) if "forwarding" in record else None
         self.provider = restore_optional(journal, dns)
-        self.network_service = self.host_bus = None
+        self.network_service = self.host_bus = self.workers = None
         try:
             self.network_service = restore_network_service(journal, dns)
             if 'host_bus' in record:
                 from .journal_host_bus import JournalHostBus
                 self.host_bus = JournalHostBus.restore(journal,dns)
+            from .worker_collection import WorkerCollection
+            self.workers = WorkerCollection(self).restore()
         except BaseException:
             if self.provider is not None:self.provider.release_handles()
             if self.network_service is not None:self.network_service.release_handles()
@@ -225,6 +227,7 @@ class MainEntry:
             self.host_bus = JournalHostBus.restore(self.journal,self.dns)
             self.host_bus.close(sessions=self.manager.sessions)
             self.host_bus.release_handles();self.host_bus = None
+        if self.workers is not None:self.workers.close()
         self.manager.close()
         before = self.journal.record(self.token)
         updated = dict(before); updated.pop("main_login")
@@ -284,6 +287,7 @@ class MainEntry:
             raise
 
     def release_handles(self):
+        if self.workers is not None:self.workers.release_handles()
         if self.provider is not None:self.provider.release_handles()
         if self.network_service is not None:self.network_service.release_handles()
         if self.host_bus is not None:self.host_bus.release_handles()

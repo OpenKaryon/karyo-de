@@ -71,7 +71,7 @@ def probe(context, request):
                 if unit.closed:return ()
                 unit.verify()
                 return (unit.identity.cgroup,)
-            assert previous_workers is None
+            assert previous_workers is None or not previous_workers.live
             context.scope.workers = SimpleNamespace(consumer_roots=consumer_roots)
             control = WorkerControl.accept(unit,files)
             channel = control.channel
@@ -165,6 +165,8 @@ def probe(context, request):
                 if not list(files.state.parent.iterdir()):
                     files.state.parent.rmdir()
                 result['file_removal_replay'] = True
+                from native_worker_collection import probe as collection_probe
+                result.update(collection_probe(context,declaration_path))
         if completed or unit is None:
             assert entry.read_bytes() == entry_data and declaration_path.read_bytes() == declaration_data
             entry.unlink()

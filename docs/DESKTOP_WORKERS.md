@@ -351,6 +351,35 @@ These are primitive placement checks, not installed D-Bus/polkit or durable
 collection acceptance. The external managed adapter must remain disabled.
 
 
+### Durable collection and recovery checkpoint
+
+Journal schema 21 adds a bounded workers collection independent of native VPN
+service records. Each entry records intent before creating instance files or
+starting its fixed native unit, then acknowledges the captured objects. Unknown
+partial launches remain retained. Worker cgroups participate in the normal
+desktop consumer inventory; desktop teardown waits for workers before closing
+private DNS, forwarding or the network namespace.
+
+After owner channel loss, reattachment retires the captured instance rather than
+publishing an old activation. If declared resources survive the original process,
+the owner starts the package's fixed recovery command with a new instance and
+the captured prior state directory. Cleanup is observed independently before
+per-object journaled removal. An updated package that no longer matches the
+captured declaration cannot silently replace the recovery command.
+
+Native Debian and Ubuntu experiments passed journaled launch/retirement,
+owner-channel loss and fresh recovery of surviving IPv4/IPv6 routes, a policy
+rule and an nft table. These are ordinary disposable desktop fixtures, without
+application credentials. The installed D-Bus authorization producer and joined
+external-provider payload/DNS acceptance remain distinct gates.
+
+The supported policy is one active VPN per desktop, independently in Home, Work
+and other desktops. Multiple worker receipts do not imply VPN stacking. A new
+interface-owning worker is refused while another such worker or VPN interface
+occupies that desktop. Existing native namespace inventory also retains its
+single-tunnel rule. No additional tunnel allowance is introduced here.
+
+
 The prepared_sha256 field is the SHA256 of the exact FD3 bytes, including the
 prepared publication's final line feed. The entry seals the original validated
 UTF-8 bytes; it does not reserialize the parsed object. A client or worker must

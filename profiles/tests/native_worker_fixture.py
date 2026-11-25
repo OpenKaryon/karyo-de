@@ -56,6 +56,18 @@ def main():
         return
     assert initial == packet('operation','commit')
 
+    state = Path(bootstrap['directories']['state']['path'])/'fixture-routes.json'
+    if recovery:
+        commands = json.loads(state.read_text()) if state.exists() else []
+        for command in reversed(commands):
+            subprocess.run(command,check=True,capture_output=True,timeout=5)
+        state.unlink(missing_ok=True)
+        send(channel,packet('event','committed'))
+        assert receive(channel)[0] == packet('operation','retire')
+        send(channel,dict(packet('event','retired'),state='clean'))
+        assert receive(channel)[0] == packet('operation','finish')
+        channel.close()
+        return
     # This adds only a namespace-local temporary link. It configures no route,
     # DNS upstream, physical interface, host service or application credentials.
     tun = os.open('/dev/net/tun', os.O_RDWR | os.O_CLOEXEC)
@@ -63,6 +75,7 @@ def main():
     def create(command, cleanup):
         subprocess.run(command, check=True, capture_output=True, timeout=5)
         undo.append(cleanup)
+        state.write_text(json.dumps(undo))
     try:
         name = b'karyo-fixture0'
         fcntl.ioctl(tun, 0x400454ca, struct.pack('16sH22x', name, 0x0001 | 0x1000 | 0x8000))
@@ -114,6 +127,7 @@ def main():
             os.close(tun)
         for command in reversed(undo):
             subprocess.run(command, check=True, capture_output=True, timeout=5)
+    state.unlink(missing_ok=True)
     assert Path('/etc/resolv.conf').read_text() == baseline
     send(channel,dict(packet('event','retired'),state='clean'))
     assert receive(channel)[0] == packet('operation','finish')
