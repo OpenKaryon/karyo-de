@@ -4,8 +4,52 @@ Current native scope includes all supported IPv4 provider pair combinations,
 selected NetBird exits, main logout/re-entry, later Experiments and live worker
 recovery. The physical panel and networkd/same-address DHCP results follow here.
 Earlier sections preserve their original narrower actors and package cohorts.
-Final family/realm retirement, remaining browser/tray flows, hardware Wi-Fi and
-a different physical interface/gateway are still open.
+Browser authentication, ordinary stock GUI/tray use and authenticated late-desktop
+retirement now also pass as described below. Final family/realm retirement, hardware
+Wi-Fi and a different physical interface/gateway are still open.
+
+## Stock browser authentication and native tray interactions
+
+Both native guests open a fresh Experiments context through the ordinary graphical
+Start/frontend path while Home and Work remain connected. Its independent stock
+NetBird worker starts without registration state. The normal graphical CLI opens
+the distribution Epiphany browser against the own temporary realm, using only its
+artificial account. The real browser form completes OAuth and the localhost:53000
+callback inside Experiments; the CLI reports Connected and exits. No setup key,
+direct token exchange, upstream client patch or provider-specific DE API replaces
+that browser flow. The password-save prompt is declined.
+
+The browser and WebKit network process share the captured desktop network and
+resolver. WebKit's content sandbox has its own deeper namespaces; matching those
+content-process identities is neither required nor forced by disabling sandboxing.
+One expired initial attempt and an incomplete automated form entry are retained as
+QA setup failures. A fresh complete attempt succeeds on each base. The later
+Ubuntu browser exits normally; post-GUI validation does not incorrectly require
+that completed authentication browser to remain alive.
+
+The actual Start catalog launches the original vendor GUI. Its ordinary first-run
+Continue opens a Connected window. The GUI retains the intended private daemon
+socket, network and resolver, zero effective capabilities and the same captured
+process lifetime. Native pointer right-click of its hidden-tray tile opens the
+Connected context menu. After ordinary Wayland minimization, native pointer
+left-click restores the Connected window. No duplicate vendor GUI is created.
+These are actual installed Wayland observations on Debian and Ubuntu, rather than
+inferences from offscreen rendering or a direct menu-action call.
+
+`profiles/tests/installed_browser_network.py` observes the prepared own QA family,
+captured GUI lifetime and an explicit temporary peer endpoint. It verifies managed
+peer DNS and encrypted TCP/UDP over wt0, external DNS and certificate-verified
+HTTPS, and unchanged complete Home/Work receipts. Its optional `--retire` requests
+ordinary compositor logout. Both bases fully retire the authenticated Experiments
+worker, GUI, DNS and private runtime sockets; both neighboring desktops retain
+their complete receipts and again pass managed DNS, encrypted TCP/UDP and HTTPS.
+The temporary account and its saved registration remain for final owned cleanup.
+
+The probe does not automate credentials, establish launch authority from a QA file
+or claim independent completion of the preceding manual browser/tray actions.
+Prepare the named temporary QA receipt and peer endpoint, perform the ordinary
+flow, then run it as root in the disposable native guest. QA-only Epiphany,
+accessibility and pointer tools are not added to deployment recipes by this check.
 
 ## Physical controls and networkd coordination
 
