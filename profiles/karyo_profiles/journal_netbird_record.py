@@ -2,12 +2,13 @@
 """Provider receipts contain native identity, never opaque state or commands."""
 from .journal_dns_record import identity, validate_unit
 
+RESTART_PHASES = frozenset({'restart-start'})
 
 def validate_provider(value):
     if not isinstance(value, dict) or set(value) != {"kind", "pending", "state", "service"} or value["kind"] != "netbird":
         raise ValueError("Unsupported profile provider receipt")
     pending = value["pending"]
-    if pending is not None and (not isinstance(pending, str) or pending not in {"state-prepare", "service-start", "service-stop"}):
+    if pending is not None and (not isinstance(pending, str) or pending not in {"state-prepare", "service-start", "service-stop"} | RESTART_PHASES):
         raise ValueError("Invalid provider mutation intent")
     state = value["state"]
     if state is None:
@@ -21,7 +22,7 @@ def validate_provider(value):
         raise ValueError("Ambiguous provider state receipt")
     service = value["service"]
     if service is None:
-        if pending != "service-start":
+        if pending not in {'service-start', 'restart-start'}:
             raise ValueError("Missing provider service identity")
         return
     if not isinstance(service, dict) or set(service) != {"unit", "socket", "endpoint"}:
@@ -34,5 +35,5 @@ def validate_provider(value):
     identity(socket[:2]); identity(socket[2:])
     if socket[:2] != service["unit"]["runtime"][0]:
         raise ValueError("Provider socket and service runtime differ")
-    if pending == "service-start":
+    if pending in {'service-start', 'restart-start'}:
         raise ValueError("Ambiguous provider service receipt")

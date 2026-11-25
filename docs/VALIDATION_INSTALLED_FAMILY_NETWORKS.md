@@ -196,6 +196,36 @@ or underlay support. Physical carrier refresh, mediated physical-network UI,
 provider-specific live recovery, browser/tray flows and final cleanup remain
 separate acceptance work.
 
+## Live stock provider failure and recovery
+
+Both guests installed the eight packages from DE `a007d01` with Builder
+`4b816c8`, preserving their live Home/Work receipts, PAM configuration and host
+NetworkManager. The selected functional regression set now passes 109 cases on
+each base; the package build also runs the dedicated provider-recovery CTest.
+
+`profiles/tests/installed_provider_recovery.py` terminates only the captured
+provider PID through a pidfd after matching its executable, starttime, root UID,
+cgroup and namespace. It performs this ordinary failure exercise first in Home
+and then Work. The installed host loop automatically replaces the fully retired
+worker and acknowledges its new process/socket/endpoint receipt in schema 20.
+The unchanged upstream client reconnects with saved credentials. The namespace,
+resolver, account state/key and graphical owner are retained; external DNS,
+verified HTTPS and encrypted managed-peer DNS/TCP/UDP work again.
+
+During each recovery the other desktop's entire captured record remains
+identical, and one existing encrypted TCP stream plus managed DNS and UDP keeps
+carrying payloads. Debian counters advance from 3 to 11 and 3 to 10; Ubuntu
+from 3 to 12 and 3 to 11. A subsequent controller restart retains both new
+provider generations and the same working application probes.
+
+The original Debian Work QA registration was ephemeral. A normal `up` with a
+different admission file does not change an already registered peer's type;
+the own test realm therefore retired that exact temporary registration before
+fresh persistent admission. Its changed address required rebinding the captured
+QA echo server. The initial Ubuntu attempt stopped at this stale-target probe,
+before any worker failure; after rebinding, the complete gate passes. This
+does not indicate a production provider or desktop failure.
+
 Schema 19 adds journaled replacement of a captured, fully retired NetworkManager
 while the graphical owner stays live. Namespace, resolver, private configuration
 and account state are retained. The ordinary host polling loop checks failed

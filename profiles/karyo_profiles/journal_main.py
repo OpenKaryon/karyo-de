@@ -154,11 +154,13 @@ class MainEntry:
         verify_host_network_policy(self.journal,self.network.network,
             accounts=self.dns.files.accounts,sessions=self.manager.sessions)
         if self.forwarding is not None:self.forwarding.verify()
-        if self.provider is not None:self.provider.verify()
         if self.host_bus is not None:self.host_bus.verify()
         self.network_service = refresh_network_service(self.journal, self.dns, self.network_service)
         if self.network_service is not None and not self.network_service.scope.unit.closed:
             self.network_service.verify()
+        from .journal_netbird import refresh_optional
+        self.provider = refresh_optional(self.journal, self.dns, self.provider)
+        if self.provider is not None:self.provider.verify()
 
     def verify_consumers(self):
         login = self.login()

@@ -5,12 +5,13 @@ import os
 
 from .credentials import LocalAccounts
 from .journal import JournalRetained
-from .journal_dns import JournalDNS, process_gone, runtime_identity
-from .journal_netbird_record import validate_provider
+from .journal_dns import JournalDNS, runtime_identity
+from .journal_netbird_record import validate_provider, RESTART_PHASES
 from .journal_network import JournalNetwork, offline, restore_network
 from .logind import Sessions
 from .netbird import NetBirdScope
-from .services import UnitIdentity
+from .services import OwnedUnit
+from .provider_worker import restore_unit
 from .journal_service_state import state_receipt, restore_state
 from .provider_state import STATE_ROOT
 from .runtime_services import restore_network_service, worker_pids
@@ -65,33 +66,16 @@ class JournalNetBird:
         if asdict(dns.files.accounts.by_uid(dns.files.network.spec.uid)) != before["account"]:
             raise JournalRetained("The captured provider account changed")
         validate_provider(value)
-        if value["pending"] not in {None, "service-stop"} or value["service"] is None:
+        if value["pending"] not in {None, 'service-stop'} | RESTART_PHASES:
             raise JournalRetained("Unacknowledged provider creation requires review")
         scope = NetBirdScope(dns)
         owner = cls(journal, dns, scope)
         try:
             restore_state(scope.state, value["state"])
             proof = value["service"]
-            unit = scope.unit
-            native = proof["unit"]
-            unit.identity = UnitIdentity(native["invocation"], native["pid"], "/system.slice/" + unit.name, native["start"])
-            unit.executable = tuple(native["exe"])
-            unit.attempted = True
-            scope.socket_identity = tuple(proof["socket"])
-            scope.endpoint_identity = tuple(proof["endpoint"])
-            rows = unit.info()
-            if value["pending"] == "service-stop" and process_gone(native["pid"], native["start"]):
-                if rows["LoadState"] != "not-found" and (
-                        rows["Transient"] != "yes" or rows["InvocationID"] != native["invocation"]
-                        or rows["MainPID"] != "0" or rows["ActiveState"] not in {"inactive", "failed"}
-                        or rows["ControlGroup"]):
-                    raise JournalRetained("Stopped provider unit identity changed")
-                if scope.directory.exists():
-                    raise JournalRetained("Stopped provider retained runtime objects")
-                unit.closed = True
+            restore_unit(scope, proof)
+            if scope.unit.closed:
                 return owner
-            unit.pidfd = unit.process.open(native["pid"])
-            scope.endpoint_contents = scope.endpoint_text()
             if service_receipt(scope) != proof:
                 raise JournalRetained("The captured provider service, endpoint or namespace changed")
             return owner
@@ -101,20 +85,47 @@ class JournalNetBird:
 
     def verify(self):
         value = self.journal.record(self.token)["provider"]
-        if (value["pending"] is not None or value["state"] != state_receipt(self.scope.state)
+        if (value["pending"] is not None or self.scope.unit.closed or value["state"] != state_receipt(self.scope.state)
                 or value["service"] != service_receipt(self.scope)):
             raise JournalRetained("The provider journal is not an acknowledged live lease")
+
+    def restart(self):
+        before = self.journal.record(self.token)
+        value = before['provider']
+        if value['pending'] not in {None} | RESTART_PHASES:
+            raise JournalRetained('The provider is being prepared or retired')
+        logins = [before[key] for key in ('session', 'main_login') if key in before]
+        if not logins or any(login['pending'] is not None for login in logins):
+            raise JournalRetained('Provider recovery requires an acknowledged graphical owner')
+        self.scope.network.verify();self.dns.services.verify()
+        if state_receipt(self.scope.state) != value['state']:
+            raise JournalRetained('The provider recovery account state changed')
+        if not self.scope.unit.closed:
+            self.verify()
+            return self
+        if self.scope.unit.info()['LoadState'] != 'not-found':
+            from .journal_network_service import NetworkServicePending
+            raise NetworkServicePending('Waiting for the retired provider unit to be collected')
+        self.update(pending='restart-start', service=None)
+        network = self.scope.network
+        self.scope.unit = OwnedUnit(network.store, network.spec, 'netbird', 0,
+                                    network.command, network=network.identity)
+        self.scope.socket_identity = self.scope.endpoint_identity = self.scope.endpoint_contents = None
+        self.scope.start_prepared()
+        self.update(pending=None, service=service_receipt(self.scope))
+        self.verify()
+        return self
 
     def close(self):
         before = self.journal.record(self.token)
         if "session" in before or "main_login" in before:
             raise JournalRetained("The graphical profile must close before its provider")
         value = before["provider"]
-        if value["pending"] not in {None, "service-stop"} or value["state"] != state_receipt(self.scope.state):
+        if value["pending"] not in {None, 'service-stop'} | RESTART_PHASES or value["state"] != state_receipt(self.scope.state):
             raise JournalRetained("Provider cleanup identity changed")
         if not self.scope.unit.closed and value["service"] != service_receipt(self.scope):
             raise JournalRetained("The live provider changed before cleanup")
-        self.update(pending="service-stop")
+        if value['service'] is not None:self.update(pending='service-stop')
         self.scope.close()
         before = self.journal.record(self.token)
         updated = dict(before); updated.pop("provider")
@@ -162,10 +173,26 @@ def restore_optional(journal, dns):
         return None
     provider = JournalNetBird.restore(journal, dns)
     try:
-        provider.verify()
+        if not provider.scope.unit.closed:provider.verify()
         return provider
     except BaseException:
         provider.release_handles()
+        raise
+
+def refresh_optional(journal, dns, observer):
+    if observer is None:return None
+    unit = observer.scope.unit
+    pending = journal.record(dns.token)['provider']['pending']
+    if (not unit.closed and unit.pidfd is not None and not unit.process.exited(unit.pidfd)
+            and pending not in RESTART_PHASES):return observer
+    observer.release_handles()
+    current = restore_optional(journal, dns)
+    if current is None:return None
+    try:
+        current.restart()
+        return current
+    except BaseException:
+        current.release_handles()
         raise
 
 
@@ -187,7 +214,7 @@ def restore_offline_services(journal, network, *, accounts=None):
         if set(values) - allowed:
             raise JournalRetained("Unknown consumers prevent offline profile reconciliation")
         dns.services.verify()
-        if provider is not None:provider.verify()
+        if provider is not None and not provider.scope.unit.closed:provider.verify()
         return dns, provider, network_service
     except BaseException:
         if provider is not None: provider.release_handles()

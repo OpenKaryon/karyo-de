@@ -106,3 +106,31 @@ package gate. Production allocation still uses the older resolver-only path;
 the graphical system-bus/socket boundary must be completed before selecting
 private NetworkManager automatically. NetBird mixed-provider and IPv6/carrier
 acceptance remain separate pending work.
+
+## Live optional provider replacement
+
+Schema 20 adds `restart-start` to the captured NetBird provider lifecycle. The
+host first verifies the original PID/starttime, unit invocation, cgroup and
+runtime have fully retired. A still-draining captured unit is deferred. The
+existing namespace, private resolver, account-generation state and graphical
+owner remain in place; only the provider process/socket/endpoint are replaced.
+
+The launch intent clears the old service acknowledgement before starting the
+unchanged upstream executable. Startup publishes a fresh endpoint and only
+then acknowledges its complete native receipt. A controller interruption with
+no started unit can resume; an existing unacknowledged process is retained for
+review rather than adopted. Natural login retirement can also finish a recorded
+prelaunch intent without starting a new provider. Older complete receipts retain
+their schema and interpretation.
+
+Both main and child refresh paths validate their login/manager anchors before
+replacing the optional worker. The ordinary bounded monitor detects either a
+failed NetworkManager or optional provider, processes one desktop per poll and
+keeps fifteen-second retry spacing. Reconnection uses the upstream client's
+saved state and realm policy; an intentionally ephemeral realm registration may
+require fresh admission after the server deletes it on disconnect.
+
+The selected native functional models pass on Debian and Ubuntu, including
+write-ahead launch order, journal reopen, interrupted prelaunch retirement and
+provider failure detection alongside a healthy base network worker. The actual
+installed-provider failure and reconnection gate remains required separately.

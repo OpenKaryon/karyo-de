@@ -27,14 +27,20 @@ class NetworkServiceMonitor:
         self.messages = {token: message for token, message in self.messages.items() if token in profiles}
         now = self.clock()
         for token, scope in profiles.items():
-            observer = scope.network_service
-            if observer is None or now < self.retry.get(token, 0):continue
+            if now < self.retry.get(token, 0):continue
             record = scope.journal.record(token)
             login = record.get('main_login') if getattr(scope, 'is_main', False) is True else record.get('session')
             if login is None or login['pending'] is not None:continue
-            unit = observer.scope.unit
-            if (not unit.closed and unit.pidfd is not None and not unit.process.exited(unit.pidfd)
-                    and record['network_service']['pending'] not in RESTART_PHASES):continue
+            field = None
+            for candidate, phases in (('network_service', RESTART_PHASES), ('provider', {'restart-start'})):
+                observer = getattr(scope, candidate, None)
+                if observer is None:continue
+                unit = observer.scope.unit
+                if (unit.closed or unit.pidfd is None or unit.process.exited(unit.pidfd)
+                        or record[candidate]['pending'] in phases):
+                    field = candidate
+                    break
+            if field is None:continue
             # Recheck ordinary login/manager/process anchors under the same
             # configuration lock. Their normal observer refresh performs the
             # journaled replacement. Bound retries and process one per poll.

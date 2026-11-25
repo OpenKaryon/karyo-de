@@ -158,6 +158,8 @@ if(BUILD_TESTING)
         -s ${profile_source}/tests -p test_network_budget.py -v)
     add_test(NAME profile-carrier-refresh COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_route_refresh.py -v)
+    add_test(NAME profile-provider-recovery COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_provider_recovery.py -v)
     add_test(NAME profile-network-info COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_network_info.py -v)
     add_test(NAME profile-main-entry COMMAND ${Python3_EXECUTABLE} -B -m unittest discover

@@ -4,6 +4,7 @@ from dataclasses import asdict, replace
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -84,8 +85,12 @@ class ProviderLifecycleTest(unittest.TestCase):
         self.dns.files.accounts.by_uid.return_value = WORK
         self.scope = Mock()
         self.scope.unit.closed = False
+        self.scope.unit.process.exited.return_value = False
+        self.scope.unit.cgroup_pids.return_value = set()
         self.scope.unit.name = "karyo-netbird-" + SPEC.token + ".service"
-        self.scope.directory.exists.return_value = False
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.scope.directory = Path(temporary.name) / 'provider-runtime'
 
     def test_write_ahead_order_precedes_each_native_creation(self):
         events = []
@@ -145,6 +150,7 @@ class ProviderLifecycleTest(unittest.TestCase):
         self.scope.unit.process.open.return_value = 99
         with patch("karyo_profiles.journal_netbird.NetBirdScope", return_value=self.scope), \
                 patch("karyo_profiles.journal_netbird.restore_state"), \
+                patch('karyo_profiles.provider_worker.process_gone', return_value=False), \
                 patch("karyo_profiles.journal_netbird.service_receipt", return_value=dict(provider()["service"], endpoint=[5, 99])):
             with self.assertRaises(JournalRetained): JournalNetBird.restore(self.journal, self.dns)
         self.scope.release_handles.assert_called_once_with()
@@ -157,11 +163,11 @@ class ProviderLifecycleTest(unittest.TestCase):
         self.scope.unit.closed = False
         with patch("karyo_profiles.journal_netbird.NetBirdScope", return_value=self.scope), \
                 patch("karyo_profiles.journal_netbird.restore_state"), \
-                patch("karyo_profiles.journal_netbird.process_gone", return_value=True):
+                patch('karyo_profiles.provider_worker.process_gone', return_value=True):
             restored = JournalNetBird.restore(self.journal, self.dns)
             self.assertTrue(restored.scope.unit.closed)
             self.scope.unit.process.open.assert_not_called()
-            self.scope.directory.exists.return_value = True
+            self.scope.directory.mkdir()
             with self.assertRaises(JournalRetained): JournalNetBird.restore(self.journal, self.dns)
         self.scope.close.assert_not_called()
 

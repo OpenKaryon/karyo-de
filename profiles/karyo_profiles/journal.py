@@ -165,7 +165,8 @@ def validate_record(value):
         service = value["provider"]["service"]
         if service is not None and service["unit"]["namespace"] != value["network"]["namespace"]:
             raise ValueError("The provider journal namespace differs from its network")
-        if ("session" in value or "main_login" in value) and value["provider"]["pending"] is not None:
+        if (('session' in value or 'main_login' in value) and value['provider']['pending'] is not None
+                and value['provider']['pending'] != 'restart-start'):
             raise ValueError("A session cannot coexist with a provider mutation")
     for login in (value.get('session',{}),value.get('main_login',{})):
         if isinstance(login,dict) and login.get('network_client') is True and value.get('network_service',{}).get('clients') is not True:
@@ -251,13 +252,15 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 19 or data["boot"] != self.boot
+                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 20 or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
+            if record.get('provider', {}).get('pending') == 'restart-start' and data['schema'] < 20:
+                raise ValueError('Live provider-worker recovery requires journal schema 20')
             from .journal_network_service_record import RESTART_PHASES
             if record.get('network_service', {}).get('pending') in RESTART_PHASES and data['schema'] < 19:
                 raise ValueError('Live network-worker recovery requires journal schema 19')
@@ -430,6 +433,7 @@ class RuntimeJournal:
             data["schema"] = max(data["schema"], 4)
         if replacement is not None and "provider" in replacement:
             data["schema"] = max(data["schema"], 5)
+            if replacement['provider']['pending'] == 'restart-start':data['schema'] = max(data['schema'], 20)
         if replacement is not None and replacement["network"] is not None and "contents" in replacement["network"]:
             data["schema"] = max(data["schema"], 6)
         if replacement is not None and "catalog" in replacement.get("session", {}):
