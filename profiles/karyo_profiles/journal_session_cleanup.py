@@ -46,9 +46,9 @@ def baseline_policy(manager,rows):
             and manager_exec_start(manager.command,manager.account.uid)==BASE_MANAGER)
 
 
-def removing_manager(files,proof,*,allow_missing,netbird=False,catalog=False,host_bus=False):
+def removing_manager(files,proof,*,allow_missing,netbird=False,catalog=False,host_bus=False,network_client=False):
     """Restore full policy or finish its captured empty/absent removal directory."""
-    manager=UserManagerScope(files,netbird=netbird,catalog=catalog,host_bus=host_bus)
+    manager=UserManagerScope(files,netbird=netbird,catalog=catalog,host_bus=host_bus,network_client=network_client)
     manager.initial_dropins=frozenset(proof["dropins"])
     manager.directory_identity=tuple(proof["directory"]);manager.file_identity=tuple(proof["file"])
     manager.created=True
@@ -115,8 +115,11 @@ def recover_closed_session(journal,store,record,*,accounts=None,sessions=None):
         offline(account,accounts,sessions,workers=workers)
         # Check completed graph ownership before removing even an empty policy
         # directory. Constructing this metadata object has no native side effects.
-        closed_graph(UserManagerScope(dns.files,netbird=provider is not None,catalog="catalog" in value,host_bus='bus_view' in value),value,sessions)
-        manager=removing_manager(dns.files,value["manager"],allow_missing=value["pending"]=="manager-close",netbird=provider is not None,catalog="catalog" in value,host_bus='bus_view' in value)
+        closed_graph(UserManagerScope(dns.files,netbird=provider is not None,catalog="catalog" in value,
+            host_bus='bus_view' in value,network_client=value.get('network_client',False)),value,sessions)
+        manager=removing_manager(dns.files,value["manager"],allow_missing=value["pending"]=="manager-close",
+            netbird=provider is not None,catalog="catalog" in value,host_bus='bus_view' in value,
+            network_client=value.get('network_client',False))
         offline(account,accounts,sessions,workers=workers)
         closing=dict(record,session=dict(value,pending="manager-close",graphical=None))
         journal.change(record,closing)

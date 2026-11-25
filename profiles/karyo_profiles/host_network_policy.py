@@ -31,6 +31,14 @@ NETWORK_DESTINATIONS = ('org.freedesktop.NetworkManager', 'org.freedesktop.resol
                         'org.freedesktop.network1')
 
 
+def policy_loader_ready():
+    parent=trusted_directory(LOADER.parent)
+    try:
+        if root_file(LOADER.name,dir_fd=parent) != LOADER_CONTENTS:
+            raise JournalRetained('The packaged host-network policy loader is unavailable or changed')
+    finally:os.close(parent)
+
+
 def validate_host_network_policy(value):
     if not isinstance(value, dict) or set(value) != {'pending', 'directory', 'file'}:
         raise ValueError('Invalid profile host-network policy receipt')
@@ -57,11 +65,7 @@ class HostNetworkPolicy:
         host_controller()
         if not self.network.store._locked:
             raise PermissionError('Host-network policy requires the profile configuration lock')
-        parent = trusted_directory(LOADER.parent)
-        try:
-            if root_file(LOADER.name, dir_fd=parent) != LOADER_CONTENTS:
-                raise JournalRetained('The packaged host-network policy loader is unavailable or changed')
-        finally:os.close(parent)
+        policy_loader_ready()
         if self.directory is not None:
             current = trusted_directory(DIRECTORY)
             try:
@@ -208,4 +212,11 @@ def retire_host_network_policy(journal, network, *, accounts, sessions):
     if 'host_network_policy' not in journal.record(network.spec.token):return
     owner = HostNetworkPolicy.restore(journal, network, accounts=accounts, sessions=sessions)
     try:owner.close()
+    finally:owner.release_handles()
+
+
+def verify_host_network_policy(journal, network, *, accounts, sessions):
+    if 'host_network_policy' not in journal.record(network.spec.token):return
+    owner=HostNetworkPolicy.restore(journal,network,accounts=accounts,sessions=sessions)
+    try:owner.verify()
     finally:owner.release_handles()

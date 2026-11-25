@@ -28,16 +28,19 @@ class RuntimeSwitchTest(unittest.TestCase):
         self.network.network.fd = 23
         self.dns = Mock()
         self.provider = Mock()
+        self.network_service,self.policy=Mock(),Mock()
         self.scope = Mock(token="owned")
         self.scope.enter.return_value = {"user": "work", "vt": 8, "starting": True, "changed": True}
         self.patches = contextlib.ExitStack()
         self.addCleanup(self.patches.close)
         for name, result in (("enabled", True), ("forwarding_ready", None),
                              ("supported_resolver_layout", "stub-resolv.conf"), ("netbird_ready", None),
+                             ("program_identity",None),("policy_loader_ready",None),
                              ("discover_underlay", "physical"), ("discover_dns", "dns-seed")):
             self.patches.enter_context(patch.object(runtime, name, return_value=result))
         for name, result in (("JournalNetwork", self.network), ("JournalForwarding", Mock()),
-                             ("JournalDNS", self.dns), ("JournalNetBird", self.provider), ("JournalSession", self.scope)):
+                             ("JournalDNS", self.dns),("JournalNetworkService",self.network_service),
+                             ("HostNetworkPolicy",self.policy),("JournalNetBird", self.provider), ("JournalSession", self.scope)):
             def start(*args, _name=name, _result=result, **kwargs):
                 self.assertTrue(self.store.held)
                 self.events.append(_name)
@@ -56,7 +59,10 @@ class RuntimeSwitchTest(unittest.TestCase):
         self.scope.enter.side_effect = enter
         self.assertEqual(self.switcher.switch(HOME, "work", reauthorize=authorize),
                          {"user": "work", "starting": True})
-        self.assertEqual(self.events, ["JournalNetwork", "JournalForwarding", "JournalDNS", "JournalSession"])
+        self.assertEqual(self.events, ["JournalNetwork", "JournalForwarding", "JournalDNS",
+                                      "JournalNetworkService","HostNetworkPolicy","JournalSession"])
+        self.network_service.release_handles.assert_called_once_with()
+        self.policy.release_handles.assert_called_once_with()
         self.assertFalse(self.store.held)
 
     def test_running_session_does_not_allocate_or_require_networking_policy(self):
@@ -121,7 +127,7 @@ class RuntimeSwitchTest(unittest.TestCase):
         self.assertTrue(self.switcher.switch(HOME, "work")["starting"])
         runtime.netbird_ready.assert_called_once_with()
         self.assertEqual(self.events, ["JournalNetwork", "JournalForwarding", "JournalDNS",
-                                       "JournalNetBird", "JournalSession"])
+                                       "JournalNetworkService","HostNetworkPolicy","JournalNetBird", "JournalSession"])
         runtime.JournalNetBird.start.assert_called_once_with(self.registry.journal, self.dns)
         self.provider.close.assert_not_called()
 

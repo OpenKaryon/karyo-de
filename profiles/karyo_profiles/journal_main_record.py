@@ -23,7 +23,8 @@ def validate_origin(value):
 
 def validate_main(value, account):
     required = {'pending','origin','manager','login'}
-    if (not isinstance(value, dict) or not required <= set(value) or set(value)-required-{'bus_view'}
+    if (not isinstance(value, dict) or not required <= set(value) or set(value)-required-{'bus_view','network_client'}
+            or 'network_client' in value and value['network_client'] is not True
             or 'bus_view' in value and value['bus_view'] != 'host-proxy'):
         raise ValueError("Invalid main login receipt")
     validate_origin(value["origin"])

@@ -7,6 +7,8 @@ from .journal import JournalRetained
 from .journal_dns import JournalDNS
 from .journal_forwarding import JournalForwarding
 from .journal_network import JournalNetwork
+from .journal_network_service import JournalNetworkService
+from .host_network_policy import HostNetworkPolicy,policy_loader_ready
 from .journal_netbird import JournalNetBird
 from .journal_session import JournalSession
 from .logind import SessionError
@@ -16,6 +18,7 @@ from .netbird import netbird_ready
 from .runtime_policy import enabled, forwarding_ready
 from .switching import DesktopStopped, ExistingSwitcher
 from .underlay import discover_underlay
+from .services import program_identity
 
 
 class RuntimeSwitcher(ExistingSwitcher):
@@ -61,6 +64,7 @@ class RuntimeSwitcher(ExistingSwitcher):
                 netbird_ready()
             forwarding_ready()
             supported_resolver_layout()
+            program_identity('/usr/sbin/NetworkManager');policy_loader_ready()
             command = NetworkCommand()
             # DNS discovery performs several native calls. A single budget
             # bounds the whole inventory before any profile is allocated.
@@ -69,12 +73,14 @@ class RuntimeSwitcher(ExistingSwitcher):
                 seed = discover_dns(physical, command)
             if reauthorize is not None and reauthorize() != caller:
                 raise PermissionError("The desktop caller changed before allocation")
-            network = dns = scope = None
+            network = dns = scope = service = policy = provider = None
             try:
                 network = JournalNetwork.start(self.registry.journal, self.store, selected, source,
                                                accounts=self.accounts, sessions=self.sessions, command=command)
                 JournalForwarding.start(self.registry.journal, network, physical)
-                dns = JournalDNS.start(self.registry.journal, network, seed, accounts=self.accounts)
+                dns = JournalDNS.start(self.registry.journal, network, seed, accounts=self.accounts,service_view='network-manager')
+                service=JournalNetworkService.start(self.registry.journal,dns)
+                policy=HostNetworkPolicy.start(self.registry.journal,dns)
                 provider = JournalNetBird.start(self.registry.journal, dns) if provider_requested else None
                 try:
                     scope = JournalSession.start(self.registry.journal, dns)
@@ -97,3 +103,6 @@ class RuntimeSwitcher(ExistingSwitcher):
                         os.close(network.network.fd)
                         network.network.fd = None
                 raise
+            finally:
+                if policy is not None:policy.release_handles()
+                if service is not None:service.release_handles()

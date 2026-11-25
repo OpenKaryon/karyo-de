@@ -82,6 +82,17 @@ class MainEntryRecordTest(unittest.TestCase):
         self.assertEqual(proxy.release_handles.call_count,2)
         self.assertIsNone(scope.host_bus)
 
+    @patch('karyo_profiles.journal_main.retire_host_network_policy')
+    def test_close_resumes_policy_retirement_after_main_receipt_was_removed(self,retire):
+        journal=Mock();journal.record.return_value={}
+        dns,manager,peer=Mock(token='a'*32),Mock(),Mock()
+        scope=MainEntry(journal,dns,manager,peer)
+        scope.close();scope.close()
+        retire.assert_called_once_with(journal,dns.network.network,accounts=dns.files.accounts,sessions=manager.sessions)
+        manager.close.assert_not_called()
+        peer.close.assert_called_once_with()
+        self.assertTrue(scope.closed)
+
 
 class MainRegistryTest(unittest.TestCase):
     @patch.object(MainEntry, 'restore')

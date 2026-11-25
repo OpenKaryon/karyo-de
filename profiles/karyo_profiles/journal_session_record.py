@@ -58,7 +58,8 @@ def validate_manager(manager,account,*,login_services=("karyo-desktop",)):
 
 def validate_session(value,account):
     if (not isinstance(value,dict) or not {"pending","manager","graphical"} <= set(value)
-            or set(value) - {"pending","manager","graphical","catalog","bus_view"}
+            or set(value) - {"pending","manager","graphical","catalog","bus_view","network_client"}
+            or 'network_client' in value and value['network_client'] is not True
             or "catalog" in value and value["catalog"] != "netbird"
             or 'bus_view' in value and value['bus_view'] != 'host-proxy'):
         raise ValueError("Invalid graphical session journal")

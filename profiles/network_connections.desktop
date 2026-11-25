@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Network Connections
+Name[ru]=Сетевые подключения
+Comment=Manage connections and VPNs for this desktop
+Comment[ru]=Настройка подключений и VPN этого рабочего стола
+Exec=karyo-network-connections
+Icon=preferences-system-network
+Terminal=false
+Categories=Settings;Network;
+OnlyShowIn=Karyo;

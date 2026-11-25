@@ -55,7 +55,7 @@ def program_pids(uid, name):
 
 
 def client(scope, endpoint):
-    code='''import json,os,socket,subprocess
+    code='''import json,os,socket,subprocess,sys
 from pathlib import Path
 def identity(path):
  node=Path(path).stat();return [node.st_dev,node.st_ino]
@@ -76,8 +76,31 @@ private=os.environ.copy();private['DBUS_SYSTEM_BUS_ADDRESS']=PRIVATE
 result=subprocess.run(['/usr/bin/nmcli','--wait','5','--terse','--fields','NAME','connection','show'],
                       env=private,capture_output=True,text=True,timeout=8)
 assert result.returncode==0,result.stderr
-print(json.dumps({'private_network_dns_host_bus':True,'dns_tcp_udp':True,
-                  'ordinary_logind_polkit_udisks':True,'stock_private_nmcli':True}))
+evidence={'private_network_dns_host_bus':True,'dns_tcp_udp':True,
+          'ordinary_logind_polkit_udisks':True,'stock_private_nmcli':True}
+if CLIENTS:
+ sys.path.insert(0,SOURCE)
+ from karyo_profiles.network_client import command
+ import secrets
+ assert os.environ.get('KARYO_NETWORK_ENDPOINT')==ENDPOINT
+ environment=dict(os.environ)
+ name='karyo-client-'+secrets.token_hex(6)
+ def invoke(*arguments):
+  args,env=command('nmcli',list(arguments),environment)
+  result=subprocess.run(args,env=env,capture_output=True,text=True,timeout=10)
+  assert result.returncode==0,result.stderr
+  return result.stdout
+ invoke('--wait','5','connection','add','save','no','type','dummy','ifname','kc-client-check','con-name',name)
+ try:
+  assert name in invoke('--wait','5','--terse','--fields','NAME','connection','show').splitlines()
+ finally:invoke('--wait','5','connection','delete',name)
+ evidence['stock_client_adapter_private_add_show_delete']=True
+ evidence['temporary_private_connection']=name
+ args,env=command('connections',['--help'],environment)
+ result=subprocess.run(args,env=env,capture_output=True,text=True,timeout=10)
+ assert result.returncode==0,result.stderr
+ evidence['stock_connection_editor_launcher_help']=True
+print(json.dumps(evidence))
 '''
     for key,value in dict(NET=list(scope.network.network.identity),
                          DNS=identity(scope.dns.files.plan.runtime_paths[0]),
@@ -85,7 +108,10 @@ print(json.dumps({'private_network_dns_host_bus':True,'dns_tcp_udp':True,
                               else identity('/run/dbus/system_bus_socket')),DOMAIN=endpoint.domain,
                          ANSWER=endpoint.answer,PEER=endpoint.tcp.getsockname()[0],
                          TCP=endpoint.tcp.getsockname()[1],UDP=endpoint.udp.getsockname()[1],
-                         PRIVATE=scope.dns.files.plan.bus_address).items():
+                         PRIVATE=scope.dns.files.plan.bus_address,
+                         SOURCE=str(Path(__file__).resolve().parents[1]),
+                         ENDPOINT=str(scope.network_service.scope.directory/'client.json'),
+                         CLIENTS=scope.network_service.scope.clients).items():
         # Only uppercase fixture constants occur as isolated tokens.
         import re
         code=re.sub(r'\b'+key+r'\b',lambda unused:repr(value),code)
@@ -97,7 +123,11 @@ print(json.dumps({'private_network_dns_host_bus':True,'dns_tcp_udp':True,
         '--unit=karyo-child-bus-probe-'+secrets.token_hex(6),'/usr/bin/python3','-I','-c',code],
         capture_output=True,text=True,timeout=30)
     require(result.returncode==0,'The real profile user-manager probe failed: '+result.stderr.strip())
-    return json.loads(result.stdout)
+    value=json.loads(result.stdout)
+    if value.get('stock_client_adapter_private_add_show_delete'):
+        host=run('/usr/bin/nmcli','--terse','--fields','NAME','connection','show').splitlines()
+        require(value['temporary_private_connection'] not in host,'The client selected the host connection store')
+    return value
 
 
 def capture(scope,root):

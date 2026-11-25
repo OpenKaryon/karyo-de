@@ -42,8 +42,8 @@ def graphical_receipt(graph):
             "compositor":list(graph.compositor),"entered":graph.entered}
 
 
-def restore_manager(files,proof,*,netbird=False,catalog=False,login_services=("karyo-desktop",),allow_starting=False,host_bus=False):
-    manager=UserManagerScope(files,netbird=netbird,catalog=catalog,host_bus=host_bus)
+def restore_manager(files,proof,*,netbird=False,catalog=False,login_services=("karyo-desktop",),allow_starting=False,host_bus=False,network_client=False):
+    manager=UserManagerScope(files,netbird=netbird,catalog=catalog,host_bus=host_bus,network_client=network_client)
     manager.initial_dropins=frozenset(proof["dropins"])
     manager.directory_identity=tuple(proof["directory"]);manager.file_identity=tuple(proof["file"])
     try:
@@ -172,7 +172,8 @@ class JournalSession:
         if host_bus:program_identity('/usr/bin/xdg-dbus-proxy')
         from .journal_forwarding import JournalForwarding
         forwarding=JournalForwarding.restore(journal,dns.network) if "forwarding" in record else None
-        manager=UserManagerScope(dns.files,netbird="provider" in record,catalog="provider" in record,host_bus=host_bus)
+        network_client=record.get('network_service',{}).get('clients',False)
+        manager=UserManagerScope(dns.files,netbird="provider" in record,catalog="provider" in record,host_bus=host_bus,network_client=network_client)
         scope=cls(journal,dns,manager,forwarding=forwarding)
         try:
             scope.provider=restore_optional(journal,dns)
@@ -180,6 +181,7 @@ class JournalSession:
             session={"pending":"manager-prepare","manager":None,"graphical":None}
             if "provider" in record: session["catalog"]="netbird"
             if host_bus:session['bus_view']='host-proxy'
+            if network_client:session['network_client']=True
             journal.change(record,dict(record,session=session))
             manager.prepare()
             scope.update(pending=None,manager=manager_receipt(manager))
@@ -212,7 +214,7 @@ class JournalSession:
             network_service = restore_network_service(journal, dns)
             if 'host_bus' in record:host_bus=JournalHostBus.restore(journal,dns)
             manager=restore_manager(dns.files,value["manager"],netbird=provider is not None,catalog="catalog" in value,
-                                    host_bus='bus_view' in value)
+                                    host_bus='bus_view' in value,network_client=value.get('network_client',False))
             graph=restore_graph(manager,value["graphical"],host_bus=host_bus)
             from .journal_forwarding import JournalForwarding
             forwarding=JournalForwarding.restore(journal,wrapped) if "forwarding" in record else None
@@ -326,7 +328,7 @@ def recover_prepared_session(journal,store,record,*,accounts=None,sessions=None)
         workers=() if host_bus is None or host_bus.scope.unit.closed else (host_bus.scope.unit,)
         offline(account,accounts,sessions,workers=workers)
         manager=restore_manager(dns.files,value["manager"],netbird=provider is not None,catalog="catalog" in value,
-                                host_bus='bus_view' in value)
+                                host_bus='bus_view' in value,network_client=value.get('network_client',False))
         graph=GraphicalSession(manager)
         if graph.info()["LoadState"]!="not-found":
             raise JournalRetained("An unrecorded graphical unit prevents preparation recovery")

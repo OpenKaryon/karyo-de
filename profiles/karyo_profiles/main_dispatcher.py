@@ -14,6 +14,8 @@ from .journal_dns import JournalDNS
 from .journal_forwarding import JournalForwarding
 from .journal_main import MainEntry
 from .journal_network import JournalNetwork
+from .journal_network_service import JournalNetworkService
+from .host_network_policy import HostNetworkPolicy,policy_loader_ready
 from .main_peer import MainPeer, object_identity
 from .model import account_name, root_file
 from .networks import NetworkCommand
@@ -55,22 +57,28 @@ def prepare_entry(registry, account, peer, accounts, sessions):
         raise PermissionError("Main login requires explicitly enabled private desktop networking")
     forwarding_ready()
     supported_resolver_layout()
+    program_identity('/usr/sbin/NetworkManager');policy_loader_ready()
     command = NetworkCommand()
     with command.bounded(8):
         physical = discover_underlay(command)
         seed = discover_dns(physical, command)
-    network = dns = None
+    network = dns = service = policy = None
     try:
         network = JournalNetwork.prepare_main(registry.journal, registry.store, account,
                                              accounts=accounts, sessions=sessions, command=command)
         JournalForwarding.start(registry.journal, network, physical)
-        dns = JournalDNS.start(registry.journal, network, seed, accounts=accounts)
+        dns = JournalDNS.start(registry.journal, network, seed, accounts=accounts,service_view='network-manager')
+        service=JournalNetworkService.start(registry.journal,dns)
+        policy=HostNetworkPolicy.start(registry.journal,dns)
         return MainEntry.prepare(registry.journal, dns, peer)
     except BaseException:
         if dns is not None:dns.release_handles()
         if network is not None and network.network.fd is not None:
             os.close(network.network.fd);network.network.fd = None
         raise
+    finally:
+        if policy is not None:policy.release_handles()
+        if service is not None:service.release_handles()
 
 
 class MainDispatcher:

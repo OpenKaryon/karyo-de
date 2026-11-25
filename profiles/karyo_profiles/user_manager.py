@@ -74,7 +74,7 @@ def manager_exec_start(command, uid):
 
 
 class UserManagerScope:
-    def __init__(self, files, *, sessions=None, command=None, process=None, netbird=False, catalog=False, host_bus=False):
+    def __init__(self, files, *, sessions=None, command=None, process=None, netbird=False, catalog=False, host_bus=False, network_client=False):
         if type(netbird) is not bool or type(catalog) is not bool or catalog and not netbird:
             raise ValueError("The provider launch policy must be explicit")
         self.files, self.network = files, files.network
@@ -83,6 +83,10 @@ class UserManagerScope:
         self.catalog = catalog
         self.environment = (("KARYO_NETBIRD_ENDPOINT=/run/karyo-netbird-" + self.network.spec.token + "/client.json",)
                             if netbird else ())
+        if type(network_client) is not bool:raise ValueError('The network-client launch environment must be explicit')
+        if network_client:
+            if files.plan.service_view != 'network-manager':raise ValueError('Network clients require their private service view')
+            self.environment += ('KARYO_NETWORK_ENDPOINT=/run/karyo-network-manager-' + self.network.spec.token + '/client.json',)
         if catalog: self.environment += (DATA_ENVIRONMENT,)
         self.command = self.network.command if command is None else command
         self.sessions = Sessions() if sessions is None else sessions

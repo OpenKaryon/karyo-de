@@ -37,9 +37,14 @@ if command -v karyo-vmware-agent >/dev/null 2>&1; then
 fi
 # labwc supplies WAYLAND_DISPLAY after the compositor is ready.
 if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+    network_environment=
+    if [ -n "${KARYO_NETWORK_ENDPOINT:-}" ]; then
+        network_environment='KARYO_NETWORK_ENDPOINT PATH'
+    fi
     dbus-update-activation-environment --systemd WAYLAND_DISPLAY \
         XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP \
-        QT_QPA_PLATFORM QT_STYLE_OVERRIDE ${catalog_environment:+$catalog_environment} >/dev/null 2>&1 || true
+        QT_QPA_PLATFORM QT_STYLE_OVERRIDE ${catalog_environment:+$catalog_environment} \
+        ${network_environment:+$network_environment} >/dev/null 2>&1 || true
 fi
 # Optional family sharing runs as this ordinary user, only after startup PAM.
 if command -v karyo-profile-clipboard >/dev/null 2>&1; then

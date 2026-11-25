@@ -66,9 +66,9 @@ class JournalNetworkService:
                 or before['dns']['pending'] is not None):
             raise JournalRetained('Network services start before graphical consumers and optional VPN workers')
         dns.services.verify()
-        scope = NetworkManagerScope(dns, state_root=state_root)
+        scope = NetworkManagerScope(dns, state_root=state_root, clients=True)
         owner = cls(journal, dns, scope)
-        value = {'kind': 'network-manager', 'pending': 'state-prepare', 'state': None, 'config': None, 'unit': None}
+        value = {'kind': 'network-manager', 'pending': 'state-prepare', 'state': None, 'config': None, 'unit': None, 'clients':True}
         journal.change(before, dict(before, network=dict(before['network'], contents='tunnel'), network_service=value))
         scope.network.contents = 'tunnel'
         try:
@@ -95,7 +95,7 @@ class JournalNetworkService:
         validate_network_service(value)
         if value['pending'] not in {None, 'uplink-prepare', 'service-stop', 'config-remove'}:
             raise JournalRetained('Unacknowledged network service creation requires review')
-        scope = NetworkManagerScope(dns, state_root=state_root)
+        scope = NetworkManagerScope(dns, state_root=state_root, clients=value.get('clients',False))
         owner = cls(journal, dns, scope)
         try:
             restore_state(scope.state, value['state'])

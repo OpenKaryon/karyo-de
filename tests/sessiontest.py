@@ -25,6 +25,7 @@ class SessionLauncherTest(unittest.TestCase):
             shutil.copyfile(SOURCE / "session" / helper, data / helper)
         source = (SOURCE / "session/karyo-session.in").read_text()
         launcher = source.replace("@CMAKE_INSTALL_FULL_DATADIR@", str(self.root / "share"))
+        launcher = launcher.replace("@CMAKE_INSTALL_FULL_LIBEXECDIR@", str(self.root / "libexec"))
         self.launcher = self.bin / "karyo-session"
         self.launcher.write_text(launcher)
         self.launcher.chmod(0o755)
@@ -85,6 +86,20 @@ exit 7
         self.env["TERMINAL"] = "existing-terminal"
         self.assertEqual(self.run_launcher().returncode, 0)
         self.assertEqual((self.root / "probe").read_text(), "existing-terminal")
+
+    def test_managed_network_context_selects_scoped_commands_and_catalog(self):
+        endpoint='/run/karyo-network-manager-'+ 'ab'*16 +'/client.json'
+        self.program('karyo-network-context','#!/bin/sh\nprintf "%s\\n" "'+endpoint+'"\n')
+        scoped=self.root/'libexec/karyo/network-clients';scoped.mkdir(parents=True)
+        (scoped/'nmcli').write_text('#!/bin/sh\nexit 0\n');(scoped/'nmcli').chmod(0o755)
+        self.program('nmcli','#!/bin/sh\nexit 0\n')
+        self.program('labwc','#!/bin/sh\nprintf "%s\\n" "$KARYO_NETWORK_ENDPOINT" "$DBUS_SYSTEM_BUS_ADDRESS" "$XDG_DATA_DIRS" > "$PROBE"\ncommand -v nmcli >> "$PROBE"\n')
+        self.env['DBUS_SYSTEM_BUS_ADDRESS']='unix:path=/existing-host-bus'
+        self.assertEqual(self.run_launcher().returncode,0)
+        lines=(self.root/'probe').read_text().splitlines()
+        self.assertEqual(lines[:2],[endpoint,'unix:path=/existing-host-bus'])
+        self.assertIn(str(self.root/'share/karyo/profile-catalog/network'),lines[2].split(':'))
+        self.assertEqual(lines[3],str(scoped/'nmcli'))
 
     def test_preflight_requires_configuration_helpers(self):
         (self.root / "share/karyo/session/keyboard").unlink()

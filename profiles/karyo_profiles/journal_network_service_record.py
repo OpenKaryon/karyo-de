@@ -4,7 +4,9 @@ from .journal_dns_record import identity, validate_unit
 
 
 def validate_network_service(value):
-    if (not isinstance(value, dict) or set(value) != {'kind', 'pending', 'state', 'config', 'unit'}
+    required = {'kind', 'pending', 'state', 'config', 'unit'}
+    if (not isinstance(value, dict) or not required <= set(value) or set(value)-required-{'clients'}
+            or 'clients' in value and value['clients'] is not True
             or value['kind'] != 'network-manager'):
         raise ValueError('Unsupported private network service receipt')
     pending = value['pending']

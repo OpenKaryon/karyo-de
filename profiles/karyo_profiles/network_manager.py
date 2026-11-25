@@ -24,9 +24,11 @@ CONFIGURATION = ("# Karyo private NetworkManager instance.\n"
 
 
 class NetworkManagerScope:
-    def __init__(self, dns, *, state_root=STATE_ROOT):
+    def __init__(self, dns, *, state_root=STATE_ROOT, clients=False):
         self.dns, self.files = dns, dns.files
         self.network = self.files.network
+        if type(clients) is not bool:raise ValueError('The network-client publication must be explicit')
+        self.clients = clients
         if self.files.plan.service_view != 'network-manager':
             raise ServiceError('NetworkManager requires the captured private network-service bus')
         self.state = ProviderState(self.files, 'network-manager', state_root)
@@ -141,13 +143,15 @@ class NetworkManagerScope:
                         '--pid-file', str(self.directory / 'NetworkManager.pid'))
         deadline = time.monotonic() + 8
         while True:
-            try:self.verify();break
+            try:self.verify_worker();break
             except (OSError, RuntimeError):
                 if self.unit.process.exited(self.unit.pidfd) or time.monotonic() >= deadline:raise
                 time.sleep(.05)
+        if self.clients:self.publish_client()
+        self.verify()
         return self
 
-    def verify(self):
+    def verify_worker(self):
         self.verify_config();self.dns.services.verify();self.unit.verify()
         if not os.statvfs('/proc/' + str(self.unit.identity.pid) + '/root/sys').f_flag & os.ST_RDONLY:
             raise ServiceRetained(self.unit)
@@ -167,6 +171,38 @@ class NetworkManagerScope:
             if (expected.st_dev, expected.st_ino) != (actual.st_dev, actual.st_ino):
                 raise ServiceRetained(self.unit)
         self.unit.verify()
+
+    def client_contents(self):
+        from .network_client import identity, serialize
+        return serialize({'version':1,'uid':self.network.spec.uid,'gid':self.files.plan.gid,
+            'network':list(self.network.identity),'resolver':identity(self.files.plan.runtime_paths[0]),
+            'bus':{'directory':identity(self.files.plan.runtime_paths[1]),
+                   'socket':identity(Path(self.files.plan.runtime_paths[1])/'bus'),
+                   'pid':self.dns.services.bus.identity.pid},
+            'worker':self.unit.identity.pid,'invocation':self.unit.identity.invocation})
+
+    def publish_client(self):
+        self.verify_worker()
+        directory=trusted_directory(self.directory)
+        try:atomic_write(directory,'client.json',self.client_contents())
+        finally:os.close(directory)
+
+    def verify_client(self):
+        directory=trusted_directory(self.directory)
+        try:
+            fd=os.open('client.json',os.O_RDONLY|os.O_NONBLOCK|os.O_NOFOLLOW|os.O_CLOEXEC,dir_fd=directory)
+            try:
+                info=os.fstat(fd);contents=self.client_contents()
+                if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_gid != 0
+                        or stat.S_IMODE(info.st_mode) != 0o644 or info.st_nlink != 1
+                        or os.read(fd,len(contents)+1) != contents):
+                    raise ServiceError('The published desktop network-client context changed')
+            finally:os.close(fd)
+        finally:os.close(directory)
+
+    def verify(self):
+        self.verify_worker()
+        if self.clients:self.verify_client()
 
     def nmcli(self, *arguments):
         self.verify()

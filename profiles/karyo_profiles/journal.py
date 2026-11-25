@@ -166,6 +166,9 @@ def validate_record(value):
             raise ValueError("The provider journal namespace differs from its network")
         if ("session" in value or "main_login" in value) and value["provider"]["pending"] is not None:
             raise ValueError("A session cannot coexist with a provider mutation")
+    for login in (value.get('session',{}),value.get('main_login',{})):
+        if isinstance(login,dict) and login.get('network_client') is True and value.get('network_service',{}).get('clients') is not True:
+            raise ValueError('The login network-client environment requires its published worker context')
     if "session" in value:
         if value["dns"]["pending"] is not None or value["dns"]["bus"] is None or value["dns"]["resolver"] is None:
             raise ValueError("A session requires acknowledged private DNS services")
@@ -247,13 +250,15 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 17 or data["boot"] != self.boot
+                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 18 or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
+            if 'clients' in record.get('network_service',{}) and data['schema'] < 18:
+                raise ValueError('Published network clients require journal schema 18')
             if 'host_network_policy' in record and data['schema'] < 17:
                 raise ValueError('Host-network policy ownership requires journal schema 17')
             if 'host_bus' in record and data['schema'] < 14:
@@ -410,6 +415,7 @@ class RuntimeJournal:
             data['schema'] = max(data['schema'],16)
         if replacement is not None and 'network_service' in replacement:
             data['schema'] = max(data['schema'],13)
+            if 'clients' in replacement['network_service']:data['schema'] = max(data['schema'],18)
         if replacement is not None and "session" in replacement:
             data["schema"] = max(data["schema"],3)
         if replacement is not None and "main_login" in replacement:

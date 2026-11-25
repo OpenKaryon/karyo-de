@@ -88,6 +88,22 @@ install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-runtime COMPONENT profile-runtime)
 
 # Optional ordinary-user provider clients; installation starts no daemon.
+foreach(KARYO_NETWORK_CLIENT IN ITEMS nmcli connections context)
+    configure_file("${profile_source}/network_client.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/karyo-network-${KARYO_NETWORK_CLIENT}" @ONLY)
+    install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-network-${KARYO_NETWORK_CLIENT}"
+        DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT profile-accounts-runtime)
+endforeach()
+set(KARYO_NETWORK_CLIENT nmcli)
+configure_file("${profile_source}/network_client.in" "${CMAKE_CURRENT_BINARY_DIR}/network-clients/nmcli" @ONLY)
+set(KARYO_NETWORK_CLIENT connections)
+configure_file("${profile_source}/network_client.in" "${CMAKE_CURRENT_BINARY_DIR}/network-clients/nm-connection-editor" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/network-clients/nmcli"
+    "${CMAKE_CURRENT_BINARY_DIR}/network-clients/nm-connection-editor"
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo/network-clients COMPONENT profile-accounts-runtime)
+install(FILES "${profile_source}/network_connections.desktop"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/karyo/profile-catalog/network/applications
+    RENAME nm-connection-editor.desktop COMPONENT profile-accounts-runtime)
 foreach(KARYO_NETBIRD_CLIENT IN ITEMS cli gui)
     configure_file("${profile_source}/netbird-client.in"
         "${CMAKE_CURRENT_BINARY_DIR}/karyo-netbird-${KARYO_NETBIRD_CLIENT}" @ONLY)

@@ -63,8 +63,30 @@ All four modes pass on both bases. Seventy-one selected functional regressions
 also pass per base, including five real-file publication/retirement models.
 
 This remains an explicitly preallocated graphical fixture. Production family
-switching, automatic main/child private-manager allocation, standard client
-launchers, physical Wi-Fi/Ethernet mediation, real graphical authorization,
+switching acceptance, physical Wi-Fi/Ethernet mediation, real graphical authorization,
 current installed packages and combined Home/Work VPN acceptance remain open.
 The earlier explicit proxy is not enabled by default and its saved receipts
 remain readable.
+The explicit stock-client adapters are described in [NETWORK_CLIENTS.md](NETWORK_CLIENTS.md).
+
+## Enabled runtime entry paths
+
+New entries created by the explicitly enabled runtime allocate a private
+network-service DNS view and NetworkManager before their login. Both main Home
+and stopped child startup acknowledge the direct-host UID policy before passing
+control to PAM/the compositor. Preparation handles are released after the
+graphical lifetime has its own observers. The host keeps physical connectivity.
+Installing the packages still enables neither the runtime nor main-login PAM.
+
+Main entry verifies the policy before its FD handoff and during live ownership
+checks. Natural close retires the manager and removes the main receipt before
+policy retirement, then lets the existing registry retire the network/DNS
+layers. A retry can finish policy removal even after the main receipt is gone.
+Earlier explicit resolver-only and proxy receipts retain their existing views.
+
+On Debian and Ubuntu the real main PAM fixture with direct host bus, UID policy,
+private NetworkManager and DNS passes before/after controller restoration and
+after parent/manager exit. Eighty selected functional regressions cover the new
+child allocation order, ordinary running-session reuse and partial preparation
+cleanup. Actual installed LightDM/family switching with these default entry
+paths remains a separate required gate.

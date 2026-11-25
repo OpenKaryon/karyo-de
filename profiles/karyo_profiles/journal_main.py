@@ -23,6 +23,7 @@ from .services import program_identity
 from .storage import trusted_directory
 from .user_manager import ManagerPending, UserManagerScope
 from .runtime_services import refresh_network_service, restore_network_service
+from .host_network_policy import verify_host_network_policy,retire_host_network_policy
 
 
 class MainEntry:
@@ -59,12 +60,15 @@ class MainEntry:
             raise JournalRetained("Main entry requires its acknowledged offline network and DNS")
         peer.verify(cgroup=peer.origin["cgroup"], network=object_identity("/proc/1/ns/net"))
         dns.services.verify()
+        verify_host_network_policy(journal,dns.network.network,accounts=dns.files.accounts,sessions=Sessions())
         if type(host_bus) is not bool:raise ValueError('The main host-bus view must be explicit')
         if host_bus:program_identity('/usr/bin/xdg-dbus-proxy')
-        manager = UserManagerScope(dns.files, netbird="provider" in before,host_bus=host_bus)
+        network_client=before.get('network_service',{}).get('clients',False)
+        manager = UserManagerScope(dns.files, netbird="provider" in before,host_bus=host_bus,network_client=network_client)
         scope = cls(journal, dns, manager, peer)
         login = {'pending':'manager-prepare','origin':peer.origin,'manager':None,'login':None}
         if host_bus:login['bus_view'] = 'host-proxy'
+        if network_client:login['network_client']=True
         journal.change(before, dict(before, main_login=login))
         # Intent precedes filesystem mutation; the acknowledged inode receipt
         # precedes handing either context FD to the PAM client.
@@ -85,6 +89,8 @@ class MainEntry:
             raise JournalRetained("The main context is not awaiting its PAM entry")
         self.peer.verify(cgroup=value["origin"]["cgroup"], network=object_identity("/proc/1/ns/net"))
         self.dns.files.verify()
+        verify_host_network_policy(self.journal,self.network.network,
+            accounts=self.dns.files.accounts,sessions=self.manager.sessions)
         path = Path(self.dns.files.plan.runtime_paths[0])
         parent = trusted_directory(path.parent)
         try:
@@ -145,6 +151,8 @@ class MainEntry:
             raise JournalRetained("The main PAM login is not an acknowledged live entry")
         self.manager.verify()
         self.dns.services.verify()
+        verify_host_network_policy(self.journal,self.network.network,
+            accounts=self.dns.files.accounts,sessions=self.manager.sessions)
         if self.forwarding is not None:self.forwarding.verify()
         if self.provider is not None:self.provider.verify()
         if self.host_bus is not None:self.host_bus.verify()
@@ -167,7 +175,14 @@ class MainEntry:
 
     def close(self):
         if self.closed:return
-        value = self.journal.record(self.token)["main_login"]
+        record=self.journal.record(self.token)
+        if 'main_login' not in record:
+            retire_host_network_policy(self.journal,self.network.network,
+                accounts=self.dns.files.accounts,sessions=self.manager.sessions)
+            if self.peer is not None:self.peer.close();self.peer=None
+            self.closed=True
+            return
+        value = record["main_login"]
         origin = value["origin"]
         if not process_gone(origin["pid"], origin["start"]):
             raise ManagerPending("Waiting for the original main PAM parent to exit")
@@ -188,6 +203,8 @@ class MainEntry:
         before = self.journal.record(self.token)
         updated = dict(before); updated.pop("main_login")
         self.journal.change(before, updated)
+        retire_host_network_policy(self.journal,self.network.network,
+            accounts=self.dns.files.accounts,sessions=self.manager.sessions)
         if self.peer is not None:self.peer.close();self.peer = None
         self.closed = True
 
@@ -214,11 +231,12 @@ class MainEntry:
                     raise ManagerPending("Waiting for the recorded main manager to finish before recovery")
                 manager = removing_manager(dns.files, value["manager"],
                                           allow_missing=value["pending"] == "manager-close", netbird="provider" in record,
-                                          host_bus='bus_view' in value)
+                                          host_bus='bus_view' in value,network_client=value.get('network_client',False))
             else:
                 peer = MainPeer(origin)
                 manager = restore_manager(dns.files, value["manager"], netbird="provider" in record,
-                                          login_services=(origin["service"],), allow_starting=True,host_bus='bus_view' in value)
+                                          login_services=(origin["service"],), allow_starting=True,host_bus='bus_view' in value,
+                                          network_client=value.get('network_client',False))
             scope = cls(journal, dns, manager, peer)
             if not gone and value["pending"] is None:scope.verify_consumers()
             journal.known.add(record["token"])

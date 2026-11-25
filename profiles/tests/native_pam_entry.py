@@ -6,6 +6,7 @@ The production dispatcher and main registry receive a locally injected root
 harness and preallocated fixture context. Installed host/PAM stacks remain
 unchanged; the temporary PAM service authenticates only the temporary account.
 """
+import ast
 import json
 import os
 from pathlib import Path
@@ -29,6 +30,7 @@ from karyo_profiles.journal_dns import JournalDNS
 from karyo_profiles.journal_network import JournalNetwork, offline
 from karyo_profiles.journal_main import MainEntry
 from karyo_profiles.journal_network_service import JournalNetworkService
+from karyo_profiles.host_network_policy import HostNetworkPolicy
 from karyo_profiles.main_registry import MainRegistry
 from karyo_profiles.main_dispatcher import MainDispatcher
 from karyo_profiles.logind import Sessions
@@ -53,6 +55,10 @@ def main():
     network_service_mode = '--network-service' in arguments
     if network_service_mode:arguments.remove('--network-service')
     network_service_mode |= host_bus_mode
+    direct_host_bus_mode='--direct-host-bus' in arguments
+    if direct_host_bus_mode:arguments.remove('--direct-host-bus')
+    require(not (direct_host_bus_mode and host_bus_mode),'Choose one explicit host-bus view')
+    network_service_mode |= direct_host_bus_mode
     require(os.getuid() == os.geteuid() == 0 and len(arguments) in (1, 2), 'Root QA build directory required')
     require(socket.gethostname() in ('karyo-network-debian', 'karyo-network-ubuntu'), 'Use networking QA copies')
     build = Path(arguments[0]).resolve()
@@ -106,6 +112,8 @@ def main():
                     dns = JournalDNS.start(journal, network, physical_seed, accounts=accounts,
                                            service_view='network-manager')
                     initial_service = JournalNetworkService.start(journal, dns)
+                    if direct_host_bus_mode:
+                        policy=HostNetworkPolicy.start(journal,dns);policy.release_handles()
                     state['worker_invocation'] = initial_service.scope.unit.identity.invocation
                 else:
                     dns = JournalDNS.start(journal, network, seed, accounts=accounts)
@@ -173,8 +181,10 @@ def main():
                             'Main recovery changed the captured host-service proxy')
                 if state['attached']:
                     with store.locked():entry.verify_consumers()
-                    if host_bus_mode:
-                        (home/'.karyo_bus_ready').write_text(json.dumps(list(entry.host_bus.scope.socket_identity)))
+                    if host_bus_mode or direct_host_bus_mode:
+                        bus_identity=(list(entry.host_bus.scope.socket_identity) if host_bus_mode
+                                      else list(identity('/run/dbus/system_bus_socket')))
+                        (home/'.karyo_bus_ready').write_text(json.dumps(bus_identity))
                     (home/'.karyo_entry_ready').touch(mode=0o644)
                 state[restored] = True
 
@@ -202,7 +212,20 @@ with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as stream:
 print(json.dumps({'network':True,'resolver_mount':True,'dns':True,'tcp':True,'udp':True}))
 """.replace('EXPECTED_NET', repr(list(network.network.identity))).replace('EXPECTED_DNS', repr(list(identity(dns.files.plan.runtime_paths[0]))))
             probe = probe.replace('HOST', repr(endpoint.tcp.getsockname()[0])).replace('TCP', str(endpoint.tcp.getsockname()[1])).replace('UDP', str(endpoint.udp.getsockname()[1]))
-            if host_bus_mode:
+            if network_service_mode:
+                probe += '''
+import sys
+sys.path.insert(0,SOURCE)
+from karyo_profiles.network_client import session_context,capture
+main_environment=dict(os.environ)
+main_environment.pop('KARYO_NETWORK_ENDPOINT',None)
+context=session_context(main_environment)
+assert context==PUBLISHED_CONTEXT
+assert capture(context)==PRIVATE
+print(json.dumps({'native_manager_network_context_for_main':True}))
+'''.replace('SOURCE',repr(str(Path(__file__).resolve().parents[1]))).replace(
+                    'PUBLISHED_CONTEXT',repr(str(initial_service.scope.directory/'client.json'))).replace('PRIVATE',repr(dns.files.plan.bus_address))
+            if host_bus_mode or direct_host_bus_mode:
                 probe += '''
 import subprocess
 node=Path('/run/dbus/system_bus_socket').stat()
@@ -215,6 +238,7 @@ for name,path in [('org.freedesktop.login1','/org/freedesktop/login1'),
  assert result.returncode==0,result.stderr
 print(json.dumps({'captured_host_service_bus':True,'ordinary_logind_polkit_udisks':True}))
 '''.replace('EXPECTED_BUS','json.loads(Path(' + repr(str(home/'.karyo_bus_ready')) + ').read_text())')
+            ast.parse(probe)
             client_code = """import time
 from pathlib import Path
 deadline=time.monotonic()+15
@@ -229,6 +253,7 @@ assert result.returncode==0,result.stderr
 assert json.loads(result.stdout.splitlines()[0])['network']
 print(json.dumps({'user_manager_activation_same_context':True}))
 """.replace('PROBE', repr(probe))
+            ast.parse(client_code)
             result = subprocess.run(['/usr/bin/systemd-run', '--quiet', '--wait', '--pipe', '--collect',
                                      '--unit=' + unit, '--property=Type=exec', str(harness), name, client_code],
                                     input=password + '\n', text=True, capture_output=True, timeout=80)
@@ -249,10 +274,14 @@ print(json.dumps({'user_manager_activation_same_context':True}))
             if network_service_mode:
                 evidence['private_network_worker_with_real_pam'] = True
                 evidence['same_worker_across_controller_restoration'] = True
+                evidence['main_client_recovered_context_from_native_manager'] = '"native_manager_network_context_for_main": true' in result.stdout
+                require(evidence['main_client_recovered_context_from_native_manager'],'The normal main client did not select its network context')
             if host_bus_mode:
                 evidence['captured_host_bus_after_pam_systemd'] = True
                 evidence['ordinary_and_user_manager_host_service_calls'] = True
                 evidence['same_proxy_across_controller_restoration'] = True
+            if direct_host_bus_mode:
+                evidence['direct_host_bus_and_uid_policy_with_real_main_pam']=True
             require(evidence['parent_context_restored'], 'PAM parent did not restore its original context')
         finally:
             (root/'controller_state.json').write_text(json.dumps({key:value for key,value in state.items() if key!='pidfd'}, indent=2) + '\n')

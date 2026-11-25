@@ -50,6 +50,21 @@ if [ -r "$profile" ]; then
     . "$profile"
     set +a
 fi
+# A main display-manager process need not inherit the native user manager's
+# environment. Read only the desktop routing hint; never evaluate its other
+# environment values or change the default system bus for the whole session.
+if command -v karyo-network-context >/dev/null 2>&1; then
+    if ! network_context=$(karyo-network-context); then
+        echo "karyo-session: desktop network context is invalid" >&2
+        exit 1
+    fi
+    if [ -n "$network_context" ]; then
+        export KARYO_NETWORK_ENDPOINT="$network_context"
+        export PATH='@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/network-clients':"$PATH"
+        network_catalog='@CMAKE_INSTALL_FULL_DATADIR@/karyo/profile-catalog/network'
+        export XDG_DATA_DIRS="$network_catalog:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+    fi
+fi
 if [ -z "${TERMINAL:-}" ] && command -v karyo-terminal >/dev/null 2>&1; then
     export TERMINAL=karyo-terminal
 fi

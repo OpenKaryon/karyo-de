@@ -26,6 +26,7 @@ class NetworkManagerPlanTest(unittest.TestCase):
         scope = self.scope(False)
         values = dict(row.split('=', 1) for row in scope.properties())
         self.assertEqual(scope.unit.program, '/usr/sbin/NetworkManager')
+        self.assertFalse(scope.clients)  # Older explicit workers keep their original receipt semantics.
         self.assertEqual(scope.state.path, Path('/var/lib/karyo/profile-vpn/1002/network-manager'))
         self.assertIn(str(scope.state.path) + '/etc:/etc/NetworkManager', values['BindPaths'])
         self.assertIn(str(scope.directory) + ':/run/NetworkManager', values['BindPaths'])
