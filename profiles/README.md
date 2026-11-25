@@ -1,5 +1,23 @@
 # Optional desktop profile integration
 
+When the host uses systemd-networkd, install the separate optional
+`profile-networkd-runtime` component (`karyo-profile-networkd` in Builder) and
+explicitly restart networkd before enabling managed desktop networking. Package
+installation does not restart the carrier. The standard daemon keeps its
+service user, capabilities and arguments; its entry wrapper records whether
+the effective configuration allows separately owned routing resources.
+
+The package sets `ManageForeignRoutes=no` and
+`ManageForeignRoutingPolicyRules=no` in a vendor networkd.conf drop-in. These
+are global cooperation settings: networkd continues managing its own declared
+routes and rules but does not garbage-collect resources of the DE or other
+network stacks. Administrator overrides take precedence. This is a separate
+opt-in package, not an automatic change made by the base DE or an application.
+An active legacy daemon without the observed cooperation startup marker fails
+the networking preflight with a request for an explicit restart. Hosts without
+active networkd do not need this component. The rationale is described in
+[networkd's foreign-route management options](https://www.freedesktop.org/software/systemd/man/latest/networkd.conf.html).
+
 The new [per-desktop networking plan](../docs/NETWORK_ISOLATION.md) requires the
 same private network/DNS boundary for the main account and child desktops, with
 unmodified upstream VPNs launched through owned adapters. The explicitly enabled

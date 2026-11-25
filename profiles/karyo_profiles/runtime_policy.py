@@ -16,6 +16,7 @@ from .networks import NetworkCommand
 from .services import program_identity, host_controller
 from .storage import ConfigStore, atomic_write, trusted_directory
 from .underlay import discover_underlay
+from .networkd_cooperation import require_cooperation
 
 POLICY = Path("/etc/karyo/profile-runtime.conf")
 ENABLED = "version=1\nisolated=enabled\n"
@@ -52,10 +53,12 @@ def enabled(path=POLICY):
 def forwarding_ready():
     if FORWARDING.read_text().strip() != "1":
         raise RuntimeError("Private desktops require explicitly enabled IPv4 forwarding")
+    require_cooperation()
 
 
 def dependencies(command):
     host_controller()
+    require_cooperation(command=command)
     for program in EXECUTABLES:
         program_identity(program)
     # The fixed PAM entry never authenticates a password and must be installed

@@ -163,6 +163,9 @@ install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
 
 if(BUILD_TESTING)
     find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
+    add_test(NAME profile-networkd-cooperation COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_networkd_cooperation.py -v)
+    set_tests_properties(profile-networkd-cooperation PROPERTIES TIMEOUT 20)
     add_test(NAME profile-account-policy COMMAND ${Python3_EXECUTABLE} -m unittest discover
         -s ${profile_source}/tests -v)
     set_tests_properties(profile-account-policy PROPERTIES TIMEOUT 45)
@@ -192,6 +195,19 @@ if(BUILD_TESTING)
         profile-network-info profile-main-entry profile-main-activation profile-network-service-recovery
         profile-main-network-startup profile-display-manager-partition PROPERTIES TIMEOUT 20)
 endif()
+
+# Separate administrator opt-in. No service reload/restart at installation.
+configure_file("${profile_source}/networkd_entry.in" "${CMAKE_CURRENT_BINARY_DIR}/karyo-networkd-entry" @ONLY)
+configure_file("${profile_source}/networkd_exec.conf.in" "${CMAKE_CURRENT_BINARY_DIR}/networkd_exec.conf" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/karyo-networkd-entry"
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo RENAME networkd-entry COMPONENT profile-networkd-runtime)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/networkd_exec.conf"
+    DESTINATION ${KARYO_SYSTEMD_SYSTEM_UNIT_DIR}/systemd-networkd.service.d
+    RENAME 30-karyo-desktops.conf COMPONENT profile-networkd-runtime)
+install(FILES "${profile_source}/networkd_cooperation.conf"
+    DESTINATION lib/systemd/networkd.conf.d RENAME 30-karyo-desktops.conf COMPONENT profile-networkd-runtime)
+install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-networkd COMPONENT profile-networkd-runtime)
 
 
 # Ordinary, optional role metadata. No policy is installed or activated here.
