@@ -1,12 +1,68 @@
 # Installed family networking checkpoint
 
-Current native scope includes all supported IPv4 provider pair combinations,
-selected NetBird exits, main logout/re-entry, later Experiments and live worker
-recovery. The physical panel and networkd/same-address DHCP results follow here.
-Earlier sections preserve their original narrower actors and package cohorts.
-Browser authentication, ordinary stock GUI/tray use and authenticated late-desktop
-retirement now also pass as described below. Final family/realm retirement, hardware
-Wi-Fi and a different physical interface/gateway are still open.
+Current native scope proves the four ordered IPv4 provider pairs in the table
+below, selected NetBird exits, main logout/re-entry, later Experiments and live
+worker recovery. Browser authentication, ordinary stock GUI/tray use and final
+natural family/realm retirement also pass. The physical panel and DHCP observations
+follow here. Earlier sections preserve their original actors and package cohorts;
+their references to live temporary resources are historical, not current liveness.
+
+| Home | Work | Debian and Ubuntu installed observation |
+| --- | --- | --- |
+| WireGuard | OpenVPN | Accepted |
+| WireGuard | NetBird | Accepted |
+| OpenVPN | NetBird | Accepted |
+| NetBird | NetBird | Accepted |
+| WireGuard | WireGuard | Still to execute |
+| OpenVPN | OpenVPN | Still to execute |
+| OpenVPN | WireGuard | Still to execute |
+| NetBird | WireGuard | Still to execute |
+| NetBird | OpenVPN | Still to execute |
+
+These are coverage boundaries, not unsupported-provider declarations. In
+particular, Work WireGuard must receive its own ordinary installed-client
+observation; mixed results alone do not establish every ordered role combination.
+Hardware Wi-Fi association/authorization and a different physical interface or
+gateway are not established by the VMware wired observations.
+
+
+## Final natural family and realm retirement
+
+Both guests first retire Work through ordinary compositor logout. Captured
+namespace, resolver, provider, host-bus, firewall and scoped user-manager resources
+are absent afterward. Home retains its entire record and successfully performs
+managed DNS, encrypted TCP/UDP to a separate temporary Home peer, and external
+verified HTTPS. The guard uses the captured compositor executable, namespace and
+login scope; an older still-running Shell executable may legitimately be marked
+deleted after package replacement and is not used as logout authority.
+
+The own QA autologin file is removed only against its saved bytes and inode, then
+Home exits naturally without automatically re-entering. All private namespaces,
+firewalls and service processes retire. With LightDM stopped, ordinary main-login
+deactivation restores the exact original PAM files. The explicitly enabled
+networking/socket units are disabled, the private runtime policy is removed and
+the captured original forwarding value is restored. The newly installed global
+vendor service is confirmed inactive and disabled before private policy removal.
+
+The captured settings are restored in order: browser/Experiments state, provider
+settings, then the original family definition. All six own temporary accounts,
+homes and captured private provider state across the two guests are removed;
+original display managers return without QA autologin. Package audit is clean.
+Host DNS and certificate-verified HTTPS still pass after teardown. The temporary
+main password and runtime pointer are removed after saving final receipts.
+
+The separate lab has exactly its six own disconnected registrations. Cleanup
+retires its exact exit-target invocation before the server, verifies the server's
+captured binary/process identity and removes only the owned lab directory,
+temporary credentials, admission files and matching binary. Both listening ports
+are released and host forwarding is unchanged. The cleanup helper recognizes the
+persistent admission file and target receipt explicitly, retaining unknown objects
+for review. Native results and the corrected/invalid carrier traces are preserved
+separately in local evidence. No user VPN credentials enter packages or public code.
+
+This completes retirement of that acceptance family. It does not fill the five
+still-unobserved ordered provider pairs in the table; further tests need fresh
+own temporary families rather than replaying removed accounts or credentials.
 
 ## Stock browser authentication and native tray interactions
 
@@ -398,7 +454,7 @@ connection, then imports and activates either the distribution WireGuard
 backend or OpenVPN NetworkManager plugin with generated temporary credentials.
 No upstream executable is modified and no special DE provider protocol is used.
 
-All four combinations pass on Debian and Ubuntu. Home selects its own VPN
+The WireGuard/NetBird and OpenVPN/NetBird cases pass on both bases. Home selects its own VPN
 default route, resolves its private test name and exchanges encrypted TCP/UDP;
 actual WireGuard handshakes/transfer counters or the OpenVPN TLS peer establish
 tunnel use. It disconnects and reconnects through normal `nmcli`. Meanwhile

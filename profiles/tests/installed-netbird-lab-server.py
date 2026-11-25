@@ -111,9 +111,48 @@ def stop():
     return value
 
 
+def retire_exit_target():
+    path = ROOT / 'exit-target.json'
+    if not path.exists():
+        return
+    node = path.lstat()
+    assert stat.S_ISREG(node.st_mode) and node.st_uid == 0 and node.st_nlink == 1
+    assert stat.S_IMODE(node.st_mode) == 0o600
+    value = json.loads(path.read_text())
+    assert set(value) in ({'unit', 'properties', 'address', 'port'},
+                          {'unit', 'properties', 'address', 'port', 'retired'})
+    unit = 'karyo-qa-netbird-exit-target.service'
+    assert value['unit'] == unit and value['address'] == '192.168.230.163' and value['port'] == 43872
+    original = value['properties']
+    assert original['ControlGroup'] == '/system.slice/' + unit
+    assert re.fullmatch('[a-f0-9]{32}', original['InvocationID'])
+    row = dict(line.split('=', 1) for line in run('systemctl', 'show', unit,
+        '-p', 'LoadState', '-p', 'Transient', '-p', 'InvocationID', '-p', 'MainPID',
+        '-p', 'ControlGroup', '-p', 'ActiveState').splitlines())
+    if row['LoadState'] == 'not-found':
+        assert value.get('retired') is True, 'An uncaptured target disappearance needs review'
+        return
+    assert row['InvocationID'] == original['InvocationID'] and row['Transient'] == 'yes'
+    assert row['ActiveState'] == 'active' and row['MainPID'] == original['MainPID']
+    assert row['ControlGroup'] == original['ControlGroup']
+    pid = int(row['MainPID'])
+    executable = Path('/usr/bin/python3').stat()
+    network = Path('/proc/1/ns/net').stat()
+    start = NativeProcess.read(pid, (executable.st_dev, executable.st_ino), 1000,
+                               row['ControlGroup'], (network.st_dev, network.st_ino))
+    run('systemctl', '--job-mode=fail', 'stop', unit)
+    assert process_gone(pid, start)
+    value['retired'] = True
+    path.write_text(json.dumps(value) + '\n')
+    print('PASS captured own exit target retired', flush=True)
+
+
 def cleanup():
+    idle(); captured()
+    assert set(p.name for p in ROOT.iterdir()) <= {"server", "receipt.json", "control.json", "setup-key",
+                                                 "setup-key-persistent", "exit-target.json"}
+    retire_exit_target()
     value = stop()
-    assert set(p.name for p in ROOT.iterdir()) <= {"server", "receipt.json", "control.json", "setup-key"}
     assert [ROOT.stat().st_dev, ROOT.stat().st_ino] == value["directory"]
     # This exact directory and binary were absent before explicit lab preparation.
     # rmtree uses Linux descriptor-based symlink protection; never follow data links.
