@@ -94,6 +94,20 @@ install(FILES "${profile_source}/karyo-profile-host-runtime.conf"
     RENAME 50-profile-runtime.conf COMPONENT profile-runtime)
 install(FILES "${profile_source}/org.karyo.ProfileNetwork.conf"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/system.d COMPONENT profile-runtime)
+configure_file("${profile_source}/physical_network.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/physical-network" @ONLY)
+configure_file("${profile_source}/org.karyo.PhysicalNetwork.service.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/org.karyo.PhysicalNetwork.service" @ONLY)
+configure_file("${profile_source}/karyo-physical-network.service.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/karyo-physical-network.service" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/physical-network"
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo COMPONENT profile-runtime)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.karyo.PhysicalNetwork.service"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/system-services COMPONENT profile-runtime)
+install(FILES "${profile_source}/org.karyo.PhysicalNetwork.conf"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/system.d COMPONENT profile-runtime)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/karyo-physical-network.service"
+    DESTINATION ${KARYO_SYSTEMD_SYSTEM_UNIT_DIR} COMPONENT profile-runtime)
 install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-runtime COMPONENT profile-runtime)
 
@@ -160,6 +174,8 @@ if(BUILD_TESTING)
         -s ${profile_source}/tests -p test_route_refresh.py -v)
     add_test(NAME profile-provider-recovery COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_provider_recovery.py -v)
+    add_test(NAME profile-physical-network COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_physical_network.py -v)
     add_test(NAME profile-network-info COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_network_info.py -v)
     add_test(NAME profile-main-entry COMMAND ${Python3_EXECUTABLE} -B -m unittest discover

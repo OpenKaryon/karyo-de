@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=org.karyo.PhysicalNetwork
+Exec=@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/physical-network
+User=root
+SystemdService=karyo-physical-network.service

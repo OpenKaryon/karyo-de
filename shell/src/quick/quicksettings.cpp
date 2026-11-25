@@ -15,6 +15,8 @@
 #include <QAbstractButton>
 #include <QCoreApplication>
 #include "wifi.h"
+#include "physical_client.h"
+#include "physical_panel.h"
 #include <karyo/ui/menu.h>
 #include <QCheckBox>
 #include <QLineEdit>
@@ -160,6 +162,16 @@ public:
         });
         heading->addWidget(m_wifi);
         column->addLayout(heading);
+        if (Ui::physicalNetworkManaged()) {
+            m_wifi->hide();m_list->hide();m_action->hide();m_status->hide();
+            m_physicalPanel = new Ui::PhysicalNetworkPanel(this);
+            column->addWidget(m_physicalPanel);
+            connect(m_physicalPanel, &Ui::PhysicalNetworkPanel::geometryChanged, this, m_resize);
+            connect(m_network, &NetworkStatus::changed, this, [this] {
+                if (isVisible()) m_physicalPanel->refresh();
+            });
+            return;
+        }
 
         m_list->setAccessibleName(tr("Network connections"));
         m_list->setFixedHeight(190);
@@ -226,6 +238,7 @@ public:
 
     void refresh()
     {
+        if (m_physicalPanel) { m_physicalPanel->refresh();return; }
         m_wifi->setVisible(m_network->hasWireless());
         m_wifi->setText(m_network->isWirelessEnabled() ? tr("Wi-Fi on") : tr("Wi-Fi off"));
         if (m_refreshing || m_actionPending)
@@ -416,6 +429,7 @@ private:
     NetworkStatus *m_network;
     std::function<void()> m_settings;
     std::function<void()> m_resize;
+    Ui::PhysicalNetworkPanel *m_physicalPanel = nullptr;
     QWidget *m_credentials = nullptr;
     QLineEdit *m_password = nullptr;
     QLabel *m_hint = nullptr;

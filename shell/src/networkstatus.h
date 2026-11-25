@@ -36,4 +36,5 @@ private:
     bool m_connected = false;
     bool m_hasWireless = false;
     bool m_wirelessEnabled = false;
+    bool m_physicalPending = false;
 };

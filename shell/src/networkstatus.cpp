@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "networkstatus.h"
+#include "physical_client.h"
 
 #include <QDBusConnection>
 #include <QDBusMessage>
@@ -7,6 +8,7 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 #include <QDBusVariant>
+#include <QTimer>
 
 namespace {
 const QString NmService = QStringLiteral("org.freedesktop.NetworkManager");
@@ -28,6 +30,12 @@ QDBusPendingCall getProperty(const QString &path, const QString &interface, cons
 NetworkStatus::NetworkStatus(QObject *parent)
     : QObject(parent)
 {
+    if (Karyo::Ui::physicalNetworkManaged()) {
+        auto *poll = new QTimer(this);
+        poll->setInterval(5000);
+        connect(poll, &QTimer::timeout, this, &NetworkStatus::refresh);
+        poll->start();refresh();return;
+    }
     QDBusConnection bus = QDBusConnection::systemBus();
     bus.connect(NmService, NmPath, Properties, QStringLiteral("PropertiesChanged"), this, SLOT(refresh()));
     bus.connect(NmService, NmPath, NmService, QStringLiteral("StateChanged"), this, SLOT(refresh()));
@@ -46,6 +54,11 @@ QString NetworkStatus::glyph() const
 
 void NetworkStatus::setWirelessEnabled(bool enabled)
 {
+    if (Karyo::Ui::physicalNetworkManaged()) {
+        Karyo::Ui::changePhysicalNetwork(this, {{QStringLiteral("operation"), QStringLiteral("radio")},
+            {QStringLiteral("enabled"), enabled}}, [this](const QString &) { refresh(); });
+        return;
+    }
     QDBusMessage call = QDBusMessage::createMethodCall(NmService, NmPath, Properties, QStringLiteral("Set"));
     call << NmService << QStringLiteral("WirelessEnabled") << QVariant::fromValue(QDBusVariant(enabled));
     QDBusConnection::systemBus().asyncCall(call);
@@ -53,6 +66,25 @@ void NetworkStatus::setWirelessEnabled(bool enabled)
 
 void NetworkStatus::refresh()
 {
+    if (Karyo::Ui::physicalNetworkManaged()) {
+        if (m_physicalPending)
+            return;
+        m_physicalPending = true;
+        Karyo::Ui::readPhysicalNetwork(this, [this](const QJsonObject &value, const QString &error) {
+            m_physicalPending = false;
+            const bool connected = error.isEmpty() && value.value(QStringLiteral("connected")).toBool();
+            const QString type = error.isEmpty() ? value.value(QStringLiteral("type")).toString() : m_type;
+            const QString name = error.isEmpty() ? value.value(QStringLiteral("name")).toString() : m_name;
+            const bool wireless = error.isEmpty() ? value.value(QStringLiteral("wireless")).toBool() : m_hasWireless;
+            const bool enabled = error.isEmpty() ? value.value(QStringLiteral("wireless_enabled")).toBool() : m_wirelessEnabled;
+            const bool changed = connected != m_connected || type != m_type || name != m_name
+                || wireless != m_hasWireless || enabled != m_wirelessEnabled;
+            m_connected = connected;m_type = type;m_name = name;m_hasWireless = wireless;m_wirelessEnabled = enabled;
+            if (changed)
+                Q_EMIT this->changed();
+        });
+        return;
+    }
     QDBusMessage call = QDBusMessage::createMethodCall(NmService, NmPath, Properties, QStringLiteral("GetAll"));
     call << NmService;
     auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(call), this);

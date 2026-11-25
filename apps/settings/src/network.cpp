@@ -4,6 +4,8 @@
 #include "pages.h"
 #include "widgets.h"
 #include "wifi.h"
+#include "physical_client.h"
+#include "physical_panel.h"
 #include <QCheckBox>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -26,6 +28,12 @@ public:
     {
         addKeywords({ QStringLiteral("wifi"), QStringLiteral("Wi-Fi"), QStringLiteral("ethernet"),
             QStringLiteral("IP"), QStringLiteral("DNS"), tr("Connections") });
+        if (Karyo::Ui::physicalNetworkManaged()) {
+            column()->addWidget(sectionHeading(tr("Wi-Fi and Ethernet")));
+            m_physical = new Karyo::Ui::PhysicalNetworkPanel(this);
+            column()->addWidget(m_physical);
+            column()->addWidget(sectionHeading(tr("Desktop connections")));
+        }
         m_status = new FactsCard(this);
         column()->addWidget(m_status);
         m_wifiStatus = new QLabel(this);
@@ -75,6 +83,7 @@ public:
         if (m_connecting)
             return;
         ++m_generation;
+        if (m_physical) m_physical->refresh();
         readStatus();
         readConnections();
     }
@@ -349,6 +358,7 @@ private:
     }
 
     quint64 m_generation = 0;
+    Karyo::Ui::PhysicalNetworkPanel *m_physical = nullptr;
     QWidget *m_networkControls, *m_connectionControls;
     FactsCard *m_status;
     SettingRow *m_wifi;

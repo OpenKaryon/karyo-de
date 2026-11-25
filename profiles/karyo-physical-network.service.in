@@ -1,0 +1,15 @@
+[Unit]
+Description=Karyo physical network controls
+After=dbus.service NetworkManager.service
+Requires=dbus.service
+
+[Service]
+Type=dbus
+BusName=org.karyo.PhysicalNetwork
+ExecStart=@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/physical-network
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX
+UMask=0077
+TasksMax=32
+MemoryMax=128M
