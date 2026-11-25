@@ -4,7 +4,9 @@ Status: architecture with incremental implementation and native acceptance.
 Main-account login is implemented and tested as described in
 [main entry validation](VALIDATION_MAIN_ENTRY.md). The independent
 [NetworkManager primitive](VALIDATION_NETWORK_MANAGER.md) passes its native
-service gate, but the full VPN/service environment is not installed or accepted.
+service gate. The [installed family checkpoint](VALIDATION_INSTALLED_FAMILY_NETWORKS.md)
+now accepts automatic private Home/Work entry and mixed stock WireGuard/OpenVPN,
+while the full all-provider/service matrix remains incomplete.
 This plan supersedes the earlier target in which
 the main desktop used the host network and external clients needed a bespoke
 provider lease before any integration could work.
@@ -110,9 +112,10 @@ desktop's independent physical path.
    then stabilize any optional provider transport and client-facing API.
 
 Each step is a reviewable local change with its own functional evidence.
-Current runtime defaults remain unchanged until the new session entry and
-installed acceptance have passed. Distribution/ISO work and unrelated products
-are outside this implementation scope.
+Installing the runtime remains inactive. Explicitly enabled main/child entry now
+prepares private services; completing the remaining installed matrix is required
+before claiming the whole architecture. Distribution/ISO work and unrelated
+products are outside this implementation scope.
 
 ## Acceptance
 
@@ -139,6 +142,5 @@ graphical-session, login-manager or installed-service acceptance.
   Verify captured cleanup, unchanged unrelated settings/data and no orphaned
   provider service. Preserve the existing login/password/lock contract.
 
-The current main-account host context and specialized child NetBird path do not
-meet this complete matrix. No all-desktop or arbitrary-client support is claimed
-by this specification alone.
+The installed Home/Work and mixed-tunnel checkpoint does not meet this complete
+matrix. No arbitrary-client support is claimed by this specification alone.

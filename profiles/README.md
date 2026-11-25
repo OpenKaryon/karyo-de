@@ -2,9 +2,13 @@
 
 The new [per-desktop networking plan](../docs/NETWORK_ISOLATION.md) requires the
 same private network/DNS boundary for the main account and child desktops, with
-unmodified upstream VPNs launched through owned adapters. This is a planned
-extension: the current main session still uses the host network. Historical
-acceptance below describes the existing topology, not this new all-desktop goal.
+unmodified upstream VPNs launched through owned adapters. The explicitly enabled
+runtime now allocates a private NetworkManager and DNS view before both main and
+child entry. Real installed LightDM Home/Work and mixed WireGuard/OpenVPN pass on
+Debian and Ubuntu; NetBird, physical connectivity controls and live worker
+recovery still need joined acceptance. See the [current installed
+checkpoint](../docs/VALIDATION_INSTALLED_FAMILY_NETWORKS.md). Historical evidence
+below describes its own actors and topology rather than completing this goal.
 
 The first implementation slice adds offline main-account network preparation.
 Journal schema 10 records a main entry without inventing an originating child
