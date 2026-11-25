@@ -82,5 +82,8 @@ class DNSRefreshMonitor:
                             self.apply(scope.dns, forwarding=scope.forwarding)
                         changed = self.apply(scope.dns, self.target, forwarding=scope.forwarding)
             self.state(token, "updated" if changed else "current")
-        except (OSError, RuntimeError, ValueError):
-            self.state(token, "update retained; retry deferred")
+        except (OSError, RuntimeError, ValueError) as error:
+            # Preserve a bounded, single-line cause in the journal. A retained
+            # update otherwise gives administrators no way to diagnose it.
+            reason = str(error).replace('\r', ' ').replace('\n', ' ')[:240]
+            self.state(token, "update retained; retry deferred (" + type(error).__name__ + ": " + reason + ")")

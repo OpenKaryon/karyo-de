@@ -150,6 +150,16 @@ class MonitorTests(unittest.TestCase):
         self.monitor.poll(self.profiles, self.store)
         self.read.assert_not_called()
 
+    def test_retained_update_reports_a_bounded_cause_without_repeated_messages(self):
+        self.apply.side_effect = NetworkError('Owned resolver unavailable\n' + 'x' * 400)
+        self.monitor.poll(self.profiles, self.store)
+        self.now = 15
+        self.monitor.poll(self.profiles, self.store)
+        self.assertEqual(len(self.messages), 1)
+        self.assertIn('NetworkError: Owned resolver unavailable ', self.messages[0])
+        self.assertNotIn('\n', self.messages[0])
+        self.assertLess(len(self.messages[0]), 310)
+
     def test_main_pam_entry_participates_without_a_child_graphical_launcher(self):
         del self.scope.graph
         self.scope.is_main = True
