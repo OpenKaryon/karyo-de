@@ -173,6 +173,29 @@ upstream client change was needed. The passing gate deselects its route in a
 finally block. Own realm route/group and target receipts remain captured for
 subsequent combined checks and final retirement.
 
+## Later Experiments entry beside connected Home and Work
+
+The actual graphical public frontend creates and opens a new Experiments child
+after both existing desktops have connected their stock NetBird workers.
+`profiles/tests/installed_late_desktop.py` observes the prepared temporary family
+and its captured continuity units. Experiments starts on VT9, with a distinct
+namespace, resolver and ordinary private NetworkManager. Its generated uplink
+is active, external DNS and verified HTTPS work, and its route stays direct.
+
+On both Debian and Ubuntu, ordinary compositor logout completely retires this
+third graphical context and namespace. The Home and Work journal records remain
+identical, and both already-open encrypted TCP streams carry further payloads;
+managed peer DNS and UDP also continue. Debian observes counters 278/276 before
+the late-desktop probe and 330/328 after retirement; Ubuntu observes 110/108
+and 163/161. Only the matching captured continuity units are stopped afterward.
+The own temporary account/configuration remains for final family cleanup.
+
+The new plain context also confirms the existing IPv4-only policy: IPv6 is
+disabled and there is no IPv6 default route. This result does not add IPv6 VPN
+or underlay support. Physical carrier refresh, mediated physical-network UI,
+provider-specific live recovery, browser/tray flows and final cleanup remain
+separate acceptance work.
+
 Schema 19 adds journaled replacement of a captured, fully retired NetworkManager
 while the graphical owner stays live. Namespace, resolver, private configuration
 and account state are retained. The ordinary host polling loop checks failed
