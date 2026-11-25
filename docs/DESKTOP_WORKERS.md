@@ -92,6 +92,13 @@ The root-installed declaration schema is implemented by worker_declaration.py:
 
     {"version":1,"id":"org.karyo.Fixture","revision":"1.0-1",
      "argv":["/usr/libexec/karyo/worker-fixture","--serve"],
+     "recover_argv":["/usr/libexec/karyo/worker-fixture","--recover"],
+     "resources":{"interfaces":["karyo-fixture0"],
+       "route_tables":[{"family":"ipv4","table":42000}],
+       "rule_tables":[{"family":"ipv4","table":42000}],
+       "route_protocols":[{"family":"ipv4","table":254,"protocol":200},
+                          {"family":"ipv6","table":254,"protocol":200}],
+       "nft_tables":[["inet","karyo_fixture"]]},
      "capabilities":["CAP_NET_ADMIN","CAP_NET_RAW"],
      "ready_seconds":5,"cleanup_seconds":30,"stop_application":true}
 
@@ -264,3 +271,29 @@ durable multi-worker collection, owned network-resource receipts and recovery,
 real GUI TUN/transport retirement and Home/Work provider payload acceptance remain
 open. The bootstrap used by this fixture is an implementation subset, not the
 final adapter schema. External adapters must still retain unsupported mode.
+
+
+### Declared cleanup selectors
+
+The root-installed declaration also fixes a recovery executable/argv and named
+resource selectors. Interface names exclude the base lo/eth0 devices. Whole
+route-table/rule-lookup claims have an explicit IPv4/IPv6 family; partial route
+protocol selectors include family and table. Kernel base tables cannot be
+claimed wholesale. Nft selectors identify a family/table pair without exposing
+rules, sets or private application protocols to the broker.
+
+Check these selectors before a new launch and after retirement. A link disappearing
+is not cleanup: independent IPv6 unreachable routes, marked policy routing and
+nft tables can remain. Native fixtures on both bases create only their own
+reserved documentation-prefix routes, a private policy rule and an empty nft
+table. After TUN closure the owner still observes both route families and all
+other claimed objects; only the completed cleanup makes the selectors absent.
+No foreign route or physical connection is changed by that fixture.
+
+The helper's state/runtime are ephemeral per worker lifetime. Journaled removal
+must record intent separately for runtime, state, prepared and control objects.
+A replay may accept the exact planned item already gone; a different inode is
+retained. This is separate from the user's application configuration and keys.
+Recovery launches get a fresh worker instance and can reference only a captured
+prior state directory in the same desktop. The serving mode cannot adopt another
+instance's state. Production recovery wiring and joined acceptance remain open.

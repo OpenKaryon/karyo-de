@@ -32,7 +32,7 @@ def source(instance):
     finally:
         os.close(parent)
     value = json.loads(text, object_pairs_hook=unique_object)
-    if (not isinstance(value, dict) or value.get('version') != 1
+    if (not isinstance(value, dict) or type(value.get('version')) is not int or value['version'] != 1
             or value.get('role') != 'managed-worker-bootstrap'
             or value.get('worker', {}).get('id') != instance
             or value['worker'].get('unit') != 'karyo-desktop-worker-'+instance+'.service'):
@@ -58,7 +58,13 @@ def verify_view(value, instance):
     desktop = value['desktop']['id']
     if not isinstance(desktop, str) or re.fullmatch('[a-f0-9]{32}', desktop) is None:
         raise PermissionError('The worker has no desktop lifetime')
-    paths = {'runtime': RUNTIME/'instances'/instance, 'state': STATE/desktop/instance}
+    mode = value['worker'].get('mode', 'serve')
+    state_instance = value['worker'].get('recovery_from', instance)
+    if mode not in {'serve', 'recover'} or re.fullmatch('[a-f0-9]{32}', state_instance) is None:
+        raise PermissionError('The worker has an invalid launch role')
+    if mode == 'serve' and state_instance != instance:
+        raise PermissionError('A serving worker cannot adopt another instance state')
+    paths = {'runtime': RUNTIME/'instances'/instance, 'state': STATE/desktop/state_instance}
     for role, path in paths.items():
         recorded = directories[role]
         if recorded['path'] != str(path):
@@ -94,7 +100,7 @@ def enter(instance):
     if os.getuid() != 0 or os.geteuid() != 0:
         raise PermissionError('Only the prepared root worker service may enter')
     data, value = source(instance)
-    if os.getgid() != value['gui']['gid'] or os.getegid() != value['gui']['gid']:
+    if os.getgid() != value['context']['service_gid'] or os.getegid() != value['context']['service_gid']:
         raise PermissionError('The worker requires its captured private service group')
     address = verify_view(value, instance)
     declaration = InstalledDeclaration.capture(value['declaration']['id'])
@@ -118,8 +124,9 @@ def enter(instance):
                 os.dup2(lifecycle, 4, inheritable=True)
                 environment = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C.UTF-8',
                                'DBUS_SYSTEM_BUS_ADDRESS': address}
-                os.execve(declaration.declaration.arguments[0],
-                          declaration.declaration.arguments, environment)
+                arguments = (declaration.declaration.recovery_arguments if value['worker'].get('mode') == 'recover'
+                             else declaration.declaration.arguments)
+                os.execve(arguments[0], arguments, environment)
             finally:
                 os.close(lifecycle)
         finally:

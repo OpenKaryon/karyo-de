@@ -29,6 +29,12 @@ def probe(context):
     entry.chmod(0o755)
     declaration = {'version': 1, 'id': 'org.karyo.Fixture', 'revision': '1.0-1',
         'argv': ['/usr/bin/python3', '-I', str(folder/'native_worker_fixture.py')],
+        'recover_argv': ['/usr/bin/python3', '-I', str(folder/'native_worker_fixture.py'), '--recover'],
+        'resources': {'interfaces':['karyo-fixture0'],
+            'route_tables':[{'family':'ipv4','table':42000}],
+            'rule_tables':[{'family':'ipv4','table':42000}],
+            'route_protocols':[{'family':'ipv4','table':254,'protocol':200},{'family':'ipv6','table':254,'protocol':200}],
+            'nft_tables':[['inet','karyo_fixture']]},
         'capabilities': ['CAP_NET_ADMIN', 'CAP_NET_RAW'], 'ready_seconds': 5,
         'cleanup_seconds': 10, 'stop_application': True}
     declaration_data = (json.dumps(declaration)+'\n').encode()
@@ -46,6 +52,7 @@ def probe(context):
         with context.scope.network.network.store.locked():
             context.verify()
             installed = InstalledDeclaration.capture('org.karyo.Fixture')
+            installed.declaration.resources.absent(context.scope.network.network)
             files = WorkerFiles(context, instance).prepare()
             plan = context.scope.dns.files.plan
             value = {'version': 1, 'role': 'managed-worker-bootstrap',
@@ -57,7 +64,7 @@ def probe(context):
                            'unit': 'karyo-desktop-worker-'+instance+'.service'},
                 'declaration': {'id': installed.declaration.identifier,
                                 'revision': installed.declaration.revision, 'sha256': installed.digest},
-                'context': {'network': list(context.scope.network.network.identity),
+                'context': {'service_gid':plan.gid,'network': list(context.scope.network.network.identity),
                     'user': list(context.origin.identity.user),
                     'resolver': {'directory': list(context.resolver_node)},
                     'bus': {'address': plan.bus_address, 'socket': list(context.resolver_bus_node)}},
@@ -72,10 +79,14 @@ def probe(context):
             with channel:
                 channel.settimeout(8)
                 pid, uid, gid = struct.unpack('3i', channel.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
-                assert (pid, uid, gid) == (unit.identity.pid, 0, context.origin.identity.gid)
+                assert (pid, uid, gid) == (unit.identity.pid, 0, plan.gid)
                 ready = json.loads(channel.recv(65536))
                 assert ready['event'] == 'ready' and ready['network'] == value['context']['network']
                 unit.verify()
+                observed = installed.declaration.resources.present(context.scope.network.network)
+                assert observed['interfaces'] == ['karyo-fixture0']
+                assert all(observed.values())
+                assert len(observed['route_protocols']) == 2
                 assert ready['mount'] == list(node('/proc/'+str(pid)+'/ns/mnt'))
                 assert ready['resolver'] == value['context']['resolver']['directory']
                 assert ready['bus'] == value['context']['bus']['socket']
@@ -83,17 +94,24 @@ def probe(context):
                 assert unit.consumer_pids() == {pid}
                 channel.send(json.dumps({'version': 1, 'operation': 'retire',
                                         'instance': instance, 'generation': 1}).encode())
+                assert json.loads(channel.recv(4096)) == {'version':1,'event':'link_closed'}
+                partial = installed.declaration.resources.present(context.scope.network.network)
+                assert partial['interfaces'] == [] and len(partial['route_protocols']) == 2
+                assert partial['route_tables'] and partial['rule_tables'] and partial['nft_tables']
+                channel.send(json.dumps({'version':1,'operation':'finish_cleanup'}).encode())
                 retired = json.loads(channel.recv(4096))
                 assert retired == {'version': 1, 'event': 'retired', 'state': 'clean'}
             assert unit.process.exited(unit.pidfd, 5)
             unit.close()
             assert context.scope.network.network._ip('-j', 'link', 'show', inside=True) == baseline
             context.verify()
+            installed.declaration.resources.absent(context.scope.network.network)
             files.verify()
             result = {'native_declaration_unit': True, 'private_worker_netns_and_mount': True,
                 'private_resolver_bus_and_file': True, 'sealed_bootstrap_fd3': True,
                 'owner_control_fd4': True, 'temporary_tun_created_and_retired': True,
-                'original_links_preserved': True, 'owned_cgroup_retired': True,
+                'original_links_preserved': True, 'declared_resource_cleanup_checked': True,
+                'ipv4_ipv6_routes_rules_and_nft_observed_after_tun_close': True, 'owned_cgroup_retired': True,
                 'production_broker_or_journal_implemented': False}
             intent.write_text(json.dumps({'instance':instance,'desktop':context.desktop_token,
                 'unit':unit.name,'invocation':unit.identity.invocation,'phase':'accepted'})+'\n')
@@ -107,12 +125,20 @@ def probe(context):
         if completed:
             with context.scope.network.network.store.locked():
                 files.verify()
-                files.prepared.unlink()
-                files.control.unlink()
-                files.runtime.rmdir()
-                files.state.rmdir()
+                receipt = files.receipt()
+                intent.write_text(json.dumps({'instance':instance,'desktop':context.desktop_token,
+                    'unit':unit.name,'invocation':unit.identity.invocation,'phase':'remove-runtime',
+                    'files':receipt})+'\n')
+                files.retire_item('runtime')
+                replay = WorkerFiles.restore(context.scope, instance, receipt, partial=True)
+                assert not replay.retire_item('runtime', missing_ok=True)
+                for kind in ('state','prepared','control'):
+                    intent.write_text(json.dumps({'instance':instance,'desktop':context.desktop_token,
+                        'phase':'remove-'+kind,'files':receipt})+'\n')
+                    replay.retire_item(kind)
                 if not list(files.state.parent.iterdir()):
                     files.state.parent.rmdir()
+                result['file_removal_replay'] = True
         if completed or unit is None:
             assert entry.read_bytes() == entry_data and declaration_path.read_bytes() == declaration_data
             entry.unlink()

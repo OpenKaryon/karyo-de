@@ -50,7 +50,7 @@ class WorkerContext:
         value.verify()
         return value
 
-    def verify(self):
+    def verify(self, *, require_active=True):
         scope = self.scope
         host_controller()
         if not scope.network.network.store._locked:
@@ -67,7 +67,7 @@ class WorkerContext:
             raise PermissionError('The bound desktop/application lifetime changed')
         login = scope.login() if getattr(scope, 'is_main', False) else scope.graph.identity.login
         active = scope.manager.sessions.get(login.id)
-        if (active is None or not active.active or active.locked or active.uid != account.uid
+        if (active is None or require_active and (not active.active or active.locked) or active.uid != account.uid
                 or active.name != account.name):
             raise PermissionError('The bound desktop is not active and unlocked')
         root = Path('/proc', str(process.pid), 'root')

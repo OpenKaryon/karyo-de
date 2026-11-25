@@ -41,7 +41,7 @@ class EnteredProcess(NativeProcess):
 
 
 class DeclaredUnit(OwnedUnit):
-    def __init__(self, context, declaration, instance):
+    def __init__(self, context, declaration, instance, *, recovery=False):
         if (not isinstance(declaration, InstalledDeclaration) or not isinstance(instance, str)
                 or re.fullmatch('[a-f0-9]{32}', instance) is None):
             raise ValueError('A captured package declaration and worker instance are required')
@@ -51,9 +51,11 @@ class DeclaredUnit(OwnedUnit):
         self.context, self.declaration, self.instance = context, declaration, instance
         self.store, self.spec, self.role, self.uid = network.store, network.spec, 'desktop-worker', 0
         self.name = 'karyo-desktop-worker-' + instance + '.service'
-        self.program = declaration.declaration.arguments[0]
+        self.recovery = recovery
+        self.arguments = (declaration.declaration.recovery_arguments if recovery else declaration.declaration.arguments)
+        self.program = self.arguments[0]
         self.command, self.network = network.command, network.identity
-        self.process = EnteredProcess(instance, declaration.declaration.ready_seconds, declaration.declaration.arguments)
+        self.process = EnteredProcess(instance, declaration.declaration.ready_seconds, self.arguments)
         self.host_guard = host_controller
         self.identity = self.executable = self.pidfd = None
         self.attempted = self.closed = False
@@ -61,13 +63,17 @@ class DeclaredUnit(OwnedUnit):
 
     def guard(self):
         super().guard()
-        self.declaration.verify()
-        if program_identity(ENTRY) != self.entry_identity:
-            raise ServiceError('The installed worker entry changed')
+        if not self.attempted:
+            self.declaration.verify()
+            if program_identity(ENTRY) != self.entry_identity:
+                raise ServiceError('The installed worker entry changed')
 
     def execution_command(self, arguments):
         if arguments:
             raise ValueError('A desktop worker has no runtime execution arguments')
+        self.declaration.verify()
+        if program_identity(ENTRY) != self.entry_identity:
+            raise ServiceError('The installed worker entry changed before launch')
         return (ENTRY, self.instance)
 
     def stop_seconds(self):
@@ -75,7 +81,7 @@ class DeclaredUnit(OwnedUnit):
 
     def capture_executable(self):
         self.declaration.verify()
-        return self.declaration.executable
+        return self.declaration.recovery_executable if self.recovery else self.declaration.executable
 
     def launch_properties(self, files):
         # The owner supplies captured objects, never GUI-selected paths.

@@ -34,9 +34,25 @@ def main():
     # This adds only a namespace-local temporary link. It configures no route,
     # DNS upstream, physical interface, host service or application credentials.
     tun = os.open('/dev/net/tun', os.O_RDWR | os.O_CLOEXEC)
+    undo = []
+    def create(command, cleanup):
+        subprocess.run(command, check=True, capture_output=True, timeout=5)
+        undo.append(cleanup)
     try:
         name = b'karyo-fixture0'
         fcntl.ioctl(tun, 0x400454ca, struct.pack('16sH22x', name, 0x0001 | 0x1000 | 0x8000))
+        for family, prefix in (('-4', '203.0.113.0/24'), ('-6', '2001:db8:abcd::/64')):
+            route = ['unreachable', prefix, 'proto', '200', 'metric', '42000']
+            create(['/usr/sbin/ip', family, 'route', 'add', *route],
+                   ['/usr/sbin/ip', family, 'route', 'del', *route])
+        route = ['unreachable', '198.51.100.0/24', 'table', '42000']
+        create(['/usr/sbin/ip', '-4', 'route', 'add', *route],
+               ['/usr/sbin/ip', '-4', 'route', 'del', *route])
+        rule = ['fwmark', '0x123400', 'table', '42000', 'priority', '20000']
+        create(['/usr/sbin/ip', '-4', 'rule', 'add', *rule],
+               ['/usr/sbin/ip', '-4', 'rule', 'del', *rule])
+        create(['/usr/sbin/nft', 'add', 'table', 'inet', 'karyo_fixture'],
+               ['/usr/sbin/nft', 'delete', 'table', 'inet', 'karyo_fixture'])
         dns = subprocess.run(['/usr/bin/resolvectl', 'status'], capture_output=True,
                              text=True, timeout=5)
         assert dns.returncode == 0, dns.stderr
@@ -50,8 +66,15 @@ def main():
         retire = json.loads(channel.recv(4096))
         assert retire == {'version': 1, 'operation': 'retire',
                           'instance': bootstrap['worker']['id'], 'generation': 1}
-    finally:
         os.close(tun)
+        tun = None
+        channel.send(json.dumps({'version': 1, 'event': 'link_closed'}).encode())
+        assert json.loads(channel.recv(4096)) == {'version': 1, 'operation': 'finish_cleanup'}
+    finally:
+        if tun is not None:
+            os.close(tun)
+        for command in reversed(undo):
+            subprocess.run(command, check=True, capture_output=True, timeout=5)
     assert Path('/etc/resolv.conf').read_text() == baseline
     channel.send(json.dumps({'version': 1, 'event': 'retired', 'state': 'clean'}).encode())
     channel.close()
