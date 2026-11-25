@@ -113,6 +113,8 @@ def stat_start(pid):
 def verify_namespace_consumers(scope, roots, verify):
     """Inspect the captured login/manager cgroups without inventing a launcher."""
     verify()
+    workers = getattr(scope,'workers',None)
+    if workers is not None:roots += workers.consumer_roots()
     resolver=scope.dns.services.resolver.identity.pid
     for observer in (scope.provider, getattr(scope, 'network_service', None), getattr(scope, 'host_bus', None)):
         if observer is not None and not observer.scope.unit.closed:
@@ -143,6 +145,7 @@ def verify_namespace_consumers(scope, roots, verify):
             verify()
             for observer in (scope.provider, getattr(scope, 'network_service', None), getattr(scope, 'host_bus', None)):
                 if observer is not None and not observer.scope.unit.closed:observer.verify()
+            if workers is not None:workers.consumer_roots()
             return
         except (FileNotFoundError,ProcessLookupError):
             if attempt==2 or time.monotonic()>=deadline:raise JournalRetained("Namespace process churn did not settle") from None

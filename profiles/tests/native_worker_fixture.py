@@ -1,17 +1,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Neutral managed entry fixture; fixed FD3 bootstrap and FD4 lifecycle."""
 import fcntl
+import hashlib
+import select
 import json
 import os
 from pathlib import Path
 import socket
 import struct
 import subprocess
+import sys
+
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
+from karyo_profiles.worker_control import receive, send
 
 
 def node(path):
     value = os.stat(path)
-    return [value.st_dev, value.st_ino]
+    return [str(value.st_dev), str(value.st_ino)]
 
 
 def main():
@@ -31,6 +37,25 @@ def main():
     assert node('/run/systemd/resolve') == bootstrap['context']['resolver']['directory']
     assert not Path('/run/systemd/private').exists()
     baseline = Path('/etc/resolv.conf').read_text()
+    def packet(kind,value):
+        return {'version':1,kind:value,'instance':bootstrap['worker']['id'],'generation':'1'}
+    recovery = bootstrap['worker']['mode'] == 'recover'
+    listener = None
+    if not recovery:
+        listener = socket.socket(socket.AF_UNIX,socket.SOCK_SEQPACKET|socket.SOCK_CLOEXEC)
+        listener.bind(bootstrap['directories']['endpoint'])
+        os.chmod(bootstrap['directories']['endpoint'],0o660)
+        listener.listen(1)
+    send(channel,packet('event','ready'),None if listener is None else listener.fileno())
+    initial = receive(channel)[0]
+    if initial == packet('operation','retire'):
+        send(channel,dict(packet('event','retired'),state='clean'))
+        assert receive(channel)[0] == packet('operation','finish')
+        if listener is not None:listener.close()
+        channel.close()
+        return
+    assert initial == packet('operation','commit')
+
     # This adds only a namespace-local temporary link. It configures no route,
     # DNS upstream, physical interface, host service or application credentials.
     tun = os.open('/dev/net/tun', os.O_RDWR | os.O_CLOEXEC)
@@ -56,27 +81,44 @@ def main():
         dns = subprocess.run(['/usr/bin/resolvectl', 'status'], capture_output=True,
                              text=True, timeout=5)
         assert dns.returncode == 0, dns.stderr
-        ready = {'version': 1, 'event': 'ready', 'pid': os.getpid(),
-                 'network': node('/proc/self/ns/net'), 'mount': node('/proc/self/ns/mnt'),
-                 'resolver': node('/run/systemd/resolve'), 'bus': node('/run/dbus/system_bus_socket'),
-                 'bootstrap_sealed': True, 'owner_peer': True,
-                 'tun_created': name.decode(), 'private_resolvectl': True,
-                 'host_service_socket_absent': True, 'resolver_file': baseline}
-        channel.send(json.dumps(ready).encode())
-        retire = json.loads(channel.recv(4096))
-        assert retire == {'version': 1, 'operation': 'retire',
-                          'instance': bootstrap['worker']['id'], 'generation': 1}
+        send(channel,packet('event','committed'))
+        try:
+            while True:
+                readable,unused,unused = select.select([channel,listener],[],[])
+                if channel in readable:
+                    retire = receive(channel)[0]
+                    break
+                if listener in readable:
+                    connection,unused = listener.accept()
+                    with connection:
+                        connection.settimeout(3)
+                        peer = struct.unpack('3i',connection.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
+                        gui = bootstrap['gui']
+                        assert peer == (gui['pid'],gui['uid'],gui['gid'])
+                        start = Path('/proc',str(peer[0]),'stat').read_text().rpartition(') ')[2].split()[19]
+                        assert start == gui['start']
+                        assert receive(connection)[0] == {'operation':'bootstrap-digest'}
+                        send(connection,{'prepared_sha256':hashlib.sha256(data).hexdigest()})
+        except ValueError:
+            if '--leave-routes-on-owner-loss' in sys.argv:
+                os._exit(17)  # Own normal crash/recovery fixture, not a host fault.
+            raise
+        assert retire == packet('operation','retire')
         os.close(tun)
         tun = None
-        channel.send(json.dumps({'version': 1, 'event': 'link_closed'}).encode())
-        assert json.loads(channel.recv(4096)) == {'version': 1, 'operation': 'finish_cleanup'}
+        if '--control-exercise' in sys.argv:
+            send(channel,packet('event','link_closed'))
+            assert receive(channel)[0] == packet('operation','finish_cleanup')
     finally:
         if tun is not None:
             os.close(tun)
         for command in reversed(undo):
             subprocess.run(command, check=True, capture_output=True, timeout=5)
     assert Path('/etc/resolv.conf').read_text() == baseline
-    channel.send(json.dumps({'version': 1, 'event': 'retired', 'state': 'clean'}).encode())
+    send(channel,dict(packet('event','retired'),state='clean'))
+    assert receive(channel)[0] == packet('operation','finish')
+    if listener is not None:
+        listener.close()
     channel.close()
 
 

@@ -39,17 +39,18 @@ policy mode.
 
 Only the fixed root service owns org.karyo.DesktopWorkers1. The GUI calls directly
 from the process which owns its transport; a gdbus, pkexec or other child would
-bind the wrong caller. The mediator and root profile owner independently resolve
-the original unique sender's native bus credentials, capture PID/start/pidfd and
+bind the wrong caller. The D-Bus object lives in the root profile owner itself. That owner resolves
+the original unique sender's native bus credentials, captures PID/start/pidfd and
 the actual application cgroup, and match the current captured desktop network,
 private resolver mounts and user-manager lifetime. A claimed PID, environment
 variable or diagnostic network-info record is never that identity.
 
 Applications in independent user-manager app scopes are supported; membership
-in a login session-N.scope is not required. The mediator uses native polkit
+in a login session-N.scope is not required. The owner uses native polkit
 system-bus-name authorization for that real sender, then revalidates the caller
-before forwarding to the owner and again before publication. A client binds the
-activation to the root unique mediator owner and current bus ID, watching owner
+after authorization and again before publication. No forwarded PID RPC or second
+mediator credential domain is involved. A client binds the
+activation to the root unique profile owner and current bus ID, watching owner
 loss throughout the operation. Inspection records and seals are not authority.
 
 ## D-Bus surface
@@ -115,17 +116,22 @@ The prepared record is immutable before exec; it is never rewritten into a final
 record while consumers can read it.
 
 The prepared schema has version=1, role=managed-worker-bootstrap and the fields
-below. Identity pairs mean positive kernel device/inode values; process identity
+below. The concrete record factory is profiles/karyo_profiles/worker_wire.py.
+All 64-bit values (device/inode pairs, process start ticks and generations) use
+canonical positive decimal strings, without leading zeroes. This avoids rounding
+in clients whose JSON number representation uses doubles. UID/GID/PID, version,
+mode and bounded timeouts remain JSON integers; D-Bus generation remains type t.
+Identity pairs mean positive kernel device/inode values; process identity
 means PID/start ticks, executable identity and cgroup path plus identity pair.
 Opaque IDs are 32 lowercase hexadecimal characters, never bearer credentials.
 
 | Field | Meaning |
 | --- | --- |
-| owner | boot ID, controller epoch, system bus ID and mediator unique owner |
+| owner | boot ID, controller epoch, system bus ID and root profile unique owner |
 | desktop | opaque lifetime ID and positive generation |
 | worker | instance ID, positive generation, random prepared unit name |
 | declaration | ID, revision and SHA256 of installed declaration |
-| context | network and GUI source-mount identities; private resolver/bus objects and worker mount-plan digest |
+| context | network, user namespace and GUI source-mount identities; captured private resolver/bus objects and service GID |
 | gui | actual UID/GID, process identity and captured carrier app scope |
 | directories | root-owned state/runtime identities and provider endpoint location |
 | cleanup | declared bounded deadline and owner lifecycle policy |
@@ -154,7 +160,14 @@ The provider's existing listening socket/IPC remains its own protocol.
 The worker reports ready through FD4 only after its endpoint is listening. The
 owner revalidates the caller, declaration, desktop generation and actual worker
 PID/start/pidfd, executable, unit invocation/cgroup and endpoint node/context.
-Only then does Activate return a separately sealed activation record FD.
+The worker sends exactly one duplicate listening socket descriptor using
+SCM_RIGHTS with ready. The owner verifies AF_UNIX/SOCK_SEQPACKET, SO_ACCEPTCONN,
+getsockname, the listener creator's actual worker PID/UID/GID, and the root-owned
+0660 endpoint node. The owner verifies private resolver/bus/runtime/state mounts
+through the actual captured process, rather than accepting self-reported nodes.
+After final caller revalidation it sends commit; the worker acknowledges committed.
+Before commit, the worker must not accept application operations or change network
+resources. Only then does Activate return a separately sealed activation record FD.
 
 The prepared record cannot contain a not-yet-created worker mount namespace
 identity. Its mount plan is fixed; the owner verifies actual worker mounts against
@@ -297,3 +310,50 @@ retained. This is separate from the user's application configuration and keys.
 Recovery launches get a fresh worker instance and can reference only a captured
 prior state directory in the same desktop. The serving mode cannot adopt another
 instance's state. Production recovery wiring and joined acceptance remain open.
+
+
+### Concrete lifecycle records checkpoint
+
+The bounded FD4 protocol is implemented by worker_control.py, separate from the
+provider's GUI transport. Every record has exactly version=1, instance (32 hex),
+generation (decimal string), and one event or operation name. A retired event
+also has state=clean, busy or failure. Records are UTF-8 JSON objects, at most
+4096 bytes, with duplicate keys/trailing input rejected. Unknown descriptors,
+truncated messages and unexpected lifecycle phases are errors.
+
+The ordinary sequence is ready (+one listening FD), commit, committed, retire,
+retired, finish. Recovery uses ready without a listening FD. Only the owner's
+finish permits a worker to end its completed lifecycle after independent resource
+observation. Owner EOF must force scoped retirement and cleanup; it must never
+preserve a reconnect guard. An application channel cannot send owner lifecycle
+messages. Cancellation before commit prevents application operations; a late
+result is not permission to publish.
+
+The immutable prepared object contains owner boot_id/epoch/bus_id/bus_owner and
+PID/start; desktop id/generation and captured manager; worker id/generation/mode/
+unit/recovery_from; declaration id/revision/sha256; context network/user/gui_mount/
+service_gid/resolver/bus; actual gui identity; directories runtime/state/endpoint;
+and cleanup ready_seconds/cleanup_seconds/stop_application. Directory objects have
+path and node; resolver/bus objects also carry native invocation/PID/start.
+
+The final object copies this binding, changes role to managed-worker-activation,
+adds request and prepared_sha256, worker.process (PID/start/UID/GID/executable/
+network/mount/cgroup/cgroup_node/invocation) and endpoint (path/node/UID/GID/mode).
+It is a new sealed memfd, not a mutation of FD3. Serving workers cannot use another
+instance's state; recovery has a new instance and a captured same-desktop prior
+state. Service GID permits private resolver access and can differ from GUI GID.
+
+Native Debian and Ubuntu placement experiments passed the full factory-generated
+prepared/final record, listening-FD proof and pre-commit resource absence. They
+also passed post-commit resources and retirement observation. Worker cgroups are
+included in namespace consumer checks only through captured registered observers.
+These are primitive placement checks, not installed D-Bus/polkit or durable
+collection acceptance. The external managed adapter must remain disabled.
+
+
+The prepared_sha256 field is the SHA256 of the exact FD3 bytes, including the
+prepared publication's final line feed. The entry seals the original validated
+UTF-8 bytes; it does not reserialize the parsed object. A client or worker must
+hash those bytes directly, without reproducing another language's JSON format.
+The native Debian application/worker fixture has compared the raw FD3 digest
+through its actual private socket with the digest in the final activation FD.

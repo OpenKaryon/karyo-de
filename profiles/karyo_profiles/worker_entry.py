@@ -15,6 +15,7 @@ from .storage import trusted_directory
 from .worker_declaration import InstalledDeclaration
 from .worker_files import RUNTIME, STATE
 from .worker_origin import node
+from .worker_wire import pair, integer, sealed_bytes
 
 
 def process_start(pid):
@@ -45,21 +46,21 @@ def verify_view(value, instance):
     if Path('/proc/self/cgroup').read_text().splitlines() != [expected_group]:
         raise PermissionError('The worker requires its fixed prepared service')
     context = value['context']
-    if (list(node('/proc/self/ns/net')) != context['network']
-            or list(node('/proc/self/ns/user')) != context['user']
-            or list(node('/run/systemd/resolve')) != context['resolver']['directory']
-            or list(node('/run/dbus/system_bus_socket')) != context['bus']['socket']):
+    if (node('/proc/self/ns/net') != pair(context['network'])
+            or node('/proc/self/ns/user') != pair(context['user'])
+            or node('/run/systemd/resolve') != pair(context['resolver']['directory'])
+            or node('/run/dbus/system_bus_socket') != pair(context['bus']['socket'])):
         raise PermissionError('The worker launch context differs from its owner')
     address = context['bus']['address']
     if (not isinstance(address, str) or not address.startswith('unix:path=/run/')
-            or list(node(address.removeprefix('unix:path='))) != context['bus']['socket']):
+            or node(address.removeprefix('unix:path=')) != pair(context['bus']['socket'])):
         raise PermissionError('The worker has no captured private resolver bus')
     directories = value['directories']
     desktop = value['desktop']['id']
     if not isinstance(desktop, str) or re.fullmatch('[a-f0-9]{32}', desktop) is None:
         raise PermissionError('The worker has no desktop lifetime')
     mode = value['worker'].get('mode', 'serve')
-    state_instance = value['worker'].get('recovery_from', instance)
+    state_instance = value['worker'].get('recovery_from') or instance
     if mode not in {'serve', 'recover'} or re.fullmatch('[a-f0-9]{32}', state_instance) is None:
         raise PermissionError('The worker has an invalid launch role')
     if mode == 'serve' and state_instance != instance:
@@ -72,7 +73,7 @@ def verify_view(value, instance):
         descriptor = trusted_directory(path)
         try:
             info = os.fstat(descriptor)
-            if [info.st_dev, info.st_ino] != recorded['node']:
+            if (info.st_dev, info.st_ino) != pair(recorded['node']):
                 raise PermissionError('The captured worker instance directory changed')
         finally:
             os.close(descriptor)
@@ -86,7 +87,7 @@ def control_channel(value, instance):
         channel.connect(str(RUNTIME/'control'/instance))
         pid, uid, gid = struct.unpack('3i', channel.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
         owner = value['owner']
-        if (uid != 0 or gid != 0 or pid != owner['pid'] or process_start(pid) != owner['start']
+        if (uid != 0 or gid != 0 or pid != owner['pid'] or process_start(pid) != integer(owner['start'])
                 or Path('/proc/sys/kernel/random/boot_id').read_text().strip() != owner['boot_id']):
             raise PermissionError('The worker control channel is not its captured owner')
         channel.settimeout(None)
@@ -108,12 +109,8 @@ def enter(instance):
             or declaration.declaration.revision != value['declaration']['revision']):
         raise PermissionError('The prepared package declaration changed')
     channel = control_channel(value, instance)
-    descriptor = os.memfd_create('karyo-worker-bootstrap', os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+    descriptor = sealed_bytes(data)
     try:
-        os.write(descriptor, data)
-        os.lseek(descriptor, 0, os.SEEK_SET)
-        fcntl.fcntl(descriptor, fcntl.F_ADD_SEALS, fcntl.F_SEAL_SEAL | fcntl.F_SEAL_WRITE |
-                    fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK)
         # Reserve high descriptors before assigning either protocol slot.
         bootstrap = fcntl.fcntl(descriptor, fcntl.F_DUPFD_CLOEXEC, 10)
         try:
