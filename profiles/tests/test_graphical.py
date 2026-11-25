@@ -60,7 +60,7 @@ class Kernel:
         self.present=False;self.scope=False;self.alive=False;self.calls=[];self.owners=[]
         self.invocation="ab"*16;self.scope_invocation="cd"*16;self.pid="345"
         self.sessions={"s1":Session("s1","home",1001,8,True)}
-        self.events=[];self.failure=False;self.closed=[]
+        self.events=[];self.failure=False;self.closed=[];self.abandoned=False
     def run(self,*args,**kwargs):
         self.calls.append(args)
         if args[0].endswith("systemd-run"):
@@ -69,10 +69,16 @@ class Kernel:
             if self.failure:raise TimeoutError("Lost acknowledgement")
             return ""
         if args[0]=="terminate-session":
-            self.events.append("terminate:"+args[1]);self.scope=self.alive=False
+            self.events.append("terminate:"+args[1])
+            if self.abandoned:return ""
+            self.scope=self.alive=False
             self.owners[:]=[MANAGER];self.sessions.pop("c1",None);return ""
         if "stop" in args:
-            self.present=False;return ""
+            if args[-1]=="session-c1.scope":
+                self.events.append("stop-scope:"+args[-1]);self.scope=False
+                self.owners[:]=[MANAGER];self.sessions.pop("c1",None)
+            else:self.present=False
+            return ""
         scope=args[2].startswith("session-")
         present=self.scope if scope else self.present
         rows=dict(LoadState="loaded" if present else "not-found",
@@ -188,6 +194,15 @@ class GraphicalTest(unittest.TestCase):
         self.start();self.kernel.alive=False
         self.lease.close()
         self.assertEqual(self.kernel.events,["terminate:c1"])
+
+    def test_natural_exit_finishes_abandoned_scope_without_stopping_user_manager(self):
+        self.start();self.kernel.alive=False;self.kernel.abandoned=True
+        self.kernel.owners[0]=replace(LOGIN,state="closing")
+        self.lease.close()
+        self.assertEqual(self.kernel.events,["terminate:c1","stop-scope:session-c1.scope"])
+        self.assertEqual(self.kernel.owners,[MANAGER])
+        self.assertTrue(self.lease.closed)
+        self.assertIn(("/usr/bin/systemctl","--job-mode=fail","--no-block","stop","session-c1.scope"),self.kernel.calls)
 
     def test_expired_account_and_occupied_unit_never_start(self):
         self.lease.files.accounts.expiry_day=lambda name:1

@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from karyo_profiles.journal_main import MainEntry
+from karyo_profiles.journal_main import MainEntry, finish_main_session
 from karyo_profiles.journal_main_record import validate_main
 from karyo_profiles.main_registry import MainRegistry
 from karyo_profiles.user_manager import ManagerPending
@@ -92,6 +92,22 @@ class MainEntryRecordTest(unittest.TestCase):
         manager.close.assert_not_called()
         peer.close.assert_called_once_with()
         self.assertTrue(scope.closed)
+
+
+class ClosingMainSessionTest(unittest.TestCase):
+    @patch('karyo_profiles.journal_main.host_controller')
+    @patch('karyo_profiles.journal_main.process_gone',return_value=True)
+    def test_closing_session_signals_its_own_logind_id_without_stopping_manager(self,gone,guard):
+        value=dict(receipt(),pending='manager-close');sessions=Mock()
+        sessions.owners.return_value=(replace(LOGIN,service='lightdm',state='closing'),)
+        finish_main_session(value,sessions)
+        sessions.command.run.assert_called_once_with('kill-session','--signal=TERM','c1',timeout=5)
+
+    @patch('karyo_profiles.journal_main.host_controller')
+    @patch('karyo_profiles.journal_main.process_gone',return_value=False)
+    def test_live_pam_parent_does_not_signal_session(self,gone,guard):
+        sessions=Mock();finish_main_session(dict(receipt(),pending='login-close'),sessions)
+        sessions.owners.assert_not_called();sessions.command.run.assert_not_called()
 
 
 class MainRegistryTest(unittest.TestCase):

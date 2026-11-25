@@ -9,9 +9,9 @@ from unittest.mock import Mock,patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from karyo_profiles.journal import JournalRetained
 from karyo_profiles.journal_session import manager_receipt
-from karyo_profiles.journal_session_cleanup import closed_graph,removing_manager
+from karyo_profiles.journal_session_cleanup import closed_graph,removing_manager,recover_closed_session
 from karyo_profiles.user_manager import UserManagerScope,BASE_MANAGER,SCOPED_MANAGER
-from test_journal_session import active
+from test_journal_session import active,ACCOUNT
 import test_user_manager as fixtures
 
 
@@ -62,6 +62,28 @@ class ClosedGraphTest(unittest.TestCase):
         with patch("karyo_profiles.journal_session_cleanup.GraphicalSession",return_value=graph), \
              patch("karyo_profiles.journal_session_cleanup.process_gone",return_value=True):
             with self.assertRaises(JournalRetained):closed_graph(Mock(),dict(active(),pending="manager-close",graphical=None),sessions)
+
+
+class ExitedSessionRecoveryTest(unittest.TestCase):
+    def test_exit_before_restore_records_close_before_finishing_captured_scope(self):
+        record={'account':dict(name=ACCOUNT.name,uid=ACCOUNT.uid,gid=ACCOUNT.gid,home=ACCOUNT.home,shell=ACCOUNT.shell),
+                'session':active(),'host_network_policy':{}}
+        events=[];journal=Mock();journal.change.side_effect=lambda old,new:events.append(('intent',new['session']['pending']))
+        accounts=Mock();accounts.by_uid.return_value=ACCOUNT
+        sessions=Mock();sessions.owners.return_value=(Mock(),)
+        with patch('karyo_profiles.journal_session_cleanup.process_gone',return_value=True), \
+             patch('karyo_profiles.journal_session_cleanup.finish_abandoned_login',side_effect=lambda *a:events.append(('finish',a[0].pid))):
+            from karyo_profiles.user_manager import ManagerPending
+            with self.assertRaises(ManagerPending):recover_closed_session(journal,Mock(),record,accounts=accounts,sessions=sessions)
+        self.assertEqual(events,[('intent','login-close'),('finish',345)])
+
+    def test_live_compositor_remains_an_ordinary_restore(self):
+        record={'account':dict(name=ACCOUNT.name,uid=ACCOUNT.uid,gid=ACCOUNT.gid,home=ACCOUNT.home,shell=ACCOUNT.shell),'session':active()}
+        accounts=Mock();accounts.by_uid.return_value=ACCOUNT;journal=Mock()
+        with patch('karyo_profiles.journal_session_cleanup.process_gone',return_value=False), \
+             patch('karyo_profiles.journal_session_cleanup.finish_abandoned_login')as finish:
+            self.assertFalse(recover_closed_session(journal,Mock(),record,accounts=accounts,sessions=Mock()))
+        journal.change.assert_not_called();finish.assert_not_called()
 
 
 @unittest.skipUnless(os.geteuid()==0,"real captured manager policy files")

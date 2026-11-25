@@ -33,6 +33,38 @@ class GraphicalIdentity:
     cgroup: str
 
 
+def finish_abandoned_login(identity, sessions, command, *, exited=None):
+    """Finish only a captured closing login whose original leader has exited."""
+    host_controller()
+    owners = [owner for owner in sessions.owners(identity.login.uid) if owner.id == identity.login.id]
+    if not owners:
+        return
+    if len(owners) != 1 or owners[0].identity != identity.login.identity:
+        raise ServiceError("The closing graphical login identity changed")
+    if owners[0].state != "closing":
+        return
+    if exited is None:
+        from .journal_dns import process_gone
+        exited = lambda: process_gone(identity.pid, identity.start)
+    if not exited():
+        return
+    # With KillUserProcesses=no logind can abandon a scope at leader exit.
+    # TerminateSession becomes a no-op once that session is already stopping.
+    keys = ("LoadState", "Transient", "InvocationID", "ControlGroup")
+    text = command.run("/usr/bin/systemctl", "show", identity.login.scope, "--no-pager",
+                       *("--property=" + key for key in keys))
+    rows = {}
+    for line in text.splitlines():
+        key, separator, value = line.partition("=")
+        if not separator or key not in keys or key in rows:
+            raise ServiceError("Ambiguous closing graphical scope inventory")
+        rows[key] = value
+    if rows != dict(LoadState="loaded", Transient="yes", InvocationID=identity.scope_invocation,
+                    ControlGroup=identity.cgroup):
+        raise ServiceError("The captured closing graphical scope changed")
+    command.run("/usr/bin/systemctl", "--job-mode=fail", "--no-block", "stop", identity.login.scope)
+
+
 class GraphicalSession:
     ENTRY = "/usr/libexec/karyo/profile-session-entry"
     WAIT = "/usr/libexec/karyo/profile-session-wait"
@@ -281,6 +313,8 @@ class GraphicalSession:
             if not self.process.exited(self.pidfd) and self.process_start(self.identity.cgroup) != self.identity.start:
                 raise GraphicalRetained(self)
             self.sessions.command.run("terminate-session", owner.id, timeout=5)
+            finish_abandoned_login(self.identity, self.sessions, self.command,
+                                   exited=lambda: self.process.exited(self.pidfd))
             deadline = self.clock() + 8
             while self.login() is not None:
                 if self.clock() >= deadline:

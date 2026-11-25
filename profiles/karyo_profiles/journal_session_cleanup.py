@@ -4,14 +4,15 @@ from dataclasses import asdict
 import os
 
 from .credentials import LocalAccounts
-from .graphical import GraphicalSession
+from .graphical import GraphicalIdentity,GraphicalSession,finish_abandoned_login
 from .journal import JournalRetained
 from .journal_dns import JournalDNS,process_gone
 from .journal_network import JournalNetwork,offline,restore_network
+from .networks import NetworkCommand
 from .journal_netbird import restore_offline_services
 from .journal_host_bus import JournalHostBus
 from .journal_session_record import validate_session
-from .logind import Sessions
+from .logind import LoginOwner,Sessions
 from .storage import trusted_directory
 from .user_manager import BASE_MANAGER,UserManagerScope,manager_exec_start
 
@@ -89,12 +90,25 @@ def removing_manager(files,proof,*,allow_missing,netbird=False,catalog=False,hos
 
 def recover_closed_session(journal,store,record,*,accounts=None,sessions=None):
     value=record["session"]
-    if value["pending"] not in {"login-close","manager-close"}:return False
+    if value["pending"] not in {None,"enter","login-close","manager-close"}:return False
     accounts=LocalAccounts() if accounts is None else accounts
     sessions=Sessions() if sessions is None else sessions
     account=accounts.by_uid(record["account"]["uid"])
     if asdict(account)!=record["account"]:raise JournalRetained("The closing journal account changed")
     validate_session(value,account)
+    proof=value['graphical']
+    if value['pending'] in {None,'enter'}:
+        if proof is None or not process_gone(proof['pid'],proof['start']):return False
+        # The compositor can exit while the controller is offline or reopening.
+        # Record close intent before touching its captured abandoned scope.
+        value=dict(value,pending='login-close')
+        closing=dict(record,session=value)
+        journal.change(record,closing);record=closing
+    if value['pending']=='login-close' and proof is not None:
+        identity=GraphicalIdentity(proof['invocation'],proof['pid'],proof['start'],
+            LoginOwner(**proof['login']),proof['scope_invocation'],
+            '/user.slice/user-'+str(account.uid)+'.slice/'+proof['login']['scope'])
+        finish_abandoned_login(identity,sessions,NetworkCommand())
     if 'host_network_policy' in record:
         live=value['manager']['live'] if value['manager'] is not None else None
         if sessions.owners(account.uid) or live is not None and not process_gone(live['pid'],live['start']):

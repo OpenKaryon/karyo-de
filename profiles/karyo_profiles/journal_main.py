@@ -17,13 +17,33 @@ from .journal_network import JournalNetwork, restore_network
 from .journal_session import manager_receipt, restore_manager, verify_namespace_consumers
 from .journal_session_record import owner
 from .journal_session_cleanup import removing_manager
-from .logind import Sessions, process_session
+from .logind import LoginOwner, Sessions, process_session
 from .main_peer import MainPeer, object_identity
-from .services import program_identity
+from .services import host_controller, program_identity
 from .storage import trusted_directory
 from .user_manager import ManagerPending, UserManagerScope
 from .runtime_services import refresh_network_service, restore_network_service
 from .host_network_policy import verify_host_network_policy,retire_host_network_policy
+
+
+def finish_main_session(value, sessions):
+    """Signal only the captured closing logind session after its PAM parent exits."""
+    host_controller()
+    if value['login'] is None:return
+    origin=value['origin']
+    if not process_gone(origin['pid'],origin['start']):return
+    captured=LoginOwner(**value['login'])
+    owners=[current for current in sessions.owners(captured.uid) if current.id==captured.id]
+    if not owners:return
+    if len(owners)!=1 or owners[0].identity!=captured.identity:
+        raise JournalRetained('The closing main logind session identity changed')
+    if value['pending'] not in {'login-close','manager-close'}:
+        raise JournalRetained('The main session has no recorded close intent')
+    if owners[0].state=='closing':
+        # TerminateSession is a no-op after logind has abandoned a closing
+        # session. Its KillSession operation still targets that exact login,
+        # without stopping user@UID or sessions belonging to another desktop.
+        sessions.command.run('kill-session','--signal=TERM',captured.id,timeout=5)
 
 
 class MainEntry:
@@ -196,6 +216,7 @@ class MainEntry:
         if self.manager.identity is None and not self.manager.inactive(self.manager.info()):
             raise ManagerPending("Waiting for an incomplete main login to finish naturally")
         self.update(pending="manager-close")
+        finish_main_session(self.journal.record(self.token)['main_login'],self.manager.sessions)
         if self.host_bus is not None:
             if not self.manager.inactive(self.manager.info()) or self.manager.sessions.owners(self.manager.account.uid):
                 raise ManagerPending('Waiting for the captured main user manager before proxy retirement')
@@ -231,6 +252,10 @@ class MainEntry:
             origin = value["origin"]
             gone = process_gone(origin["pid"], origin["start"])
             if gone:
+                if value['pending'] not in {'login-close','manager-close'}:
+                    closing=dict(record,main_login=dict(value,pending='login-close'))
+                    journal.change(record,closing);record=closing;value=closing['main_login']
+                finish_main_session(value,Sessions())
                 probe = UserManagerScope(dns.files, netbird="provider" in record)
                 if not probe.inactive(probe.info()):
                     raise ManagerPending("Waiting for the recorded main manager to finish before recovery")

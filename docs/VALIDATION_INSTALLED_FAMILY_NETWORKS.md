@@ -3,8 +3,9 @@
 Current native scope proves all nine ordered IPv4 provider pairs in the table
 below, selected NetBird exits, main logout/re-entry, later Experiments and live
 worker recovery. Browser authentication, ordinary stock GUI/tray use and final
-natural family/realm retirement also pass. The physical panel and DHCP observations
-follow here. Earlier sections preserve their original actors and package cohorts;
+natural family/realm retirement also pass. IPv6 remains disabled and unaccepted;
+physical DHCP changes can interrupt traffic, so no zero-outage handover is claimed.
+The physical panel and DHCP observations follow here. Earlier sections preserve their original actors and package cohorts;
 their references to live temporary resources are historical, not current liveness.
 
 | Home | Work | Debian and Ubuntu installed observation |
@@ -60,6 +61,51 @@ NetBird contexts are restored and all four runs report no cleanup errors.
 
 The earlier retirement below describes the previous acceptance generation; the
 nine-pair matrix includes this separate fresh family and realm generation.
+
+## Retirement of the completed matrix family
+
+The fresh two-desktop matrix families are now fully retired on both bases. The
+initial logout observations exposed remaining accessibility processes in closing
+logind scopes. With KillUserProcesses=no, logind can abandon a scope after its
+leader exits and subsequently ignore TerminateSession because the session is
+already stopping; this follows the upstream
+[session lifecycle implementation](https://github.com/systemd/systemd/blob/v257/src/login/logind-session.c).
+These failed initial observations are retained separately from successful final
+receipts, rather than being counted as clean retirement.
+
+DE `32f76dc` completes only the child's captured transient scope after checking
+the original leader exit, logind identity and exact scope invocation. Controller
+restore also records close intent if the compositor exited while the controller
+was offline or reopening; it does not try to reopen a dead process as a live GUI.
+DE `76bde91` addresses the corresponding main-session case through the standard
+logind session-scoped signal operation. The original PAM parent must have exited,
+the recorded close intent and full captured logind identity must agree, and only
+that closing login receives TERM. Neither path stops user@UID to force cleanup;
+the user manager follows its ordinary lifetime. Seven focused functional cases
+pass on each native base, including ordinary close, abandoned scopes, missed
+compositor exit and preservation of a live main PAM entry.
+
+The nine profile packages from `76bde91` are built with unchanged Builder
+`4b3565c`, installed and package-verified on Debian and Ubuntu. The selected
+functional and PAM ABI checks pass. Actual pending Work cleanup after controller
+reopen retires its namespace, DNS, provider, host-service view, firewall and user
+scope while Home retains its complete record and successful managed DNS,
+encrypted TCP/UDP and verified external HTTPS. These Work observations use the
+child-scope change's initial Debian cohort and Ubuntu `32f76dc`; the subsequent
+main-only `76bde91` change does not modify that child path. The main closure
+also completes: Debian recovers its pending main retirement, and Ubuntu performs
+ordinary main logout after upgrading the live entry. No QA process is killed by
+a separate cleanup command to manufacture these successful controller results.
+
+Captured configuration is restored before removing the four own temporary
+accounts, homes and both NetBird and NetworkManager state stores. The original
+PAM files and IPv4 forwarding value are restored, opt-in runtime policies and
+autologin are removed, and ordinary LightDM returns. Host DNS and verified HTTPS
+pass after teardown. Temporary passwords and runtime pointers are removed only
+after saving final receipts. The separate new realm has exactly its four own
+disconnected registrations; its captured server, credential directory and binary
+are removed, listening ports are released and host forwarding remains unchanged.
+The earlier retirement below belongs to a separate six-account generation.
 
 ## Final natural family and realm retirement
 

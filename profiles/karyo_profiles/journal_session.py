@@ -8,7 +8,7 @@ import time
 
 from .consoles import reserve_console
 from .credentials import LocalAccounts
-from .graphical import GraphicalIdentity,GraphicalSession
+from .graphical import GraphicalIdentity,GraphicalSession,GraphicalRetained
 from .journal import JournalRetained
 from .journal_dns import JournalDNS,recover_profiles,unit_receipt
 from .journal_network import JournalNetwork,restore_network,offline
@@ -378,7 +378,10 @@ class SessionRegistry:
         from .journal_session_cleanup import recover_closed_session
         if recover_closed_session(self.journal,self.store,record):return False
         if recover_prepared_session(self.journal,self.store,record):return False
-        self.profiles[record['token']]=JournalSession.restore(self.journal,self.store,record)
+        try:self.profiles[record['token']]=JournalSession.restore(self.journal,self.store,record)
+        except (ProcessLookupError,GraphicalRetained):
+            if not recover_closed_session(self.journal,self.store,record):raise
+            return False
         return True
 
     def poll(self):
