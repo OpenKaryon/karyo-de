@@ -31,7 +31,7 @@ and hint. A newly created worker publishes its own current generation. Older
 receipts without this flag retain their original behavior and do not require a
 file that their worker never published.
 
-## Acceptance and remaining integration
+## Acceptance checkpoints
 
 On Debian 13 and Ubuntu 26.04, the real graphical native fixture launches an
 ordinary client in its captured user manager. The stock nmcli creates, lists
@@ -41,10 +41,12 @@ after reopening the controller with unchanged worker identities. The editor
 launcher executes the installed editor's `--help`; this is not GUI-window,
 credential-prompt or VPN-editor acceptance.
 
-The fixture allocates the context explicitly, but its ordinary user-manager
-client inherits the hint from the actual managed environment. Installed acceptance
-of automatic main/child private-service allocation and physical Wi-Fi/Ethernet UI
-mediation remain open.
+That initial fixture allocates the context explicitly, and its ordinary
+user-manager client inherits the hint from the actual managed environment.
+Subsequent [installed family acceptance](VALIDATION_INSTALLED_FAMILY_NETWORKS.md)
+proves automatic main/child allocation and all nine ordered stock-provider pairs
+on Debian and Ubuntu. Physical inventory and shared Shell/Settings mediation have
+installed observations; real Wi-Fi association remains unobserved in wired QA.
 The direct host-bus UID policy remains the intended
 ordinary session view; a private network client selects only its own service.
 
@@ -70,4 +72,5 @@ On both native bases, a real main PAM client with the hint absent from its
 inherited environment recovers it from the actual scoped user manager and
 validates the published network service. Positive launcher models cover the
 normal command/catalog selection and preserved host-bus environment. These are
-not yet installed LightDM/main graphical or full family-switch acceptance.
+the initial primitive gate. Subsequent installed LightDM/main graphical entry,
+family switching and lifecycle acceptance are linked above.

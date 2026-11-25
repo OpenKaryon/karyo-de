@@ -7,8 +7,9 @@ Main-account login is implemented and tested as described in
 service gate. The [installed family checkpoint](VALIDATION_INSTALLED_FAMILY_NETWORKS.md)
 now accepts automatic private Home/Work entry, the supported IPv4 pair matrix
 of stock WireGuard, OpenVPN and NetBird, selected exit routing, late desktops
-and live worker recovery. Hardware Wi-Fi, remaining browser/tray observations
-and final family retirement still have separate acceptance boundaries.
+and live worker recovery. Actual browser authentication, stock GUI/tray actions
+and natural family retirement also pass. Hardware Wi-Fi association remains
+unobserved in the wired native QA guests.
 This plan supersedes the earlier target in which
 the main desktop used the host network and external clients needed a bespoke
 provider lease before any integration could work.
@@ -50,11 +51,12 @@ The DE owns environment preparation, authenticated launch, instance selection
 and cleanup. Package-owned adapters use upstream configuration/control surfaces
 instead of requiring the clients to implement a new DE wire protocol.
 
-NetworkManager and its existing plugins are candidates for ordinary connection
-management. A separate instance, its bus, activation and DNS integration inside
-each context require an actual feasibility test; the shared host daemon must
-not be assumed to manage arbitrary private namespaces. Direct upstream tools
-remain possible backends where their lifecycle is simpler and well defined.
+NetworkManager and its existing plugins provide ordinary WireGuard and OpenVPN
+connection management through a separate instance, bus and DNS integration in
+each context. Their installed feasibility and full Home/Work matrix are accepted.
+The shared host daemon continues to manage physical connections; it does not
+manage the private namespaces. Direct upstream tools remain possible backends
+where their lifecycle is simpler and well defined.
 
 An adapter must account for all privileged services used by its client, not just
 its main process. GUI/CLI activation must select the intended instance, browser

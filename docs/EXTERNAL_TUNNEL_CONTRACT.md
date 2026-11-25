@@ -9,9 +9,13 @@ The approved [per-desktop networking plan](NETWORK_ISOLATION.md) now requires
 private network and DNS contexts for every managed desktop, including the main
 account. Ordinary upstream VPN clients use DE-owned launch adapters without
 forks or a mandatory new client protocol. The cooperative provider boundary
-below is an optional extension, not the only integration path. The current
-runtime still uses the host context for the main account; this document does
-not claim that the new topology is implemented.
+below is an optional extension, not the only integration path. The explicitly
+enabled runtime now creates private network, resolver and service contexts for
+main and child accounts before their ordinary session entry. All nine ordered
+Home/Work combinations of stock WireGuard, OpenVPN and NetBird pass on Debian
+and Ubuntu; see the [installed acceptance](VALIDATION_INSTALLED_FAMILY_NETWORKS.md).
+This is acceptance of the packaged launch adapters, not implementation of the
+optional cooperative API below or a claim about an unrelated external client.
 
 ## Current read-only inspection
 
@@ -75,5 +79,7 @@ case. Keep the Home tunnel connection operational while Work retains its own
 NetBird state and resolver. Then exercise normal disconnect, reconnect,
 application exit and profile shutdown, checking original data/configuration and
 owned cleanup. GUI/tray behavior and a normal authorization prompt need their
-own observations. These functional gates remain open; no security test suite is
-required or claimed by this integration specification.
+own observations. These gates remain open for a future cooperative external
+provider. The stock-client adapter observations are recorded separately in the
+installed acceptance and do not close an unimplemented API's gates. No security
+test suite is required or claimed by this integration specification.

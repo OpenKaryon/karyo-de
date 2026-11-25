@@ -1,20 +1,24 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Stock WireGuard or OpenVPN in Home beside a connected NetBird Work.
+"""Stock WireGuard or OpenVPN beside NetBird in either desktop role.
 
 Run only on the two named QA hosts after the installed LightDM/family gate has
 created root-owned /run/karyo-qa-main/root and state.json with name/work_name.
 Both desktops must be live with their native user managers. No user VPN state
-or credentials are imported. Temporarily disconnect Home NetBird, then restore
-it after retiring only the fixture VPN. Keep generated TLS evidence on the VM.
+or credentials are imported. Temporarily disconnect only the selected desktop NetBird, then restore
+it after retiring only that fixture VPN. Keep generated TLS evidence on the VM.
 """
 from pathlib import Path
 from types import SimpleNamespace
-import ast,hashlib,json,os,socket,subprocess,sys,time
+import argparse,ast,hashlib,json,os,socket,subprocess,sys,time
 
 assert os.getuid()==0 and socket.gethostname() in ('karyo-network-debian','karyo-network-ubuntu')
-assert len(sys.argv)==3 and sys.argv[1] in ('wireguard','openvpn')
-KIND=sys.argv[1];PEER=json.loads(sys.argv[2])
+parser=argparse.ArgumentParser(allow_abbrev=False)
+parser.add_argument('kind',choices=('wireguard','openvpn'))
+parser.add_argument('peer')
+parser.add_argument('--nm-role',choices=('home','work'),default='home')
+args=parser.parse_args();KIND=args.kind;PEER=json.loads(args.peer)
+
 sys.path.insert(0,'/usr/libexec/karyo/profiles')
 from karyo_profiles.networks import NetworkSpec,NetworkCommand
 from native_main_network import host_snapshot
@@ -136,10 +140,11 @@ except BaseException as error:
 
 
 native_wireguard.client=client;native_openvpn.client=client
-home,work=contexts['home'],contexts['work'];assert home.record['provider']['kind']==work.record['provider']['kind']=='netbird'
-work_before=work.record;home_before=home.record
-unit='karyo-qa-mixed-netbird-continuity.service'
-progress=Path('/run/user')/str(work.state.account.uid)/('karyo-qa-mixed-netbird-'+KIND+'.json');assert not progress.exists()
+selected=contexts[args.nm_role];neighbor=contexts['work' if args.nm_role=='home' else 'home'];assert selected.record['provider']['kind']==neighbor.record['provider']['kind']=='netbird'
+neighbor_before=neighbor.record;selected_before=selected.record
+unit='karyo-qa-mixed-netbird-continuity-'+args.nm_role+'-'+KIND+'.service'
+result_file=root/('mixed-netbird-'+args.nm_role+'-'+KIND+'.json');assert not result_file.exists()
+progress=Path('/run/user')/str(neighbor.state.account.uid)/('karyo-qa-mixed-netbird-'+args.nm_role+'-'+KIND+'.json');assert not progress.exists()
 def program(scope,code,**values):
  values.update(NETWORK=scope.record['network']['namespace'],RESOLVER=scope.record['dns']['resolver']['runtime'][0],PEER=PEER)
  return '\n'.join(k+'='+repr(v) for k,v in values.items())+'\n'+code
@@ -148,39 +153,39 @@ def nb(scope,*args):return user_code(scope,"import subprocess,sys\np=subprocess.
 def nb_probe(scope):return json.loads(user_code(scope,program(scope,CLIENT_CODE)))
 def flow():
  v=json.loads(progress.read_text());assert v['errors']==0,v
- assert next(row for row in records() if row['token']==work_before['token'])==work_before
+ assert next(row for row in records() if row['token']==neighbor_before['token'])==neighbor_before
  return v['count']
-a=work.state.account
+a=neighbor.state.account
 user=['setpriv','--reuid='+str(a.uid),'--regid='+str(a.gid),'--init-groups','--inh-caps=-all','--ambient-caps=-all','env','XDG_RUNTIME_DIR=/run/user/'+str(a.uid),'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(a.uid)+'/bus']
 assert subprocess.check_output([*user,'systemctl','--user','show',unit,'-p','LoadState','--value'],text=True).strip()=='not-found'
-nb_probe(home);nb_probe(work)
-subprocess.run([*user,'systemd-run','--user','--quiet','--collect','--unit='+unit,'/usr/bin/python3','-I','-c',program(work,CONTINUITY_CODE,PROGRESS=str(progress))],check=True,timeout=10)
+nb_probe(selected);nb_probe(neighbor)
+subprocess.run([*user,'systemd-run','--user','--quiet','--collect','--unit='+unit,'/usr/bin/python3','-I','-c',program(neighbor,CONTINUITY_CODE,PROGRESS=str(progress))],check=True,timeout=10)
 inv=subprocess.check_output([*user,'systemctl','--user','show',unit,'-p','InvocationID','--value'],text=True).strip();assert len(inv)==32
-(root/('mixed-netbird-'+KIND+'-continuity.json')).write_text(json.dumps({'unit':unit,'invocation':inv,'uid':a.uid,'progress':str(progress)},indent=2)+'\n')
-peer=None;initial=None;initial_count=None;error=None;proof={'kind':KIND,'stages':{}}
+(root/('mixed-netbird-'+args.nm_role+'-'+KIND+'-continuity.json')).write_text(json.dumps({'unit':unit,'invocation':inv,'uid':a.uid,'progress':str(progress)},indent=2)+'\n')
+peer=None;initial=None;initial_count=None;error=None;proof={'kind':KIND,'nm_role':args.nm_role,'providers':{'home':KIND if args.nm_role=='home' else 'netbird','work':KIND if args.nm_role=='work' else 'netbird'},'stages':{}}
 try:
  deadline=time.monotonic()+10
  while not progress.exists() or flow()<3:
   assert time.monotonic()<deadline;time.sleep(.1)
- initial_count=flow();nb(home,'down')
+ initial_count=flow();nb(selected,'down')
  deadline=time.monotonic()+10
- while 'wt0' in ordinary_cli(home,'--terse','--fields','DEVICE','device','status').splitlines():
+ while 'wt0' in ordinary_cli(selected,'--terse','--fields','DEVICE','device','status').splitlines():
   assert time.monotonic()<deadline;time.sleep(.1)
- initial=set(ordinary_cli(home,'--terse','--fields','UUID','connection','show').splitlines())
+ initial=set(ordinary_cli(selected,'--terse','--fields','UUID','connection','show').splitlines())
  cls=native_wireguard.WireGuardPeer if KIND=='wireguard' else native_openvpn.OpenVPNPeer
- peer=cls(home,'home');peer.start(ordinary_cli)
- proof['stages']['connected']=peer.probe();flow();nb_probe(work)
- ordinary_cli(home,'connection','down',peer.connection)
+ peer=cls(selected,args.nm_role);peer.start(ordinary_cli)
+ proof['stages']['connected']=peer.probe();flow();nb_probe(neighbor)
+ ordinary_cli(selected,'connection','down',peer.connection)
  if KIND=='openvpn':peer.wait_disconnected()
- proof['stages']['disconnected_neighbor']=nb_probe(work);flow()
- ordinary_cli(home,'connection','up',peer.connection)
- proof['stages']['reconnected']=peer.probe();nb_probe(work);flow()
+ proof['stages']['disconnected_neighbor']=nb_probe(neighbor);flow()
+ ordinary_cli(selected,'connection','up',peer.connection)
+ proof['stages']['reconnected']=peer.probe();nb_probe(neighbor);flow()
  assert records()==rows,'A client operation changed the captured desktop graph'
 except BaseException as failure:error=failure
 finally:
  failures=[]
  try:
-  for identity in imported['home']:ordinary_cli(home,'connection','delete','uuid',identity)
+  for identity in imported[args.nm_role]:ordinary_cli(selected,'connection','delete','uuid',identity)
   if peer is not None and KIND=='openvpn':peer.wait_disconnected()
  except BaseException as failure:failures.append('Client retirement: '+type(failure).__name__+': '+str(failure)[-1400:])
  if peer is not None:
@@ -189,14 +194,14 @@ finally:
  try:
   if initial is not None:
    deadline=time.monotonic()+6
-   while set(ordinary_cli(home,'--terse','--fields','UUID','connection','show').splitlines())!=initial:
+   while set(ordinary_cli(selected,'--terse','--fields','UUID','connection','show').splitlines())!=initial:
     assert time.monotonic()<deadline,'The own retired VPN retained connection state';time.sleep(.1)
-  nb(home,'up');deadline=time.monotonic()+25
+  nb(selected,'up');deadline=time.monotonic()+25
   while True:
-   try:proof['home_netbird_restored']=nb_probe(home);break
+   try:proof['selected_netbird_restored']=nb_probe(selected);break
    except AssertionError:
     flow();assert time.monotonic()<deadline;time.sleep(.5)
-  proof['work_netbird_after']=nb_probe(work);proof['payloads_before']=initial_count;proof['payloads_after']=flow()
+  proof['neighbor_netbird_after']=nb_probe(neighbor);proof['payloads_before']=initial_count;proof['payloads_after']=flow()
   assert initial_count is not None and proof['payloads_after']>initial_count
   assert records()==rows
   assert host_snapshot(NetworkCommand())==before
@@ -206,6 +211,6 @@ finally:
  current_inv=subprocess.check_output([*user,'systemctl','--user','show',unit,'-p','InvocationID','--value'],text=True).strip()
  if current_inv==inv:subprocess.run([*user,'systemctl','--user','stop',unit],check=True,timeout=10)
  proof.update(neighbor_record_and_existing_tcp_dns_udp_preserved=not failures,fixture_owned_cleanup=not failures,cleanup_errors=failures,passed=error is None and not failures)
- (root/('mixed-netbird-'+KIND+'.json')).write_text(json.dumps(proof,indent=2)+'\n');print(json.dumps(proof,indent=2),flush=True)
+ result_file.write_text(json.dumps(proof,indent=2)+'\n');print(json.dumps(proof,indent=2),flush=True)
  if failures:raise RuntimeError('Own mixed fixture restoration incomplete') from error
 if error is not None:raise error

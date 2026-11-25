@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Stock mixed VPN acceptance in an existing disposable graphical family.
+"""Stock selected VPN-pair acceptance in an existing disposable graphical family.
 
 Run only on the two named QA hosts after the installed LightDM/family gate has
 created root-owned /run/karyo-qa-main/root and state.json with name/work_name.
@@ -9,10 +9,16 @@ or credentials are imported. Retain temporary root-only TLS evidence on the VM.
 """
 from pathlib import Path
 from types import SimpleNamespace
-import ast,hashlib,json,os,signal,socket,subprocess,sys,time
+import argparse,ast,hashlib,json,os,signal,socket,subprocess,sys,time
 
 assert os.getuid()==0 and socket.gethostname() in ('karyo-network-debian','karyo-network-ubuntu')
-assert sys.argv[1:] in ([], ['--worker-failure'])
+parser=argparse.ArgumentParser(allow_abbrev=False)
+parser.add_argument('--home-vpn',choices=('wireguard','openvpn'),default='wireguard')
+parser.add_argument('--work-vpn',choices=('wireguard','openvpn'),default='openvpn')
+parser.add_argument('--worker-failure',action='store_true')
+args=parser.parse_args()
+selected={'home':args.home_vpn,'work':args.work_vpn}
+
 sys.path.insert(0,'/usr/libexec/karyo/profiles')
 from karyo_profiles.networks import NetworkSpec,NetworkCommand
 from native_main_network import host_snapshot
@@ -84,10 +90,13 @@ print(json.dumps({'dns':True,'tcp':True,'udp':True,'separate_dns_view':True,'act
 # user manager and normal installed PATH rather than a source fixture service.
 native_wireguard.client=client;native_openvpn.client=client
 peers=[];initial={role:set(ordinary_cli(c,'--terse','--fields','UUID','connection','show').splitlines()) for role,c in contexts.items()}
-proof={'actual_installed_family':True,'unmodified_wireguard_openvpn_and_nm':True,'stages':{}}
+proof={'actual_installed_family':True,'unmodified_selected_vpns_and_nm':True,'providers':selected,'stages':{}}
+result_file=root/('installed-pair-'+args.home_vpn+'-'+args.work_vpn+('-recovery' if args.worker_failure else '')+'.json')
+assert not result_file.exists()
 error=None
 try:
-    for role,cls in (('home',native_wireguard.WireGuardPeer),('work',native_openvpn.OpenVPNPeer)):
+    for role in ('home','work'):
+        cls=native_wireguard.WireGuardPeer if selected[role]=='wireguard' else native_openvpn.OpenVPNPeer
         c=contexts[role]
         assert not (Path(c.state.account.home)/'wgqa.conf').exists()
         assert not (Path(c.state.account.home)/'openvpn_fixture.ovpn').exists()
@@ -110,7 +119,7 @@ try:
         ordinary_cli(selected.scope,'connection','up',selected.connection)
         proof['stages'][selected.label+'_reconnected']=selected.probe()
         neighbor.probe()
-    if sys.argv[1:] == ['--worker-failure']:
+    if args.worker_failure:
         from karyo_profiles.journal_session import stat_start
         proof['worker_failure'] = {}
         for selected in peers:
@@ -176,7 +185,7 @@ finally:
     proof['fixture_cleanup_errors']=failures
     proof['fixture_owned_cleanup']=not failures
     proof['passed']=error is None and not failures
-    (root/'installed-mixed.json').write_text(json.dumps(proof,indent=2)+'\n')
+    result_file.write_text(json.dumps(proof,indent=2)+'\n')
     print(json.dumps(proof,indent=2),flush=True)
     if failures:raise RuntimeError('Controlled fixture cleanup incomplete: '+repr(failures)) from error
 if error is not None:raise error

@@ -1,6 +1,6 @@
 # Installed family networking checkpoint
 
-Current native scope proves the four ordered IPv4 provider pairs in the table
+Current native scope proves all nine ordered IPv4 provider pairs in the table
 below, selected NetBird exits, main logout/re-entry, later Experiments and live
 worker recovery. Browser authentication, ordinary stock GUI/tray use and final
 natural family/realm retirement also pass. The physical panel and DHCP observations
@@ -13,18 +13,53 @@ their references to live temporary resources are historical, not current livenes
 | WireGuard | NetBird | Accepted |
 | OpenVPN | NetBird | Accepted |
 | NetBird | NetBird | Accepted |
-| WireGuard | WireGuard | Still to execute |
-| OpenVPN | OpenVPN | Still to execute |
-| OpenVPN | WireGuard | Still to execute |
-| NetBird | WireGuard | Still to execute |
-| NetBird | OpenVPN | Still to execute |
+| WireGuard | WireGuard | Accepted |
+| OpenVPN | OpenVPN | Accepted |
+| OpenVPN | WireGuard | Accepted |
+| NetBird | WireGuard | Accepted |
+| NetBird | OpenVPN | Accepted |
 
-These are coverage boundaries, not unsupported-provider declarations. In
-particular, Work WireGuard must receive its own ordinary installed-client
-observation; mixed results alone do not establish every ordered role combination.
+Every ordered Home/Work combination of these three stock providers now has an
+actual installed observation on each native base. This does not extend acceptance
+to every other VPN product or to the optional cooperative provider API.
 Hardware Wi-Fi association/authorization and a different physical interface or
 gateway are not established by the VMware wired observations.
 
+
+## Homogeneous providers and reversed native NM roles
+
+One fresh installed family per base enters Home through actual LightDM and adds
+and opens Work through the graphical Start/public frontend. Optional upstream
+NetBird workers are prepared without admission; no NetBird tunnel competes with
+these native NetworkManager cases. The pair fixture explicitly selects each
+role's unchanged distribution WireGuard backend or OpenVPN plugin, retaining all
+existing traffic, host-baseline, reconnect and owned-cleanup checks. Each pair
+has its own result file instead of overwriting another case.
+
+WireGuard/WireGuard, OpenVPN/OpenVPN and Home OpenVPN/Work WireGuard all pass on
+Debian and Ubuntu. Both roles resolve their private test names, reject the other
+view and exchange encrypted TCP/UDP through their own default tunnel route.
+Actual handshakes or TLS peers establish the selected provider. Controller reopen
+retains both working contexts, and down/up of each tunnel preserves the other's
+complete desktop record and working payloads. Every imported UUID and generated
+endpoint retires; private stores return to baseline, host routes/configuration
+and the host NetworkManager PID remain unchanged. All six runs report no cleanup
+errors. This directly establishes Work WireGuard, including the identical wgqa
+interface name in two distinct namespaces, without a client fork.
+
+The same fresh families then admit their own stock NetBird workers to a new
+temporary realm. With NetBird in Home, Work runs WireGuard and then OpenVPN
+through its own ordinary NetworkManager client. Both pairs pass on both bases.
+An existing Home TCP connection continues carrying payloads throughout Work
+disconnect, reconnect and restoration of its NetBird worker; managed DNS and UDP
+also keep working. The Home payload counters advance from 3 to 24 and 3 to 33 on
+Debian, and from 3 to 23 and 3 to 35 on Ubuntu. Complete neighboring desktop records,
+host routes/configuration and the host NetworkManager PID stay unchanged.
+Selected Work connection UUIDs and generated endpoints retire, both stock
+NetBird contexts are restored and all four runs report no cleanup errors.
+
+The earlier retirement below describes the previous acceptance generation; the
+nine-pair matrix includes this separate fresh family and realm generation.
 
 ## Final natural family and realm retirement
 
@@ -60,9 +95,9 @@ persistent admission file and target receipt explicitly, retaining unknown objec
 for review. Native results and the corrected/invalid carrier traces are preserved
 separately in local evidence. No user VPN credentials enter packages or public code.
 
-This completes retirement of that acceptance family. It does not fill the five
-still-unobserved ordered provider pairs in the table; further tests need fresh
-own temporary families rather than replaying removed accounts or credentials.
+This completes retirement of that acceptance family. The remaining ordered
+provider pairs were subsequently exercised with the fresh generation described
+above, without replaying removed accounts or credentials.
 
 ## Stock browser authentication and native tray interactions
 
