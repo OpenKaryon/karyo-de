@@ -226,6 +226,35 @@ QA echo server. The initial Ubuntu attempt stopped at this stale-target probe,
 before any worker failure; after rebinding, the complete gate passes. This
 does not indicate a production provider or desktop failure.
 
+## NetBird beside standard WireGuard and OpenVPN
+
+`profiles/tests/installed_mixed_netbird.py` uses the installed actual Home and
+Work user managers with the reviewed temporary native endpoint helpers. Work
+keeps its stock NetBird connection. Home ordinarily disconnects its NetBird
+connection, then imports and activates either the distribution WireGuard
+backend or OpenVPN NetworkManager plugin with generated temporary credentials.
+No upstream executable is modified and no special DE provider protocol is used.
+
+All four combinations pass on Debian and Ubuntu. Home selects its own VPN
+default route, resolves its private test name and exchanges encrypted TCP/UDP;
+actual WireGuard handshakes/transfer counters or the OpenVPN TLS peer establish
+tunnel use. It disconnects and reconnects through normal `nmcli`. Meanwhile
+Work retains its entire captured record and one existing encrypted TCP stream,
+managed peer DNS and UDP, plus successful external DNS and verified HTTPS.
+Work's NetBird payload counts during the WireGuard cases advance 3 to 22 on
+Debian and 3 to 23 on Ubuntu; during the OpenVPN cases they advance 3 to 31
+and 3 to 32 respectively.
+
+Finally, each fixture deletes only its returned connection UUIDs, waits for any
+generated retired TUN profile to disappear, and retires its own endpoint/server
+objects. Home's ordinary `netbird up` restores its saved connection; both
+desktops again pass managed DNS/TCP/UDP and external DNS/HTTPS. Desktop receipts,
+host routes/rules/links/namespaces, resolver, forwarding, connection files and
+the host NetworkManager PID match baseline. Each case reports no cleanup errors.
+Generated root-only TLS evidence stays on the disposable VM and is not a package
+or deployment input. Browser/tray, mediated physical-network UI, live carrier
+refresh and final family/realm cleanup remain separate gates.
+
 Schema 19 adds journaled replacement of a captured, fully retired NetworkManager
 while the graphical owner stays live. Namespace, resolver, private configuration
 and account state are retained. The ordinary host polling loop checks failed
