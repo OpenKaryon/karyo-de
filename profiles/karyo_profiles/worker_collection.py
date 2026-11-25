@@ -89,9 +89,45 @@ class WorkerCollection:
                 self.retire(instance)
         return self
 
-    def start(self,context,installed,owner,request,*,before_commit):
+    def start(self,context,installed,owner,request,*,before_commit,progress=None):
+        progress = (lambda unused:None) if progress is None else progress
+        progress('context')
         context.verify()
         self.owner = owner
+        for instance,item in self.live.items():
+            value = self.record(instance)
+            if (value['phase'] is None and item.context is not None and item.control is not None
+                    and item.control.committed and not item.control.retiring
+                    and item.declaration.digest == installed.digest
+                    and item.declaration.executable == installed.executable
+                    and value['source']['epoch'] == owner['epoch']
+                    and value['source']['owner'] == owner['bus_owner']
+                    and value['source']['bus'] == owner['bus_id']
+                    and value['source']['sender'] == context.origin.sender
+                    and value['origin'] == json.loads(json.dumps(asdict(context.origin.identity)))):
+                progress('reacquire-current')
+                before_commit()
+                context.verify()
+                installed.verify()
+                progress('reacquire-unit')
+                item.control.verify_view()
+                if node(item.files.runtime/'ipc') != tuple(value['endpoint']):
+                    raise WorkerRetained('The existing worker endpoint changed')
+                progress('reacquire-record')
+                descriptor = sealed_record(activation(item.prepared,item.unit,item.files,request,tuple(value['endpoint'])))
+                try:self.change(instance,request=request)
+                except BaseException:
+                    os.close(descriptor)
+                    raise
+                previous = item.context.origin
+                item.context = context
+                if previous is not context.origin:previous.close()
+                progress('reacquire-complete')
+                return instance,descriptor
+        if installed.declaration.resources.interfaces:
+            if (any(item.declaration.declaration.resources.interfaces for item in self.live.values())
+                    or set(self.scope.network.network._inventory(inside=True))-{'lo','eth0'}):
+                raise WorkerPending('A VPN already uses this desktop network')
         for item in self.live.values():
             if installed.declaration.resources.conflicts(item.declaration.declaration.resources):
                 raise WorkerPending('An existing worker owns overlapping desktop resources')
@@ -113,16 +149,20 @@ class WorkerCollection:
             files.publish_prepared(item.prepared)
             self.change(instance,phase='unit-start',files=files.receipt())
             item.unit = DeclaredUnit(context,installed,instance)
+            progress('native-start')
             item.unit.start(item.unit.launch_properties(files))
             self.change(instance,phase='ready-wait',unit=item.unit.receipt(files))
             item.control = WorkerControl.accept(item.unit,files)
+            progress('wait-ready')
             endpoint = item.control.ready()
             before_commit()
             context.verify()
             installed.verify()
+            progress('commit')
             item.control.commit()
             before_commit()
             context.verify()
+            progress('final-record')
             result = sealed_record(activation(item.prepared,item.unit,files,request,endpoint))
             try:self.change(instance,phase=None,endpoint=list(endpoint))
             except BaseException:

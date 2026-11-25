@@ -111,6 +111,19 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/karyo-physical-network.service"
 install(FILES "${profile_source}/../LICENSE" "${profile_source}/README.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/karyo-profile-runtime COMPONENT profile-runtime)
 
+# Optional workers share the existing root owner and native caller bus.
+# Installing declarations/policy does not start a worker or enable networking.
+configure_file("${profile_source}/worker_entry.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/desktop-worker-entry" @ONLY)
+configure_file("${profile_source}/org.karyo.DesktopWorkers1.service.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/org.karyo.DesktopWorkers1.service" @ONLY)
+install(PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/desktop-worker-entry"
+    DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}/karyo COMPONENT profile-runtime)
+install(FILES "${profile_source}/org.karyo.DesktopWorkers1.conf"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/system.d COMPONENT profile-runtime)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/org.karyo.DesktopWorkers1.service"
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/system-services COMPONENT profile-runtime)
+
 # Optional ordinary-user provider clients; installation starts no daemon.
 foreach(KARYO_NETWORK_CLIENT IN ITEMS nmcli connections context)
     configure_file("${profile_source}/network_client.in"

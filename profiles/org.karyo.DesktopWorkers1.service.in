@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+[D-BUS Service]
+Name=org.karyo.DesktopWorkers1
+Exec=@CMAKE_INSTALL_FULL_LIBEXECDIR@/karyo/profile-host
+User=root
+SystemdService=karyo-profile-host.service

@@ -1,9 +1,11 @@
-# Desktop worker protocol, version 1 draft
+# Desktop worker protocol, version 1 implementation checkpoint
 
-Status: implementation contract, not an available installed service. An external
-application must retain its explicit unsupported-mode response until the broker,
-fixture and installed lifecycle checks described below are present. This document
-does not establish application compatibility or replace normal VPN protocols.
+Status: the optional producer, entry and lifecycle collection are implemented.
+Installed component payloads pass the ordinary native checks listed below on
+Debian and Ubuntu. This is an adapter implementation checkpoint, not acceptance
+of an external provider. GUI authorization, GUI-held TUN descriptor retirement,
+joined Home/Work payload/DNS and native package upgrade/removal remain open.
+An external application must not infer compatibility from a package being present.
 
 ## Purpose and ownership
 
@@ -386,3 +388,48 @@ UTF-8 bytes; it does not reserialize the parsed object. A client or worker must
 hash those bytes directly, without reproducing another language's JSON format.
 The native Debian application/worker fixture has compared the raw FD3 digest
 through its actual private socket with the digest in the final activation FD.
+
+
+## Installed producer checkpoint
+
+The optional profile-runtime component installs the fixed worker entry and
+root-reserved system-bus policy/activation mapping. It shares the existing
+karyo-profile-host.service; installing the component does not enable networking
+or launch a provider. Profile accounts supply the native polkit action with
+auth_self_keep for an active caller. Base account-only host operation does not
+import the D-Bus/GI runtime when this optional policy is absent.
+
+The owner runs a real GLib main loop for D-Bus watches and the existing host
+socket. Periodically peeking at a GLib context beside an unrelated select loop
+can leave method calls queued until other bus traffic, delaying Cancel past its
+client deadline. Capturing the real sender is immediate; profile binding and
+launch are serialized through an owner queue. Cancel remains responsive during
+authorization and is rechecked before commit/publication. Name-owner watches
+filter the actual GUI senders and the owner name, avoiding unrelated short-lived
+systemctl/busctl connections ahead of cancellation. Read-only credential and
+polkit calls use a separate root connection to the same captured system-bus ID;
+the service connection and published producer owner remain unchanged.
+
+A fresh Activate by the same still-bound GUI can return a new sealed confirmation
+of its current committed worker. It rechecks sender/process/cgroup, owner epoch,
+declaration, unit, mounts and endpoint; it does not reuse a retired or former-owner
+association. Cancel affects a pending request, while Release requests retirement
+of the published instance. Release returning means the request was accepted, not
+that resource cleanup has already finished. The private lifecycle and independent
+owner observations establish cleanup.
+
+Native checks on both bases use disposable desktop accounts and an installed
+component payload produced by CMake. Real polkit text authorization, sealed final
+FD, exact raw FD3 digest through actual GUI/worker IPC, native socket peers,
+current-worker reacquisition, cancellation of another pending request, scoped
+Retiring and journal/cgroup cleanup pass. A separate ordinary case cancels after
+the native unit is acknowledged but before delayed ready: no activation is
+published and its prepared worker is retired. No permissive authorization rule
+or user credential was used; the text agent authenticates the own temporary QA
+account. This does not claim observation of the graphical authorization prompt.
+
+The checks in profiles/tests/native_worker_client.py and native_worker_fixture.py
+are native QA participants, not installed provider packages. Component staging
+does not establish a clean Debian package install, upgrade or removal. Actual
+external-provider transport payloads, GUI TUN readers and Home/Work coexistence
+must still be accepted with the separately maintained adapter.

@@ -10,6 +10,7 @@ import socket
 import struct
 import subprocess
 import sys
+import time
 
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from karyo_profiles.worker_control import receive, send
@@ -46,6 +47,7 @@ def main():
         listener.bind(bootstrap['directories']['endpoint'])
         os.chmod(bootstrap['directories']['endpoint'],0o660)
         listener.listen(1)
+    if '--ready-delay' in sys.argv:time.sleep(1.5)
     send(channel,packet('event','ready'),None if listener is None else listener.fileno())
     initial = receive(channel)[0]
     if initial == packet('operation','retire'):

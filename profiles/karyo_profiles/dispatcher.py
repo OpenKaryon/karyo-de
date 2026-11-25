@@ -196,8 +196,10 @@ def request(packet):
 
 
 
-def serve(listener,dispatcher,registry,*,ready=select.select):
+def serve(listener,dispatcher,registry,*,ready=select.select,workers=None):
+    if workers is not None:return workers.serve(listener,dispatcher,registry)
     while True:
+        if workers is not None:workers.poll()
         registry.poll()
         readable,unused,unused=ready([listener],[],[],.5)
         if not readable:continue
@@ -225,9 +227,14 @@ def main():
             from .network_info import describe
             dispatcher.network_info=lambda peer: describe(peer,registry,dispatcher.store,dispatcher.accounts)
             dispatcher.switcher = lambda store, **options: RuntimeSwitcher(store, registry=registry, **options)
+            workers = None
             try:
-                serve(listener,dispatcher,registry)
+                if Path('/usr/share/dbus-1/system.d/org.karyo.DesktopWorkers1.conf').exists():
+                    from .worker_service import installed
+                    workers = installed(registry)
+                serve(listener,dispatcher,registry,workers=workers)
             finally:
+                if workers is not None:workers.close()
                 registry.release_handles()
     except (OSError, RuntimeError, ValueError, PermissionError):
         print("karyo-profile-host: administrator review is required", file=sys.stderr)
