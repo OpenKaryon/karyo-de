@@ -220,6 +220,8 @@ def main():
             dispatcher.login=MainDispatcher(registry.main,dispatcher.accounts,dispatcher.sessions)
             from .network_watch import DNSRefreshMonitor
             registry.network_watch=DNSRefreshMonitor()
+            from .network_service_watch import NetworkServiceMonitor
+            registry.network_service_watch=NetworkServiceMonitor()
             from .network_info import describe
             dispatcher.network_info=lambda peer: describe(peer,registry,dispatcher.store,dispatcher.accounts)
             dispatcher.switcher = lambda store, **options: RuntimeSwitcher(store, registry=registry, **options)

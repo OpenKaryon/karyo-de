@@ -354,6 +354,7 @@ class SessionRegistry:
         self.deferred=set()
         self.returned=set()
         self.network_watch=None
+        self.network_service_watch=None
         from .main_registry import MainRegistry
         self.main = MainRegistry(journal, store)
 
@@ -415,6 +416,10 @@ class SessionRegistry:
             active = {token:scope for token,scope in dict(self.profiles, **self.main.entries).items()
                       if not scope.closed}
             self.network_watch.poll(active,self.store)
+        if self.network_service_watch is not None:
+            active = {token:scope for token,scope in dict(self.profiles, **self.main.entries).items()
+                      if not scope.closed}
+            self.network_service_watch.poll(active,self.store)
 
     def release_handles(self):
         self.main.release_handles()

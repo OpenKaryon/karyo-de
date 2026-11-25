@@ -2,6 +2,8 @@
 """Versioned ownership of the private standard network-service worker."""
 from .journal_dns_record import identity, validate_unit
 
+RESTART_PHASES = frozenset({'restart-start', 'restart-uplink'})
+
 
 def validate_network_service(value):
     required = {'kind', 'pending', 'state', 'config', 'unit'}
@@ -11,7 +13,7 @@ def validate_network_service(value):
         raise ValueError('Unsupported private network service receipt')
     pending = value['pending']
     if pending is not None and (not isinstance(pending, str) or pending not in
-                               {'state-prepare', 'config-create', 'service-start', 'uplink-prepare', 'service-stop', 'config-remove'}):
+                               {'state-prepare', 'config-create', 'service-start', 'uplink-prepare', 'service-stop', 'config-remove'} | RESTART_PHASES):
         raise ValueError('Invalid private network service transition')
     state, config, unit = value['state'], value['config'], value['unit']
     if state is None:
@@ -31,7 +33,7 @@ def validate_network_service(value):
     identity(config['directory']);identity(config['file'])
     if pending == 'config-create':raise ValueError('Ambiguous private configuration creation')
     if unit is None:
-        if pending not in {'service-start', 'config-remove'}:raise ValueError('Missing private network worker')
+        if pending not in {'service-start', 'config-remove', 'restart-start'}:raise ValueError('Missing private network worker')
     else:
         validate_unit(unit, 'bus')
-        if pending in {'service-start', 'config-remove'}:raise ValueError('Ambiguous private worker transition')
+        if pending in {'service-start', 'config-remove', 'restart-start'}:raise ValueError('Ambiguous private worker transition')

@@ -9,11 +9,11 @@ import os
 
 from .journal import JournalRetained
 from .journal_dns import process_gone, runtime_identity
-from .journal_network_service_record import validate_network_service
+from .journal_network_service_record import validate_network_service, RESTART_PHASES
 from .journal_service_state import restore_state, state_receipt
 from .network_manager import NetworkManagerScope
 from .provider_state import STATE_ROOT
-from .services import ServiceError, UnitIdentity
+from .services import OwnedUnit, ServiceError, UnitIdentity
 from .storage import trusted_directory
 
 
@@ -93,7 +93,7 @@ class JournalNetworkService:
     def restore(cls, journal, dns, *, state_root=STATE_ROOT):
         value = journal.record(dns.token)['network_service']
         validate_network_service(value)
-        if value['pending'] not in {None, 'uplink-prepare', 'service-stop', 'config-remove'}:
+        if value['pending'] not in {None, 'uplink-prepare', 'service-stop', 'config-remove'} | RESTART_PHASES:
             raise JournalRetained('Unacknowledged network service creation requires review')
         scope = NetworkManagerScope(dns, state_root=state_root, clients=value.get('clients',False))
         owner = cls(journal, dns, scope)
@@ -151,12 +151,50 @@ class JournalNetworkService:
         self.verify()
         return self.scope.unit.consumer_pids()
 
+    def restart(self):
+        """Replace only a fully retired captured worker, retaining its context.
+
+        The launch intent deliberately has no worker acknowledgement. A crash
+        between launch and capture cannot authorize adoption of that process.
+        An acknowledged uplink phase can instead resume after controller exit.
+        """
+        before = self.journal.record(self.token)
+        value = before['network_service']
+        if value['pending'] not in {None} | RESTART_PHASES:
+            raise JournalRetained('The network worker is being prepared or retired')
+        logins = [before[key] for key in ('session', 'main_login') if key in before]
+        if not logins or any(login['pending'] is not None for login in logins):
+            raise JournalRetained('Network-worker recovery requires an acknowledged graphical owner')
+        self.scope.network.verify();self.dns.services.verify()
+        if (state_receipt(self.scope.state) != value['state']
+                or config_receipt(self.scope) != value['config']):
+            raise JournalRetained('The network worker recovery configuration changed')
+        if self.scope.unit.closed:
+            # restore() already checked the old PID, cgroup and runtime. Wait
+            # for systemd collection rather than replacing a loaded identity.
+            if self.scope.unit.info()['LoadState'] != 'not-found':
+                raise NetworkServicePending('Waiting for the retired worker unit to be collected')
+            self.update(pending='restart-start', unit=None)
+            network = self.scope.network
+            self.scope.unit = OwnedUnit(network.store, network.spec, 'network-manager', 0,
+                                        network.command, network=network.identity)
+            self.scope.start_prepared()
+            self.update(pending='restart-uplink', unit=unit_receipt(self.scope))
+        elif value['pending'] != 'restart-uplink':
+            self.verify()
+            return self
+        from .network_uplink import prepare_uplink
+        prepare_uplink(self.scope)
+        self.update(pending=None)
+        self.verify()
+        return self
+
     def close(self):
         before = self.journal.record(self.token)
         if {'session', 'main_login', 'provider'} & before.keys():
             raise JournalRetained('Graphical and optional VPN consumers must close before network services')
         value = before['network_service']
-        if value['pending'] not in {None, 'uplink-prepare', 'service-stop', 'config-remove'}:
+        if value['pending'] not in {None, 'uplink-prepare', 'service-stop', 'config-remove'} | RESTART_PHASES:
             raise JournalRetained('Unacknowledged network worker creation cannot be retired')
         if state_receipt(self.scope.state) != value['state']:
             raise JournalRetained('The network worker account state changed')
@@ -164,8 +202,9 @@ class JournalNetworkService:
             if not self.scope.unit.closed:
                 if value['unit'] != unit_receipt(self.scope):raise JournalRetained('The network worker changed before stop')
                 self.scope.unit.consumer_pids()
-            self.update(pending='service-stop')
-            self.scope.unit.close()
+            if value['unit'] is not None:
+                self.update(pending='service-stop')
+                self.scope.unit.close()
             if os.path.lexists(self.scope.directory):raise JournalRetained('The stopped worker retained its runtime directory')
             self.update(pending='config-remove', unit=None)
         if self.scope.unit.info()['LoadState'] != 'not-found' or os.path.lexists(self.scope.directory):

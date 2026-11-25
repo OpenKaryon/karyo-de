@@ -140,8 +140,10 @@ if(BUILD_TESTING)
         -s ${profile_source}/tests -p test_main_entry.py -v)
     add_test(NAME profile-main-activation COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
         -s ${profile_source}/tests -p test_main_activation.py -v)
+    add_test(NAME profile-network-service-recovery COMMAND ${Python3_EXECUTABLE} -B -m unittest discover
+        -s ${profile_source}/tests -p test_network_service_recovery.py -v)
     set_tests_properties(profile-live-dns profile-network-budget profile-carrier-refresh
-        profile-network-info profile-main-entry profile-main-activation PROPERTIES TIMEOUT 20)
+        profile-network-info profile-main-entry profile-main-activation profile-network-service-recovery PROPERTIES TIMEOUT 20)
 endif()
 
 

@@ -69,15 +69,18 @@ class DNSRefreshMonitor:
             self.state(token, "routing changed; route reconciliation required")
             return
         try:
-            with store.locked(), scope.dns.files.network.command.bounded(3):
+            with store.locked():
                 if getattr(scope, 'is_main', False) is True:scope.verify()
-                record = scope.journal.record(token)
-                if routing or 'refresh' in record.get('forwarding',{}):
-                    changed = self.routes(scope.forwarding,scope.dns,self.target)
-                else:
-                    if "refresh" in record["dns"]:
-                        self.apply(scope.dns, forwarding=scope.forwarding)
-                    changed = self.apply(scope.dns, self.target, forwarding=scope.forwarding)
+                # Worker restoration has its own startup bound. Do not launch
+                # it with the carrier/DNS update's shorter command deadline.
+                with scope.dns.files.network.command.bounded(3):
+                    record = scope.journal.record(token)
+                    if routing or 'refresh' in record.get('forwarding',{}):
+                        changed = self.routes(scope.forwarding,scope.dns,self.target)
+                    else:
+                        if "refresh" in record["dns"]:
+                            self.apply(scope.dns, forwarding=scope.forwarding)
+                        changed = self.apply(scope.dns, self.target, forwarding=scope.forwarding)
             self.state(token, "updated" if changed else "current")
         except (OSError, RuntimeError, ValueError):
             self.state(token, "update retained; retry deferred")

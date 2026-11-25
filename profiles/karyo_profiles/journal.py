@@ -146,15 +146,16 @@ def validate_record(value):
                 or value['dns'].get('view') != 'network-manager'
                 or value['network'].get('contents') != 'tunnel'):
             raise ValueError('A private network service requires its acknowledged service DNS/network view')
-        from .journal_network_service_record import validate_network_service
+        from .journal_network_service_record import validate_network_service, RESTART_PHASES
         service = value['network_service']
         validate_network_service(service)
         if service['unit'] is not None and service['unit']['namespace'] != value['network']['namespace']:
             raise ValueError('The private network worker belongs to another namespace')
-        if ('session' in value or 'main_login' in value) and service['pending'] is not None:
+        if ('session' in value or 'main_login' in value) and service['pending'] is not None and service['pending'] not in RESTART_PHASES:
             raise ValueError('A login cannot coexist with a private network service mutation')
     if "provider" in value:
-        if 'network_service' in value and value['network_service']['pending'] is not None:
+        if ('network_service' in value and value['network_service']['pending'] is not None
+                and value['network_service']['pending'] not in RESTART_PHASES):
             raise ValueError('A VPN provider requires its acknowledged base network service')
         if ("dns" not in value or value["dns"]["pending"] is not None
                 or value["dns"]["bus"] is None or value["dns"]["resolver"] is None):
@@ -250,13 +251,16 @@ class RuntimeJournal:
 
     def validate(self, data):
         if (not isinstance(data, dict) or set(data) != {"schema", "boot", "lock", "profiles"}
-                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 18 or data["boot"] != self.boot
+                or type(data["schema"]) is not int or not 1 <= data["schema"] <= 19 or data["boot"] != self.boot
                 or data["lock"] != list(self.lock_identity)
                 or not isinstance(data["profiles"], list) or len(data["profiles"]) > 64):
             raise JournalRetained("Unsupported or foreign-boot host journal requires review")
         names, uids, tokens = set(), set(), set()
         for record in data["profiles"]:
             validate_record(record)
+            from .journal_network_service_record import RESTART_PHASES
+            if record.get('network_service', {}).get('pending') in RESTART_PHASES and data['schema'] < 19:
+                raise ValueError('Live network-worker recovery requires journal schema 19')
             if 'clients' in record.get('network_service',{}) and data['schema'] < 18:
                 raise ValueError('Published network clients require journal schema 18')
             if 'host_network_policy' in record and data['schema'] < 17:
@@ -416,6 +420,8 @@ class RuntimeJournal:
         if replacement is not None and 'network_service' in replacement:
             data['schema'] = max(data['schema'],13)
             if 'clients' in replacement['network_service']:data['schema'] = max(data['schema'],18)
+            from .journal_network_service_record import RESTART_PHASES
+            if replacement['network_service']['pending'] in RESTART_PHASES:data['schema'] = max(data['schema'],19)
         if replacement is not None and "session" in replacement:
             data["schema"] = max(data["schema"],3)
         if replacement is not None and "main_login" in replacement:

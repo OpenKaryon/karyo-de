@@ -9,9 +9,10 @@ or credentials are imported. Retain temporary root-only TLS evidence on the VM.
 """
 from pathlib import Path
 from types import SimpleNamespace
-import ast,hashlib,json,os,socket,subprocess,sys,time
+import ast,hashlib,json,os,signal,socket,subprocess,sys,time
 
 assert os.getuid()==0 and socket.gethostname() in ('karyo-network-debian','karyo-network-ubuntu')
+assert sys.argv[1:] in ([], ['--worker-failure'])
 sys.path.insert(0,'/usr/libexec/karyo/profiles')
 from karyo_profiles.networks import NetworkSpec,NetworkCommand
 from native_main_network import host_snapshot
@@ -109,6 +110,44 @@ try:
         ordinary_cli(selected.scope,'connection','up',selected.connection)
         proof['stages'][selected.label+'_reconnected']=selected.probe()
         neighbor.probe()
+    if sys.argv[1:] == ['--worker-failure']:
+        from karyo_profiles.journal_session import stat_start
+        proof['worker_failure'] = {}
+        for selected in peers:
+            neighbor = next(p for p in peers if p is not selected)
+            old = next(r for r in records() if r['token'] == selected.scope.record['token'])
+            other = next(r for r in records() if r['token'] == neighbor.scope.record['token'])
+            unit = old['network_service']['unit']
+            descriptor = os.pidfd_open(unit['pid'])
+            try:
+                assert Path('/proc',str(unit['pid']),'exe').resolve() == Path('/usr/sbin/NetworkManager').resolve()
+                assert stat_start(unit['pid']) == unit['start']
+                signal.pidfd_send_signal(descriptor, signal.SIGKILL)
+            finally:os.close(descriptor)
+            deadline = time.monotonic()+25
+            while True:
+                current = next(r for r in records() if r['token'] == old['token'])
+                worker = current['network_service']
+                neighbor.probe()
+                assert next(r for r in records() if r['token'] == other['token']) == other
+                if (worker['pending'] is None and worker['unit'] is not None
+                        and worker['unit']['invocation'] != unit['invocation']):break
+                assert time.monotonic()<deadline,'The installed host did not recover the captured failed worker'
+                time.sleep(.2)
+            for key in ('account','network','dns','main_login','session','host_network_policy'):
+                assert current.get(key) == old.get(key),key
+            assert current['network_service']['state'] == old['network_service']['state']
+            assert current['network_service']['config'] == old['network_service']['config']
+            selected.scope.record = current
+            ordinary_cli(selected.scope,'connection','up',selected.connection)
+            proof['worker_failure'][selected.label] = dict(selected.probe(),
+                network_resolver_and_graphical_owner_retained=True,neighbor_unchanged=True,
+                new_worker_acknowledged=True,private_connection_reloaded=True)
+            neighbor.probe()
+        before_reopen = records()
+        subprocess.run(['systemctl','restart','karyo-profile-host.service'],check=True,timeout=20)
+        assert records() == before_reopen,'Controller reopen replaced a recovered worker'
+        proof['recovered_workers_after_controller_reopen'] = {p.label:p.probe() for p in peers}
 except BaseException as failure:
     error=failure
 finally:

@@ -50,9 +50,30 @@ corrected without changing production behavior and the full gate rerun.
 
 ## Remaining acceptance
 
+Schema 19 adds journaled replacement of a captured, fully retired NetworkManager
+while the graphical owner stays live. Namespace, resolver, private configuration
+and account state are retained. The ordinary host polling loop checks failed
+workers one at a time with fifteen-second retry spacing and deduplicated reports.
+An acknowledged uplink phase resumes after controller exit; an unacknowledged
+process is retained for review. Eighty-four selected profile regressions pass on
+both bases, including interrupted replacement/reopen and ordinary retry behavior.
+
+Six packages built from DE `510909a` were upgraded with both real desktops live,
+preserving their journal, PAM and administrator configuration. The fixture's
+`--worker-failure` gate terminates only the PID/starttime-captured NetworkManager
+through a pidfd, first Home and then Work. Ordinary applications observe the
+neighbor's encrypted DNS/TCP/UDP throughout automatic host-loop replacement.
+The same network, resolver, graphical owner, persistent connection store and
+configuration remain. Normal `nmcli` reactivates the saved VPN and encrypted
+payloads pass again. The result proves worker recovery plus ordinary reconnect;
+it does not claim that a connection with autoconnect disabled silently resumes.
+Both bases pass. A further controller restart reads the schema-19 journal and
+preserves both recovered worker generations while VPN DNS/TCP/UDP still pass.
+Captured fixture retirement and the host baseline also pass.
+
 This is a mixed WireGuard/OpenVPN installed-family result, not completion of the
 all-provider matrix. NetBird with independent state, DNS and selected exit node,
-normal browser/GUI operation, live worker failure/recovery, later desktop entry
+normal browser/GUI operation, provider-specific failure/recovery, later desktop entry
 while tunnels are connected, physical carrier/DNS changes, IPv6 and final natural
 family logout/removal remain separate gates. Current temporary QA families stay
 live for those checks; fixture-owned VPN resources have been retired.

@@ -5,8 +5,9 @@ same private network/DNS boundary for the main account and child desktops, with
 unmodified upstream VPNs launched through owned adapters. The explicitly enabled
 runtime now allocates a private NetworkManager and DNS view before both main and
 child entry. Real installed LightDM Home/Work and mixed WireGuard/OpenVPN pass on
-Debian and Ubuntu; NetBird, physical connectivity controls and live worker
-recovery still need joined acceptance. See the [current installed
+Debian and Ubuntu, including captured NetworkManager failure/recovery. NetBird,
+physical connectivity controls and the remaining provider lifecycle still need
+joined acceptance. See the [current installed
 checkpoint](../docs/VALIDATION_INSTALLED_FAMILY_NETWORKS.md). Historical evidence
 below describes its own actors and topology rather than completing this goal.
 
